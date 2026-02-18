@@ -321,6 +321,8 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   const [korrekturGrund,setKorrekturGrund]=useState("");
   const [notizText,setNotizText]=useState("");
   const [saving,setSaving]=useState(false);
+  const [shoreSync,setShoreSync]=useState(false);
+  const [shoreSyncMsg,setShoreSyncMsg]=useState("");
 
   const inp={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"};
 
@@ -512,8 +514,32 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
             <div className="toolbar-btns" style={{display:"flex",gap:8}}>
               <Btn primary onClick={()=>setScanMode(true)}>📷 QR</Btn>
               <Btn outline onClick={()=>setShowStats(!showStats)}>{showStats?"✕":"📊"} Statistik</Btn>
+              <Btn outline disabled={shoreSync} onClick={async()=>{
+                setShoreSync(true); setShoreSyncMsg("");
+                try {
+                  const r = await fetch("/api/shore-sync", {method:"POST"});
+                  const data = await r.json();
+                  if(data.error) throw new Error(data.error);
+                  const {createClient} = await import("@supabase/supabase-js");
+                  const sb = createClient("https://oqjcbxnbododdqlbdekt.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xamNieG5ib2RvZGRxbGJkZWt0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MTg3NzAsImV4cCI6MjA4Njk5NDc3MH0.2Ig0I_Wd26LAX7FAVTUz9SdJFaLeAOh394pT3FT6i_w");
+                  let neu = 0;
+                  for(const k of data.kunden) {
+                    const exists = patienten.find(p=>p.id===k.id);
+                    if(!exists) {
+                      await sb.from("patienten").insert(k);
+                      setPatienten(prev=>[...prev,k]);
+                      neu++;
+                    }
+                  }
+                  setShoreSyncMsg(`✓ ${neu} neue Kunden übernommen`);
+                } catch(e) {
+                  setShoreSyncMsg("Fehler: "+e.message);
+                }
+                setShoreSync(false);
+              }}>{shoreSync?"Sync...":"🔄 Shore Sync"}</Btn>
             </div>
           </div>
+          {shoreSyncMsg&&<div style={{padding:"10px 16px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.red+"12":T.green+"12",color:shoreSyncMsg.startsWith("Fehler")?T.red:T.green,fontSize:13,fontWeight:600,marginBottom:12}}>{shoreSyncMsg}</div>}
           {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {filtered.map((p,i)=>{
