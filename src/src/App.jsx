@@ -402,6 +402,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   ],total:5,page:1};
 
   const shoreRequest = async (endpoint) => {
+    // Simulierte Verzögerung für realistisches Verhalten
     await new Promise(r=>setTimeout(r,800));
     try {
       const res=await fetch(`https://api.shore.com/v1${endpoint}`,{
@@ -410,6 +411,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
       if(!res.ok) throw new Error("fallback");
       return res.json();
     } catch(e) {
+      // Fallback auf Testdaten wenn API nicht erreichbar
       if(endpoint==="/customers") return MOCK_KUNDEN;
       if(endpoint==="/appointments") return MOCK_TERMINE;
       throw e;
@@ -975,7 +977,8 @@ export default function App() {
   const [log,setLog]=useState(initialLog);
   const [einzel,setEinzel]=useState(initialEinzel);
   const [rechnungsNr,setRechnungsNr]=useState(5);
-  const loginPat=patienten[0];
+  const urlToken = new URLSearchParams(window.location.search).get("token");
+  const loginPat = urlToken ? patienten.find(p=>p.qr===urlToken.toUpperCase()) : null;
 
   return(
     <div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:`linear-gradient(180deg,${T.bg} 0%,${T.bgLight} 50%,${T.bg} 100%)`}}>
@@ -996,7 +999,17 @@ export default function App() {
       </div>
       {mode==="staff"
         ?<MitarbeiterApp patienten={patienten} setPatienten={setPatienten} paesse={paesse} setPaesse={setPaesse} log={log} setLog={setLog} rechnungsNr={rechnungsNr} setRechnungsNr={setRechnungsNr} einzel={einzel} setEinzel={setEinzel}/>
-        :<KundenApp kunde={loginPat} paesse={paesse} log={log} einzel={einzel}/>}
+        :loginPat
+          ?<KundenApp kunde={loginPat} paesse={paesse} log={log} einzel={einzel}/>
+          :<div className="fade-in resp-pad" style={{padding:28,maxWidth:480,margin:"0 auto",textAlign:"center",paddingTop:80}}>
+            <div style={{fontSize:64,marginBottom:20}}>🐧</div>
+            <Heading style={{marginBottom:12}}>Kaiserufer Home</Heading>
+            <p style={{color:T.textLight,fontSize:15,lineHeight:1.7,marginBottom:24}}>Bitte scanne deinen persönlichen QR-Code,<br/>um deine Kundenseite zu öffnen.</p>
+            <GlassCard style={{padding:24}}>
+              <p style={{color:T.textLight,fontSize:13,margin:0}}>Noch keinen QR-Code? Sprich uns gerne an!</p>
+              <a href="https://kaiserufer.de" target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:12,fontSize:12,color:T.gold,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}40`,paddingBottom:1}}>kaiserufer.de ↗</a>
+            </GlassCard>
+          </div>}
     </div>
   );
 }
