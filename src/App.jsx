@@ -29,26 +29,26 @@ const fmtDate = (d) => new Date(d).toLocaleDateString("de-DE",{day:"2-digit",mon
 const fmtDateTime = (d) => new Date(d).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
 
 const initialPatienten = [
-  {id:"p1",vorname:"Lena", nachname:"Müller", email:"lena@example.com", telefon:"0151-1234567",adresse:"Eppendorfer Weg 12, 20259 Hamburg",qr:"KU-A7F3B2C9",erstellt:"2026-01-15",kennenlern:true,konvertiert:true,stammkunde:true,stammpreis:420},
-  {id:"p2",vorname:"Tom",nachname:"Schmidt",email:"tom@example.com",telefon:"0172-9876543",adresse:"Rothenbaumchaussee 88, 20148 Hamburg",qr:"KU-X9D2E4F1",erstellt:"2026-01-22",kennenlern:true,konvertiert:true,stammkunde:false,stammpreis:""},
-  {id:"p3",vorname:"Sara",nachname:"Weber",email:"sara@example.com",telefon:"0160-5551234",adresse:"Winterhuder Marktplatz 6, 22299 Hamburg",qr:"KU-M3K7P2Q8",erstellt:"2026-02-03",kennenlern:true,konvertiert:true,stammkunde:false,stammpreis:""},
-  {id:"p4",vorname:"Max",nachname:"Braun",email:"max@example.com",telefon:"0176-3334455",adresse:"Alsterchaussee 3, 20149 Hamburg",qr:"KU-R4T8W2Y6",erstellt:"2026-02-08",kennenlern:true,konvertiert:false,stammkunde:false,stammpreis:""},
-  {id:"p5",vorname:"Julia",nachname:"Fischer",email:"julia@example.com",telefon:"0157-6667788",adresse:"Schanzenstraße 41, 20357 Hamburg",qr:"KU-N5B9J3K1",erstellt:"2026-02-12",kennenlern:true,konvertiert:false,stammkunde:false,stammpreis:""},
+  {id:"p1",vorname:"Lena", nachname:"Müller", email:"lena@example.com", telefon:"0151-1234567",adresse:"Eppendorfer Weg 12, 20259 Hamburg",     qr:"KU-A7F3B2C9",erstellt:"2026-01-15",kennenlern:true,konvertiert:true, stammkunde:true, stammpreis:420},
+  {id:"p2",vorname:"Tom",  nachname:"Schmidt",email:"tom@example.com",  telefon:"0172-9876543",adresse:"Rothenbaumchaussee 88, 20148 Hamburg",   qr:"KU-X9D2E4F1",erstellt:"2026-01-22",kennenlern:true,konvertiert:true, stammkunde:false,stammpreis:""},
+  {id:"p3",vorname:"Sara", nachname:"Weber",  email:"sara@example.com", telefon:"0160-5551234",adresse:"Winterhuder Marktplatz 6, 22299 Hamburg",qr:"KU-M3K7P2Q8",erstellt:"2026-02-03",kennenlern:true,konvertiert:true, stammkunde:false,stammpreis:""},
+  {id:"p4",vorname:"Max",  nachname:"Braun",  email:"max@example.com",  telefon:"0176-3334455",adresse:"Alsterchaussee 3, 20149 Hamburg",        qr:"KU-R4T8W2Y6",erstellt:"2026-02-08",kennenlern:true,konvertiert:false,stammkunde:false,stammpreis:""},
+  {id:"p5",vorname:"Julia",nachname:"Fischer",email:"julia@example.com",telefon:"0157-6667788",adresse:"Schanzenstraße 41, 20357 Hamburg",       qr:"KU-N5B9J3K1",erstellt:"2026-02-12",kennenlern:true,konvertiert:false,stammkunde:false,stammpreis:""},
 ];
 
 const initialPaesse = [
-  {id:"pk1",patId:"p1",typ:"PLUS",heTotal:5,heGenutzt:2,bsTotal:3,bsGenutzt:1,preis:499,rechnung:"KU-2026-0001",bezahlt:true,datum:"2026-01-15",aktiv:true},
-  {id:"pk2",patId:"p2",typ:"BASIS",heTotal:3,heGenutzt:3,bsTotal:1,bsGenutzt:1,preis:299,rechnung:"KU-2026-0002",bezahlt:true,datum:"2026-01-22",aktiv:false},
+  {id:"pk1",patId:"p1",typ:"PLUS",  heTotal:5, heGenutzt:2,bsTotal:3,bsGenutzt:1,preis:499,rechnung:"KU-2026-0001",bezahlt:true, datum:"2026-01-15",aktiv:true},
+  {id:"pk2",patId:"p2",typ:"BASIS", heTotal:3, heGenutzt:3,bsTotal:1,bsGenutzt:1,preis:299,rechnung:"KU-2026-0002",bezahlt:true, datum:"2026-01-22",aktiv:false},
   {id:"pk3",patId:"p2",typ:"DELUXE",heTotal:10,heGenutzt:1,bsTotal:5,bsGenutzt:0,preis:899,rechnung:"KU-2026-0003",bezahlt:false,datum:"2026-02-10",aktiv:true},
-  {id:"pk4",patId:"p3",typ:"BASIS",heTotal:3,heGenutzt:0,bsTotal:1,bsGenutzt:0,preis:299,rechnung:"KU-2026-0004",bezahlt:false,datum:"2026-02-03",aktiv:true},
+  {id:"pk4",patId:"p3",typ:"BASIS", heTotal:3, heGenutzt:0,bsTotal:1,bsGenutzt:0,preis:299,rechnung:"KU-2026-0004",bezahlt:false,datum:"2026-02-03",aktiv:true},
 ];
 
 const initialLog = [
-  {id:"l1",patId:"p1",passId:"pk1",typ:"HAUPTEINHEIT",quelle:"SHORE",datum:"2026-01-20T10:00:00",notiz:"Haupteinheit"},
-  {id:"l2",patId:"p1",passId:"pk1",typ:"HAUPTEINHEIT",quelle:"SHORE",datum:"2026-02-03T11:00:00",notiz:"Haupteinheit"},
-  {id:"l3",patId:"p1",passId:"pk1",typ:"BS",quelle:"EVERSPORTS",datum:"2026-01-25T14:00:00",notiz:"Yoga"},
-  {id:"l4",patId:"p2",passId:"pk2",typ:"HAUPTEINHEIT",quelle:"SHORE",datum:"2026-01-25T10:00:00",notiz:"Haupteinheit"},
-  {id:"l5",patId:"p2",passId:"pk3",typ:"HAUPTEINHEIT",quelle:"SHORE",datum:"2026-02-12T10:00:00",notiz:"Haupteinheit"},
+  {id:"l1",patId:"p1",passId:"pk1",typ:"HAUPTEINHEIT",quelle:"SHORE",     datum:"2026-01-20T10:00:00",notiz:"Haupteinheit"},
+  {id:"l2",patId:"p1",passId:"pk1",typ:"HAUPTEINHEIT",quelle:"SHORE",     datum:"2026-02-03T11:00:00",notiz:"Haupteinheit"},
+  {id:"l3",patId:"p1",passId:"pk1",typ:"BS",          quelle:"EVERSPORTS",datum:"2026-01-25T14:00:00",notiz:"Yoga"},
+  {id:"l4",patId:"p2",passId:"pk2",typ:"HAUPTEINHEIT",quelle:"SHORE",     datum:"2026-01-25T10:00:00",notiz:"Haupteinheit"},
+  {id:"l5",patId:"p2",passId:"pk3",typ:"HAUPTEINHEIT",quelle:"SHORE",     datum:"2026-02-12T10:00:00",notiz:"Haupteinheit"},
 ];
 
 const initialEinzel = [
@@ -285,20 +285,26 @@ const PassAktionen = ({pass,onHE,onBS,onKorrektur}) => {
 };
 
 const KaufModal = ({selPat,rechnungsNr,setRechnungsNr,setPaesse,setEinzel,setLog,onClose}) => {
-  const [passPreise,setPassPreise]=useState(Object.fromEntries(Object.entries(PASS_TYPES).map(([k,v])=>[k,v.preis])));
+  const [passPreise,setPassPreise]=useState(Object.fromEntries(
+    Object.entries(PASS_TYPES).map(([k,v])=>[k,v.preis])
+  ));
   const [einzelPreise,setEinzelPreise]=useState(Object.fromEntries(EINZELANGEBOTE.map(e=>[e.key,e.preis])));
+
   const kaufPass = (typ) => {
-    const nr=rechnungsNr+1;setRechnungsNr(nr);const info=PASS_TYPES[typ];
+    const nr=rechnungsNr+1; setRechnungsNr(nr); const info=PASS_TYPES[typ];
     setPaesse(prev=>[...prev,{id:genId(),patId:selPat.id,typ,heTotal:info.he,heGenutzt:0,bsTotal:info.bs,bsGenutzt:0,preis:passPreise[typ],rechnung:genRechnung(nr),bezahlt:false,datum:new Date().toISOString().split("T")[0],aktiv:true}]);
     onClose();
   };
+
   const kaufEinzel = (e) => {
-    const nr=rechnungsNr+1;setRechnungsNr(nr);
+    const nr=rechnungsNr+1; setRechnungsNr(nr);
     setEinzel(prev=>[...prev,{id:genId(),patId:selPat.id,key:e.key,name:e.name,preis:einzelPreise[e.key],rechnung:genRechnung(nr),bezahlt:false,datum:new Date().toISOString().split("T")[0]}]);
     setLog(prev=>[...prev,{id:genId(),patId:selPat.id,passId:null,typ:e.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:e.name}]);
     onClose();
   };
+
   const inp={width:80,padding:"4px 8px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:13,fontWeight:700,background:T.cream,color:T.dark,outline:"none",textAlign:"right"};
+
   return(
     <Modal onClose={onClose}>
       <div className="modal-box" style={{background:T.white,borderRadius:24,padding:32,width:520,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
@@ -357,21 +363,37 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   const [korrekturAnzahl,setKorrekturAnzahl]=useState(1);
   const [korrekturGrund,setKorrekturGrund]=useState("");
   const [notizText,setNotizText]=useState("");
+
   const inp={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"};
 
-  useEffect(()=>{(async()=>{try{const r=await window.storage.get("shore_api_token");if(r?.value){setApiToken(r.value);setApiTokenInput(r.value);}}catch(e){}})();},[]);
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const r=await window.storage.get("shore_api_token");
+        if(r?.value){ setApiToken(r.value); setApiTokenInput(r.value); }
+      }catch(e){}
+    })();
+  },[]);
 
-  const verbindeToken=async(token)=>{setApiToken(token);try{await window.storage.set("shore_api_token",token);}catch(e){}};
-  const trenneToken=async()=>{setApiToken("");setApiTokenInput("");setApiResult(null);setApiError(null);try{await window.storage.delete("shore_api_token");}catch(e){}};
+  const verbindeToken = async (token) => {
+    setApiToken(token);
+    try{ await window.storage.set("shore_api_token",token); }catch(e){}
+  };
 
-  const MOCK_KUNDEN={customers:[
+  const trenneToken = async () => {
+    setApiToken(""); setApiTokenInput(""); setApiResult(null); setApiError(null);
+    try{ await window.storage.delete("shore_api_token"); }catch(e){}
+  };
+
+  const MOCK_KUNDEN = {customers:[
     {id:"c1",first_name:"Lena",last_name:"Müller",email:"lena@example.com",phone:"0151-1234567",created_at:"2026-01-15T10:00:00Z"},
     {id:"c2",first_name:"Tom",last_name:"Schmidt",email:"tom@example.com",phone:"0172-9876543",created_at:"2026-01-22T09:30:00Z"},
     {id:"c3",first_name:"Sara",last_name:"Weber",email:"sara@example.com",phone:"0160-5551234",created_at:"2026-02-03T14:00:00Z"},
     {id:"c4",first_name:"Max",last_name:"Braun",email:"max@example.com",phone:"0176-3334455",created_at:"2026-02-08T11:00:00Z"},
     {id:"c5",first_name:"Julia",last_name:"Fischer",email:"julia@example.com",phone:"0157-6667788",created_at:"2026-02-12T16:00:00Z"},
   ],total:5,page:1};
-  const MOCK_TERMINE={appointments:[
+
+  const MOCK_TERMINE = {appointments:[
     {id:"a1",customer_id:"c1",service:"Haupteinheit",date:"2026-02-20",time:"10:00",duration_min:50,status:"confirmed"},
     {id:"a2",customer_id:"c2",service:"Haupteinheit",date:"2026-02-20",time:"11:00",duration_min:50,status:"confirmed"},
     {id:"a3",customer_id:"c3",service:"Kennenlerngespräch",date:"2026-02-21",time:"09:00",duration_min:30,status:"pending"},
@@ -379,27 +401,91 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     {id:"a5",customer_id:"c4",service:"tDCS",date:"2026-02-22",time:"10:30",duration_min:30,status:"pending"},
   ],total:5,page:1};
 
-  const shoreRequest=async(endpoint)=>{await new Promise(r=>setTimeout(r,800));try{const res=await fetch(`https://api.shore.com/v1${endpoint}`,{headers:{"Authorization":`Bearer ${apiToken}`,"Content-Type":"application/json"}});if(!res.ok)throw new Error("fallback");return res.json();}catch(e){if(endpoint==="/customers")return MOCK_KUNDEN;if(endpoint==="/appointments")return MOCK_TERMINE;throw e;}};
-  const shoreKundenLaden=async()=>{setApiLoading(true);setApiError(null);setApiResult(null);try{const data=await shoreRequest("/customers");setApiResult({typ:"kunden",data,mock:true});}catch(e){setApiError(e.message);}finally{setApiLoading(false);}};
-  const shoreTermineLaden=async()=>{setApiLoading(true);setApiError(null);setApiResult(null);try{const data=await shoreRequest("/appointments");setApiResult({typ:"termine",data,mock:true});}catch(e){setApiError(e.message);}finally{setApiLoading(false);}};
+  const shoreRequest = async (endpoint) => {
+    // Simulierte Verzögerung für realistisches Verhalten
+    await new Promise(r=>setTimeout(r,800));
+    try {
+      const res=await fetch(`https://api.shore.com/v1${endpoint}`,{
+        headers:{"Authorization":`Bearer ${apiToken}`,"Content-Type":"application/json"}
+      });
+      if(!res.ok) throw new Error("fallback");
+      return res.json();
+    } catch(e) {
+      // Fallback auf Testdaten wenn API nicht erreichbar
+      if(endpoint==="/customers") return MOCK_KUNDEN;
+      if(endpoint==="/appointments") return MOCK_TERMINE;
+      throw e;
+    }
+  };
 
-  const filtered=patienten.filter(p=>{const q=search.toLowerCase();return `${p.vorname} ${p.nachname} ${p.email}`.toLowerCase().includes(q)||paesse.some(pk=>pk.patId===p.id&&pk.rechnung.toLowerCase().includes(q))||einzel.some(e=>e.patId===p.id&&e.rechnung.toLowerCase().includes(q));});
-  const patPaesse=selPat?paesse.filter(pk=>pk.patId===selPat.id):[];
-  const patEinzel=selPat?einzel.filter(e=>e.patId===selPat.id).sort((a,b)=>b.datum.localeCompare(a.datum)):[];
-  const patLog=selPat?log.filter(l=>l.patId===selPat.id).sort((a,b)=>b.datum.localeCompare(a.datum)):[];
+  const shoreKundenLaden = async () => {
+    setApiLoading(true); setApiError(null); setApiResult(null);
+    try{ const data=await shoreRequest("/customers"); setApiResult({typ:"kunden",data,mock:true}); }
+    catch(e){ setApiError(e.message); }
+    finally{ setApiLoading(false); }
+  };
+
+  const shoreTermineLaden = async () => {
+    setApiLoading(true); setApiError(null); setApiResult(null);
+    try{ const data=await shoreRequest("/appointments"); setApiResult({typ:"termine",data,mock:true}); }
+    catch(e){ setApiError(e.message); }
+    finally{ setApiLoading(false); }
+  };
+
+  const filtered=patienten.filter(p=>{
+    const q=search.toLowerCase();
+    return `${p.vorname} ${p.nachname} ${p.email}`.toLowerCase().includes(q)
+      ||paesse.some(pk=>pk.patId===p.id&&pk.rechnung.toLowerCase().includes(q))
+      ||einzel.some(e=>e.patId===p.id&&e.rechnung.toLowerCase().includes(q));
+  });
+
+  const patPaesse =selPat?paesse.filter(pk=>pk.patId===selPat.id):[];
+  const patEinzel =selPat?einzel.filter(e=>e.patId===selPat.id).sort((a,b)=>b.datum.localeCompare(a.datum)):[];
+  const patLog    =selPat?log.filter(l=>l.patId===selPat.id).sort((a,b)=>b.datum.localeCompare(a.datum)):[];
   const aktiverPass=patPaesse.find(p=>p.aktiv);
-  const handleScan=()=>{const pat=patienten.find(p=>p.qr===scanInput.trim().toUpperCase());if(pat){setSelPat(pat);setView("akte");setScanMode(false);setScanInput("");}else alert("QR-Code nicht gefunden: "+scanInput);};
-  const heAbziehen=(pass,aktionTyp,aktionLabel)=>{if(pass.heGenutzt>=pass.heTotal)return;setPaesse(prev=>prev.map(p=>p.id===pass.id?{...p,heGenutzt:p.heGenutzt+1}:p));setLog(prev=>[...prev,{id:genId(),patId:selPat.id,passId:pass.id,typ:aktionTyp,quelle:"SHORE",datum:new Date().toISOString(),notiz:aktionLabel}]);};
-  const bsAbziehen=(pass)=>{if(pass.bsGenutzt>=pass.bsTotal||!bsNotiz.trim())return;setPaesse(prev=>prev.map(p=>p.id===pass.id?{...p,bsGenutzt:p.bsGenutzt+1}:p));setLog(prev=>[...prev,{id:genId(),patId:selPat.id,passId:pass.id,typ:"BS",quelle:"INTERN",datum:new Date().toISOString(),notiz:bsNotiz.trim()}]);setBsNotiz("");setBsModal(null);};
-  const korrekturSpeichern=()=>{if(!korrekturModal||korrekturAnzahl<1)return;const n=Number(korrekturAnzahl);setPaesse(prev=>prev.map(p=>p.id===korrekturModal.id?korrekturTyp==="HE"?{...p,heGenutzt:Math.max(0,p.heGenutzt-n)}:{...p,bsGenutzt:Math.max(0,p.bsGenutzt-n)}:p));setLog(prev=>[...prev,{id:genId(),patId:selPat.id,passId:korrekturModal.id,typ:"KORREKTUR",quelle:"MANUELL",datum:new Date().toISOString(),notiz:`${korrekturTyp} +${n} zurück${korrekturGrund?` – ${korrekturGrund}`:""}`}]);setKorrekturModal(null);setKorrekturAnzahl(1);setKorrekturGrund("");};
-  const notizSpeichern=()=>{if(!notizText.trim())return;setLog(prev=>[...prev,{id:genId(),patId:selPat.id,passId:null,typ:"NOTIZ",quelle:"INTERN",datum:new Date().toISOString(),notiz:notizText.trim()}]);setNotizText("");};
-  const toggleBezahlt=(pid)=>setPaesse(prev=>prev.map(p=>p.id===pid?{...p,bezahlt:!p.bezahlt}:p));
-  const toggleEinzelBez=(eid)=>setEinzel(prev=>prev.map(e=>e.id===eid?{...e,bezahlt:!e.bezahlt}:e));
-  const updatePassPreis=(pid,preis)=>setPaesse(prev=>prev.map(p=>p.id===pid?{...p,preis}:p));
-  const updatePatient=(id,fields)=>setPatienten(prev=>prev.map(p=>p.id===id?{...p,...fields}:p));
-  const getUnits=(patId)=>{const ap=paesse.find(pk=>pk.patId===patId&&pk.aktiv);if(!ap)return null;return{he:ap.heTotal-ap.heGenutzt,bs:ap.bsTotal-ap.bsGenutzt,typ:ap.typ};};
 
-  if(scanMode)return(
+  const handleScan=()=>{
+    const pat=patienten.find(p=>p.qr===scanInput.trim().toUpperCase());
+    if(pat){setSelPat(pat);setView("akte");setScanMode(false);setScanInput("");}
+    else alert("QR-Code nicht gefunden: "+scanInput);
+  };
+
+  const heAbziehen=(pass,aktionTyp,aktionLabel)=>{
+    if(pass.heGenutzt>=pass.heTotal) return;
+    setPaesse(prev=>prev.map(p=>p.id===pass.id?{...p,heGenutzt:p.heGenutzt+1}:p));
+    setLog(prev=>[...prev,{id:genId(),patId:selPat.id,passId:pass.id,typ:aktionTyp,quelle:"SHORE",datum:new Date().toISOString(),notiz:aktionLabel}]);
+  };
+
+  const bsAbziehen=(pass)=>{
+    if(pass.bsGenutzt>=pass.bsTotal||!bsNotiz.trim()) return;
+    setPaesse(prev=>prev.map(p=>p.id===pass.id?{...p,bsGenutzt:p.bsGenutzt+1}:p));
+    setLog(prev=>[...prev,{id:genId(),patId:selPat.id,passId:pass.id,typ:"BS",quelle:"INTERN",datum:new Date().toISOString(),notiz:bsNotiz.trim()}]);
+    setBsNotiz(""); setBsModal(null);
+  };
+
+  const korrekturSpeichern=()=>{
+    if(!korrekturModal||korrekturAnzahl<1) return;
+    const n=Number(korrekturAnzahl);
+    setPaesse(prev=>prev.map(p=>p.id===korrekturModal.id
+      ?korrekturTyp==="HE"?{...p,heGenutzt:Math.max(0,p.heGenutzt-n)}:{...p,bsGenutzt:Math.max(0,p.bsGenutzt-n)}
+      :p));
+    setLog(prev=>[...prev,{id:genId(),patId:selPat.id,passId:korrekturModal.id,typ:"KORREKTUR",quelle:"MANUELL",datum:new Date().toISOString(),notiz:`${korrekturTyp} +${n} zurück${korrekturGrund?` – ${korrekturGrund}`:""}`}]);
+    setKorrekturModal(null); setKorrekturAnzahl(1); setKorrekturGrund("");
+  };
+
+  const notizSpeichern=()=>{
+    if(!notizText.trim()) return;
+    setLog(prev=>[...prev,{id:genId(),patId:selPat.id,passId:null,typ:"NOTIZ",quelle:"INTERN",datum:new Date().toISOString(),notiz:notizText.trim()}]);
+    setNotizText("");
+  };
+
+  const toggleBezahlt   =(pid)=>setPaesse(prev=>prev.map(p=>p.id===pid?{...p,bezahlt:!p.bezahlt}:p));
+  const toggleEinzelBez =(eid)=>setEinzel(prev=>prev.map(e=>e.id===eid?{...e,bezahlt:!e.bezahlt}:e));
+  const updatePassPreis =(pid,preis)=>setPaesse(prev=>prev.map(p=>p.id===pid?{...p,preis}:p));
+  const updatePatient   =(id,fields)=>setPatienten(prev=>prev.map(p=>p.id===id?{...p,...fields}:p));
+  const getUnits=(patId)=>{ const ap=paesse.find(pk=>pk.patId===patId&&pk.aktiv); if(!ap) return null; return{he:ap.heTotal-ap.heGenutzt,bs:ap.bsTotal-ap.bsGenutzt,typ:ap.typ}; };
+
+  if(scanMode) return(
     <div className="fade-in resp-pad" style={{padding:28}}>
       <div className="header-row" style={{display:"flex",alignItems:"center",gap:14,marginBottom:28}}>
         <Btn onClick={()=>setScanMode(false)}>← Zurück</Btn>
@@ -422,42 +508,51 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   return(
     <div className="resp-pad" style={{padding:28}}>
       {kaufModal&&<KaufModal selPat={selPat} rechnungsNr={rechnungsNr} setRechnungsNr={setRechnungsNr} setPaesse={setPaesse} setEinzel={setEinzel} setLog={setLog} onClose={()=>setKaufModal(false)}/>}
-      {bsModal&&(<Modal onClose={()=>{setBsModal(null);setBsNotiz("");}}>
-        <GlassCard className="modal-box" style={{width:400,background:T.white}}>
-          <Heading style={{fontSize:20,marginBottom:4}}>Gruppenangebot abhaken</Heading>
-          <p style={{color:T.textLight,fontSize:14,marginBottom:16}}>Noch {bsModal.bsTotal-bsModal.bsGenutzt} von {bsModal.bsTotal} übrig</p>
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            <input value={bsNotiz} onChange={e=>setBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." style={inp} autoFocus/>
-            <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
-              <Btn onClick={()=>{setBsModal(null);setBsNotiz("");}}>Abbrechen</Btn>
-              <Btn primary disabled={!bsNotiz.trim()} onClick={()=>bsAbziehen(bsModal)}>Abhaken</Btn>
+
+      {bsModal&&(
+        <Modal onClose={()=>{setBsModal(null);setBsNotiz("");}}>
+          <GlassCard className="modal-box" style={{width:400,background:T.white}}>
+            <Heading style={{fontSize:20,marginBottom:4}}>Gruppenangebot abhaken</Heading>
+            <p style={{color:T.textLight,fontSize:14,marginBottom:16}}>Noch {bsModal.bsTotal-bsModal.bsGenutzt} von {bsModal.bsTotal} übrig</p>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <input value={bsNotiz} onChange={e=>setBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." style={inp} autoFocus/>
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
+                <Btn onClick={()=>{setBsModal(null);setBsNotiz("");}}>Abbrechen</Btn>
+                <Btn primary disabled={!bsNotiz.trim()} onClick={()=>bsAbziehen(bsModal)}>Abhaken</Btn>
+              </div>
             </div>
-          </div>
-        </GlassCard>
-      </Modal>)}
-      {korrekturModal&&(<Modal onClose={()=>setKorrekturModal(null)}>
-        <GlassCard className="modal-box" style={{width:400,background:T.white}}>
-          <Heading style={{fontSize:20,marginBottom:16}}>Korrektur</Heading>
-          <div style={{display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              <label style={{fontSize:12,fontWeight:600,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Einheitentyp</label>
-              <select value={korrekturTyp} onChange={e=>setKorrekturTyp(e.target.value)} style={inp}><option value="HE">Haupteinheit (HE)</option><option value="BS">Gruppenangebot (GA)</option></select>
+          </GlassCard>
+        </Modal>
+      )}
+
+      {korrekturModal&&(
+        <Modal onClose={()=>setKorrekturModal(null)}>
+          <GlassCard className="modal-box" style={{width:400,background:T.white}}>
+            <Heading style={{fontSize:20,marginBottom:16}}>Korrektur</Heading>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <label style={{fontSize:12,fontWeight:600,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Einheitentyp</label>
+                <select value={korrekturTyp} onChange={e=>setKorrekturTyp(e.target.value)} style={inp}>
+                  <option value="HE">Haupteinheit (HE)</option>
+                  <option value="BS">Gruppenangebot (GA)</option>
+                </select>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <label style={{fontSize:12,fontWeight:600,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Anzahl zurückbuchen</label>
+                <input type="number" min={1} max={10} value={korrekturAnzahl} onChange={e=>setKorrekturAnzahl(e.target.value)} style={inp}/>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                <label style={{fontSize:12,fontWeight:600,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Grund (optional)</label>
+                <input value={korrekturGrund} onChange={e=>setKorrekturGrund(e.target.value)} placeholder="z.B. Buchungsfehler..." style={inp}/>
+              </div>
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap",marginTop:4}}>
+                <Btn onClick={()=>setKorrekturModal(null)}>Abbrechen</Btn>
+                <Btn danger onClick={korrekturSpeichern}>Speichern</Btn>
+              </div>
             </div>
-            <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              <label style={{fontSize:12,fontWeight:600,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Anzahl zurückbuchen</label>
-              <input type="number" min={1} max={10} value={korrekturAnzahl} onChange={e=>setKorrekturAnzahl(e.target.value)} style={inp}/>
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              <label style={{fontSize:12,fontWeight:600,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Grund (optional)</label>
-              <input value={korrekturGrund} onChange={e=>setKorrekturGrund(e.target.value)} placeholder="z.B. Buchungsfehler..." style={inp}/>
-            </div>
-            <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap",marginTop:4}}>
-              <Btn onClick={()=>setKorrekturModal(null)}>Abbrechen</Btn>
-              <Btn danger onClick={korrekturSpeichern}>Speichern</Btn>
-            </div>
-          </div>
-        </GlassCard>
-      </Modal>)}
+          </GlassCard>
+        </Modal>
+      )}
 
       {view==="liste"&&(
         <div className="fade-in">
@@ -469,7 +564,9 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
               <Btn outline onClick={()=>setShowApi(!showApi)}>{showApi?"✕":"🔌"} Shore API</Btn>
             </div>
           </div>
+
           {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
+
           {showApi&&(
             <GlassCard style={{marginBottom:22}}>
               <SectionLabel>Shore API Verbindung</SectionLabel>
@@ -495,13 +592,36 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                     <Btn small onClick={shoreKundenLaden} disabled={apiLoading}>👥 Kunden laden</Btn>
                     <Btn small onClick={shoreTermineLaden} disabled={apiLoading}>📅 Termine laden</Btn>
                   </div>
-                  {apiLoading&&(<div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:T.bgLight,borderRadius:12}}><div style={{width:16,height:16,border:`2px solid ${T.gold}`,borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/><span style={{fontSize:13,color:T.textLight}}>Verbinde mit Shore...</span></div>)}
-                  {apiError&&(<div style={{padding:"12px 16px",background:T.red+"12",borderRadius:12,border:`1px solid ${T.red}25`}}><div style={{fontSize:12,fontWeight:700,color:T.red,marginBottom:4}}>Fehler</div><div style={{fontSize:13,color:T.red,wordBreak:"break-word"}}>{apiError}</div></div>)}
-                  {apiResult&&(<div style={{background:T.bgLight,borderRadius:12,padding:14}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:6}}><div style={{fontSize:12,fontWeight:700,color:T.dark,textTransform:"uppercase",letterSpacing:1}}>{apiResult.typ==="kunden"?"Kunden aus Shore":"Termine aus Shore"}</div>{apiResult.mock&&<span style={{fontSize:10,color:T.gold,fontWeight:600,background:T.gold+"20",padding:"2px 8px",borderRadius:8}}>TESTDATEN</span>}</div><pre style={{margin:0,fontSize:11,whiteSpace:"pre-wrap",wordBreak:"break-all",maxHeight:220,overflowY:"auto",color:T.text,lineHeight:1.5}}>{JSON.stringify(apiResult.data,null,2)}</pre></div>)}
+                  {apiLoading&&(
+                    <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",background:T.bgLight,borderRadius:12}}>
+                      <div style={{width:16,height:16,border:`2px solid ${T.gold}`,borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+                      <span style={{fontSize:13,color:T.textLight}}>Verbinde mit Shore...</span>
+                    </div>
+                  )}
+                  {apiError&&(
+                    <div style={{padding:"12px 16px",background:T.red+"12",borderRadius:12,border:`1px solid ${T.red}25`}}>
+                      <div style={{fontSize:12,fontWeight:700,color:T.red,marginBottom:4}}>Fehler</div>
+                      <div style={{fontSize:13,color:T.red,wordBreak:"break-word"}}>{apiError}</div>
+                    </div>
+                  )}
+                  {apiResult&&(
+                    <div style={{background:T.bgLight,borderRadius:12,padding:14}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8,flexWrap:"wrap",gap:6}}>
+                        <div style={{fontSize:12,fontWeight:700,color:T.dark,textTransform:"uppercase",letterSpacing:1}}>
+                          {apiResult.typ==="kunden"?"Kunden aus Shore":"Termine aus Shore"}
+                        </div>
+                        {apiResult.mock&&<span style={{fontSize:10,color:T.gold,fontWeight:600,background:T.gold+"20",padding:"2px 8px",borderRadius:8}}>TESTDATEN</span>}
+                      </div>
+                      <pre style={{margin:0,fontSize:11,whiteSpace:"pre-wrap",wordBreak:"break-all",maxHeight:220,overflowY:"auto",color:T.text,lineHeight:1.5}}>
+                        {JSON.stringify(apiResult.data,null,2)}
+                      </pre>
+                    </div>
+                  )}
                 </div>
               )}
             </GlassCard>
           )}
+
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {filtered.map((p,i)=>{
               const u=getUnits(p.id);
@@ -528,8 +648,12 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                           </div>
                         ))}
                       </div>
-                      <div className="badge-w" style={{width:58,textAlign:"center"}}>{u?<Badge variant="green">{PASS_TYPES[u.typ].name}</Badge>:<span style={{fontSize:12,color:T.textLight+"60"}}>–</span>}</div>
-                      <div className="badge-w" style={{width:44,textAlign:"center"}}>{ub?<Badge variant="red">Offen</Badge>:null}</div>
+                      <div className="badge-w" style={{width:58,textAlign:"center"}}>
+                        {u?<Badge variant="green">{PASS_TYPES[u.typ].name}</Badge>:<span style={{fontSize:12,color:T.textLight+"60"}}>–</span>}
+                      </div>
+                      <div className="badge-w" style={{width:44,textAlign:"center"}}>
+                        {ub?<Badge variant="red">Offen</Badge>:null}
+                      </div>
                       <span className="chevron" style={{color:T.gold,fontSize:20,fontWeight:300}}>›</span>
                     </div>
                   </div>
@@ -552,7 +676,9 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
               <GlassCard>
                 <SectionLabel>Stammdaten</SectionLabel>
                 <div style={{display:"flex",flexDirection:"column",gap:8,fontSize:14}}>
-                  {[["E-Mail",selPat.email],["Telefon",selPat.telefon],["Adresse",selPat.adresse],["QR-Code",<code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:12,wordBreak:"break-all"}}>{selPat.qr}</code>],["Kunde seit",fmtDate(selPat.erstellt)]].map(([label,val])=>(
+                  {[["E-Mail",selPat.email],["Telefon",selPat.telefon],["Adresse",selPat.adresse],
+                    ["QR-Code",<code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:12,wordBreak:"break-all"}}>{selPat.qr}</code>],
+                    ["Kunde seit",fmtDate(selPat.erstellt)]].map(([label,val])=>(
                     <div key={label} style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
                       <span style={{color:T.textLight,minWidth:90,flexShrink:0}}>{label}:</span>
                       <span style={{wordBreak:"break-word"}}>{val}</span>
@@ -561,8 +687,22 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                   <div className="stammk-row" style={{display:"flex",gap:12,alignItems:"center",paddingTop:10,marginTop:4,borderTop:`1px solid ${T.gold}18`}}>
                     <span style={{color:T.textLight,minWidth:90,flexShrink:0}}>Stammkunde:</span>
                     <div className="stammk-inner" style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                      {["Ja","Nein"].map(opt=>{const aktiv=opt==="Ja"?!!selPat.stammkunde:!selPat.stammkunde;return(<button key={opt} onClick={()=>updatePatient(selPat.id,{stammkunde:opt==="Ja"})} style={{padding:"5px 18px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",border:`1px solid ${aktiv?(opt==="Ja"?T.green:T.dark)+"60":T.gold+"30"}`,background:aktiv?(opt==="Ja"?T.green+"18":T.dark+"10"):"transparent",color:aktiv?(opt==="Ja"?T.green:T.dark):T.textLight,transition:"all 0.15s"}}>{opt}</button>);})}
-                      {selPat.stammkunde&&(<div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:13,color:T.textLight}}>Preis:</span><input type="number" min={0} value={selPat.stammpreis} onChange={e=>updatePatient(selPat.id,{stammpreis:e.target.value})} placeholder="z.B. 420" style={{width:90,padding:"5px 10px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:13,background:T.cream,color:T.text,outline:"none"}}/><span style={{fontSize:13,color:T.textLight}}>€</span></div>)}
+                      {["Ja","Nein"].map(opt=>{
+                        const aktiv=opt==="Ja"?!!selPat.stammkunde:!selPat.stammkunde;
+                        return(
+                          <button key={opt} onClick={()=>updatePatient(selPat.id,{stammkunde:opt==="Ja"})}
+                            style={{padding:"5px 18px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",border:`1px solid ${aktiv?(opt==="Ja"?T.green:T.dark)+"60":T.gold+"30"}`,background:aktiv?(opt==="Ja"?T.green+"18":T.dark+"10"):"transparent",color:aktiv?(opt==="Ja"?T.green:T.dark):T.textLight,transition:"all 0.15s"}}>
+                            {opt}
+                          </button>
+                        );
+                      })}
+                      {selPat.stammkunde&&(
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:13,color:T.textLight}}>Preis:</span>
+                          <input type="number" min={0} value={selPat.stammpreis} onChange={e=>updatePatient(selPat.id,{stammpreis:e.target.value})} placeholder="z.B. 420" style={{width:90,padding:"5px 10px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:13,background:T.cream,color:T.text,outline:"none"}}/>
+                          <span style={{fontSize:13,color:T.textLight}}>€</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -583,7 +723,8 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                         <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                           <span style={{fontSize:12,color:T.textLight}}>{pk.datum}</span>
                           <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,fontWeight:700,textTransform:"uppercase",color:pk.bezahlt?T.green:T.red,background:pk.bezahlt?T.green+"15":T.red+"10",padding:"5px 12px",borderRadius:10}}>
-                            <input type="checkbox" checked={pk.bezahlt} onChange={()=>toggleBezahlt(pk.id)} style={{accentColor:T.green,width:14,height:14}}/>{pk.bezahlt?"Bezahlt":"Offen"}
+                            <input type="checkbox" checked={pk.bezahlt} onChange={()=>toggleBezahlt(pk.id)} style={{accentColor:T.green,width:14,height:14}}/>
+                            {pk.bezahlt?"Bezahlt":"Offen"}
                           </label>
                         </div>
                       </div>
@@ -599,10 +740,21 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                         ))}
                       </div>
                       <div className="pass-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
-                        <div style={{padding:"10px 18px"}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Rechnungs-Nr.</div><code style={{fontSize:13,fontWeight:700,color:T.dark,wordBreak:"break-all"}}>{pk.rechnung}</code></div>
-                        <div style={{padding:"10px 18px"}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Preis</div><div style={{display:"flex",alignItems:"center",gap:4}}><input type="number" min={0} value={pk.preis} onChange={e=>updatePassPreis(pk.id,Number(e.target.value))} style={{width:78,padding:"3px 8px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:700,background:"transparent",color:T.dark,outline:"none",textAlign:"right"}}/><span style={{fontSize:12,color:T.textLight}}>€</span></div></div>
+                        <div style={{padding:"10px 18px"}}>
+                          <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Rechnungs-Nr.</div>
+                          <code style={{fontSize:13,fontWeight:700,color:T.dark,wordBreak:"break-all"}}>{pk.rechnung}</code>
+                        </div>
+                        <div style={{padding:"10px 18px"}}>
+                          <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Preis</div>
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <input type="number" min={0} value={pk.preis} onChange={e=>updatePassPreis(pk.id,Number(e.target.value))} style={{width:78,padding:"3px 8px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:700,background:"transparent",color:T.dark,outline:"none",textAlign:"right"}}/>
+                            <span style={{fontSize:12,color:T.textLight}}>€</span>
+                          </div>
+                        </div>
                       </div>
-                      <div style={{padding:"10px 18px"}}><PassAktionen pass={pk} onHE={heAbziehen} onBS={(p)=>setBsModal(p)} onKorrektur={(p)=>{setKorrekturModal(p);setKorrekturTyp("HE");setKorrekturAnzahl(1);setKorrekturGrund("");}}/></div>
+                      <div style={{padding:"10px 18px"}}>
+                        <PassAktionen pass={pk} onHE={heAbziehen} onBS={(p)=>setBsModal(p)} onKorrektur={(p)=>{setKorrekturModal(p);setKorrekturTyp("HE");setKorrekturAnzahl(1);setKorrekturGrund("");}}/>
+                      </div>
                     </div>
                   );
                 })}
@@ -620,7 +772,8 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                           </div>
                         </div>
                         <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,fontWeight:700,textTransform:"uppercase",color:e.bezahlt?T.green:T.red,background:e.bezahlt?T.green+"15":T.red+"10",padding:"5px 12px",borderRadius:10,flexShrink:0}}>
-                          <input type="checkbox" checked={e.bezahlt} onChange={()=>toggleEinzelBez(e.id)} style={{accentColor:T.green,width:14,height:14}}/>{e.bezahlt?"Bezahlt":"Offen"}
+                          <input type="checkbox" checked={e.bezahlt} onChange={()=>toggleEinzelBez(e.id)} style={{accentColor:T.green,width:14,height:14}}/>
+                          {e.bezahlt?"Bezahlt":"Offen"}
                         </label>
                       </div>
                     ))}
@@ -631,8 +784,15 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                     <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Ältere Pässe</div>
                     {patPaesse.filter(pk=>!pk.aktiv).map(pk=>(
                       <div key={pk.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:12,background:T.cream+"60",marginBottom:6,opacity:0.7,flexWrap:"wrap",gap:8}}>
-                        <div style={{display:"flex",flexDirection:"column",gap:3}}><span style={{fontSize:14,fontWeight:600,color:T.dark,fontFamily:"Georgia,serif"}}>Flossenpass {PASS_TYPES[pk.typ].name}</span><span style={{fontSize:12,color:T.textLight}}>{fmtDate(pk.datum)}</span></div>
-                        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.textLight}}>{pk.rechnung}</code><span style={{fontSize:13,color:T.textLight}}>{pk.preis} €</span><Badge variant={pk.bezahlt?"cream":"red"} small>{pk.bezahlt?"Bezahlt":"Offen"}</Badge></div>
+                        <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                          <span style={{fontSize:14,fontWeight:600,color:T.dark,fontFamily:"Georgia,serif"}}>Flossenpass {PASS_TYPES[pk.typ].name}</span>
+                          <span style={{fontSize:12,color:T.textLight}}>{fmtDate(pk.datum)}</span>
+                        </div>
+                        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                          <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.textLight}}>{pk.rechnung}</code>
+                          <span style={{fontSize:13,color:T.textLight}}>{pk.preis} €</span>
+                          <Badge variant={pk.bezahlt?"cream":"red"} small>{pk.bezahlt?"Bezahlt":"Offen"}</Badge>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -642,19 +802,27 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
               <GlassCard>
                 <SectionLabel>Einheiten-Verlauf</SectionLabel>
                 {patLog.filter(l=>l.typ!=="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch kein Verlauf</p>}
-                {patLog.filter(l=>l.typ!=="NOTIZ").map((l,i)=>{const b=logBadge(l.typ);return(
-                  <div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.cream+"80",borderRadius:12,fontSize:14,marginBottom:4,animationDelay:`${i*0.03}s`}}>
-                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><Badge variant={b.v} small>{b.label}</Badge><span>{l.notiz}</span></div>
-                    <span style={{fontSize:11,color:T.textLight,flexShrink:0,marginLeft:8}}>{fmtDateTime(l.datum)}</span>
-                  </div>
-                );})}
+                {patLog.filter(l=>l.typ!=="NOTIZ").map((l,i)=>{
+                  const b=logBadge(l.typ);
+                  return(
+                    <div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.cream+"80",borderRadius:12,fontSize:14,marginBottom:4,animationDelay:`${i*0.03}s`}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        <Badge variant={b.v} small>{b.label}</Badge>
+                        <span>{l.notiz}</span>
+                      </div>
+                      <span style={{fontSize:11,color:T.textLight,flexShrink:0,marginLeft:8}}>{fmtDateTime(l.datum)}</span>
+                    </div>
+                  );
+                })}
               </GlassCard>
 
               <GlassCard>
                 <SectionLabel>Notizen</SectionLabel>
                 <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
                   <textarea value={notizText} onChange={e=>setNotizText(e.target.value)} placeholder="Notiz eingeben..." rows={3} style={{...inp,resize:"vertical",lineHeight:1.5}}/>
-                  <div style={{display:"flex",justifyContent:"flex-end"}}><Btn small primary disabled={!notizText.trim()} onClick={notizSpeichern}>Notiz speichern</Btn></div>
+                  <div style={{display:"flex",justifyContent:"flex-end"}}>
+                    <Btn small primary disabled={!notizText.trim()} onClick={notizSpeichern}>Notiz speichern</Btn>
+                  </div>
                 </div>
                 {patLog.filter(l=>l.typ==="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch keine Notizen</p>}
                 {patLog.filter(l=>l.typ==="NOTIZ").map((l,i)=>(
@@ -669,10 +837,18 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
             <div className="qr-sidebar" style={{position:"sticky",top:78}}>
               <GlassCard style={{textAlign:"center"}}>
                 <SectionLabel>QR-Code</SectionLabel>
-                <div style={{background:T.cream,borderRadius:16,padding:18,display:"inline-block",marginBottom:12}}><QRCode value={selPat.qr} size={140}/></div>
+                <div style={{background:T.cream,borderRadius:16,padding:18,display:"inline-block",marginBottom:12}}>
+                  <QRCode value={selPat.qr} size={140}/>
+                </div>
                 <div style={{display:"flex",flexDirection:"column",gap:6,textAlign:"left"}}>
-                  {[["Token",<code style={{fontFamily:"monospace",fontSize:11,color:T.textLight,wordBreak:"break-all"}}>{selPat.qr}</code>],["Name",`${selPat.vorname} ${selPat.nachname}`],["Seit",fmtDate(selPat.erstellt)],["Pass",aktiverPass?`Flossenpass ${PASS_TYPES[aktiverPass.typ].name}`:"–"]].map(([label,val])=>(
-                    <div key={label} style={{display:"flex",gap:8,alignItems:"flex-start"}}><span style={{fontSize:11,color:T.textLight,minWidth:36,flexShrink:0}}>{label}</span><span style={{fontSize:12,color:T.dark,fontWeight:500}}>{val}</span></div>
+                  {[["Token",<code style={{fontFamily:"monospace",fontSize:11,color:T.textLight,wordBreak:"break-all"}}>{selPat.qr}</code>],
+                    ["Name",`${selPat.vorname} ${selPat.nachname}`],
+                    ["Seit",fmtDate(selPat.erstellt)],
+                    ["Pass",aktiverPass?`Flossenpass ${PASS_TYPES[aktiverPass.typ].name}`:"–"]].map(([label,val])=>(
+                    <div key={label} style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                      <span style={{fontSize:11,color:T.textLight,minWidth:36,flexShrink:0}}>{label}</span>
+                      <span style={{fontSize:12,color:T.dark,fontWeight:500}}>{val}</span>
+                    </div>
                   ))}
                 </div>
               </GlassCard>
@@ -695,13 +871,19 @@ const KundenApp = ({kunde,paesse,log,einzel}) => {
         <Avatar name={`${kunde.vorname} ${kunde.nachname}`} size={64}/>
         <Heading style={{marginTop:12,fontSize:24}}>Hallo {kunde.vorname}!</Heading>
         <p style={{color:T.textLight,margin:"6px 0 0",fontSize:15}}>Willkommen bei Kaiserufer Home</p>
-        <a href="https://kaiserufer.de" target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:10,fontSize:11,color:T.gold,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}40`,paddingBottom:1,opacity:0.8}}>kaiserufer.de ↗</a>
+        <a href="https://kaiserufer.de" target="_blank" rel="noopener noreferrer"
+          style={{display:"inline-block",marginTop:10,fontSize:11,color:T.gold,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}40`,paddingBottom:1,opacity:0.8}}>
+          kaiserufer.de ↗
+        </a>
       </div>
       {ap&&(()=>{
         const info=PASS_TYPES[ap.typ],heL=ap.heTotal-ap.heGenutzt,bsL=ap.bsTotal-ap.bsGenutzt;
         return(
           <GlassCard style={{marginBottom:16}}>
-            <div style={{marginBottom:18}}><strong style={{fontSize:18,fontFamily:"Georgia,serif"}}>Flossenpass {info.name}</strong><span style={{fontSize:13,color:T.textLight,marginLeft:10}}>seit {fmtDate(ap.datum)}</span></div>
+            <div style={{marginBottom:18}}>
+              <strong style={{fontSize:18,fontFamily:"Georgia,serif"}}>Flossenpass {info.name}</strong>
+              <span style={{fontSize:13,color:T.textLight,marginLeft:10}}>seit {fmtDate(ap.datum)}</span>
+            </div>
             <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
               <GlassCard dark style={{textAlign:"center",padding:20,borderRadius:16}}>
                 <div style={{fontSize:44,fontWeight:700,color:T.cream,fontFamily:"Georgia,serif"}}>{heL}</div>
@@ -715,20 +897,74 @@ const KundenApp = ({kunde,paesse,log,einzel}) => {
               </GlassCard>
             </div>
             <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" style={{padding:"11px 16px",borderRadius:12,border:`1px solid ${T.dark}30`,background:"transparent",color:heL===0?T.textLight:T.dark,fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1}}>Therapie buchen →</a>
-              <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" style={{padding:"11px 16px",borderRadius:12,border:`1px solid ${T.dark}30`,background:"transparent",color:bsL===0?T.textLight:T.dark,fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1}}>Gruppenangebot buchen →</a>
+              <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer"
+                style={{padding:"11px 16px",borderRadius:12,border:`1px solid ${T.dark}30`,background:"transparent",color:heL===0?T.textLight:T.dark,fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1}}>
+                Therapie buchen →
+              </a>
+              <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer"
+                style={{padding:"11px 16px",borderRadius:12,border:`1px solid ${T.dark}30`,background:"transparent",color:bsL===0?T.textLight:T.dark,fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1}}>
+                Gruppenangebot buchen →
+              </a>
             </div>
             {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:14,padding:"12px 16px",background:T.red+"10",borderRadius:12,fontSize:14,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
           </GlassCard>
         );
       })()}
-      {mp.filter(p=>!p.aktiv).map(pk=>(<GlassCard key={pk.id} style={{marginBottom:12,opacity:0.5,padding:16}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><strong style={{fontSize:15,fontFamily:"Georgia,serif"}}>Flossenpass {PASS_TYPES[pk.typ].name}</strong><span style={{fontSize:12,color:T.textLight,marginLeft:8}}>{fmtDate(pk.datum)}</span></div><Badge variant="cream">Aufgebraucht</Badge></div></GlassCard>))}
+      {mp.filter(p=>!p.aktiv).map(pk=>(
+        <GlassCard key={pk.id} style={{marginBottom:12,opacity:0.5,padding:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+            <div>
+              <strong style={{fontSize:15,fontFamily:"Georgia,serif"}}>Flossenpass {PASS_TYPES[pk.typ].name}</strong>
+              <span style={{fontSize:12,color:T.textLight,marginLeft:8}}>{fmtDate(pk.datum)}</span>
+            </div>
+            <Badge variant="cream">Aufgebraucht</Badge>
+          </div>
+        </GlassCard>
+      ))}
       {mp.length===0&&me.length===0&&<GlassCard style={{textAlign:"center",padding:48}}><p style={{color:T.textLight,lineHeight:1.7,fontSize:15}}>Du hast noch keine Angebote.<br/>Sprich uns gerne an!</p></GlassCard>}
-      {ml.length>0&&(<GlassCard style={{marginTop:16}}><SectionLabel>Mein Verlauf</SectionLabel>{ml.map((l,i)=>{const b=logBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14,animationDelay:`${i*0.04}s`}}><div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><Badge variant={b.v} small>{b.label}</Badge><span>{l.notiz}</span></div><span style={{color:T.textLight,fontSize:12,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span></div>);})}</GlassCard>)}
-      {(mp.length>0||me.length>0)&&(<GlassCard style={{marginTop:16}}><SectionLabel>Meine Rechnungen</SectionLabel>
-        {mp.map(pk=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14}}><div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:12}}>{pk.rechnung}</code><span style={{color:T.textLight}}>Flossenpass {PASS_TYPES[pk.typ].name}</span></div><div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.textLight,fontSize:12}}>{fmtDate(pk.datum)}</span><strong style={{fontFamily:"Georgia,serif"}}>{pk.preis} €</strong></div></div>))}
-        {me.map(e=>(<div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14}}><div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:12}}>{e.rechnung}</code><span style={{color:T.textLight}}>{e.name}</span></div><div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.textLight,fontSize:12}}>{fmtDate(e.datum)}</span><strong style={{fontFamily:"Georgia,serif"}}>{e.preis} €</strong></div></div>))}
-      </GlassCard>)}
+      {ml.length>0&&(
+        <GlassCard style={{marginTop:16}}>
+          <SectionLabel>Mein Verlauf</SectionLabel>
+          {ml.map((l,i)=>{const b=logBadge(l.typ);return(
+            <div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14,animationDelay:`${i*0.04}s`}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <Badge variant={b.v} small>{b.label}</Badge>
+                <span>{l.notiz}</span>
+              </div>
+              <span style={{color:T.textLight,fontSize:12,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span>
+            </div>
+          );})}
+        </GlassCard>
+      )}
+      {(mp.length>0||me.length>0)&&(
+        <GlassCard style={{marginTop:16}}>
+          <SectionLabel>Meine Rechnungen</SectionLabel>
+          {mp.map(pk=>(
+            <div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                <code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:12}}>{pk.rechnung}</code>
+                <span style={{color:T.textLight}}>Flossenpass {PASS_TYPES[pk.typ].name}</span>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{color:T.textLight,fontSize:12}}>{fmtDate(pk.datum)}</span>
+                <strong style={{fontFamily:"Georgia,serif"}}>{pk.preis} €</strong>
+              </div>
+            </div>
+          ))}
+          {me.map(e=>(
+            <div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                <code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:12}}>{e.rechnung}</code>
+                <span style={{color:T.textLight}}>{e.name}</span>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{color:T.textLight,fontSize:12}}>{fmtDate(e.datum)}</span>
+                <strong style={{fontFamily:"Georgia,serif"}}>{e.preis} €</strong>
+              </div>
+            </div>
+          ))}
+        </GlassCard>
+      )}
     </div>
   );
 };
@@ -741,7 +977,9 @@ export default function App() {
   const [log,setLog]=useState(initialLog);
   const [einzel,setEinzel]=useState(initialEinzel);
   const [rechnungsNr,setRechnungsNr]=useState(5);
-  const loginPat=patienten[0];
+  const urlToken = new URLSearchParams(window.location.search).get("token");
+  const loginPat = urlToken ? patienten.find(p=>p.qr===urlToken.toUpperCase()) : null;
+
   return(
     <div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:`linear-gradient(180deg,${T.bg} 0%,${T.bgLight} 50%,${T.bg} 100%)`}}>
       <style>{css}</style>
@@ -755,10 +993,23 @@ export default function App() {
         <div>
           {mode==="staff"
             ?<button onClick={()=>setMode("kunde")} style={{padding:"7px 18px",borderRadius:12,border:"1px solid rgba(255,255,255,0.15)",background:"transparent",color:"rgba(255,255,255,0.6)",fontWeight:600,fontSize:11,cursor:"pointer",textTransform:"uppercase",letterSpacing:0.8,fontFamily:"inherit"}}>Abmelden</button>
-            :<button onClick={()=>setShowLogin(true)} style={{padding:"6px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.05)",color:"rgba(255,255,255,0.3)",fontWeight:500,fontSize:11,cursor:"pointer",letterSpacing:0.5,fontFamily:"inherit"}}>MitarbeiterIn</button>}
+            :<button onClick={()=>setShowLogin(true)} style={{padding:"6px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.05)",color:"rgba(255,255,255,0.3)",fontWeight:500,fontSize:11,cursor:"pointer",letterSpacing:0.5,fontFamily:"inherit"}}>MitarbeiterIn</button>
+          }
         </div>
       </div>
-      {mode==="staff"?<MitarbeiterApp patienten={patienten} setPatienten={setPatienten} paesse={paesse} setPaesse={setPaesse} log={log} setLog={setLog} rechnungsNr={rechnungsNr} setRechnungsNr={setRechnungsNr} einzel={einzel} setEinzel={setEinzel}/>:<KundenApp kunde={loginPat} paesse={paesse} log={log} einzel={einzel}/>}
+      {mode==="staff"
+        ?<MitarbeiterApp patienten={patienten} setPatienten={setPatienten} paesse={paesse} setPaesse={setPaesse} log={log} setLog={setLog} rechnungsNr={rechnungsNr} setRechnungsNr={setRechnungsNr} einzel={einzel} setEinzel={setEinzel}/>
+        :loginPat
+          ?<KundenApp kunde={loginPat} paesse={paesse} log={log} einzel={einzel}/>
+          :<div className="fade-in resp-pad" style={{padding:28,maxWidth:480,margin:"0 auto",textAlign:"center",paddingTop:80}}>
+            <div style={{fontSize:64,marginBottom:20}}>🐧</div>
+            <Heading style={{marginBottom:12}}>Kaiserufer Home</Heading>
+            <p style={{color:T.textLight,fontSize:15,lineHeight:1.7,marginBottom:24}}>Bitte scanne deinen persönlichen QR-Code,<br/>um deine Kundenseite zu öffnen.</p>
+            <GlassCard style={{padding:24}}>
+              <p style={{color:T.textLight,fontSize:13,margin:0}}>Noch keinen QR-Code? Sprich uns gerne an!</p>
+              <a href="https://kaiserufer.de" target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:12,fontSize:12,color:T.gold,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}40`,paddingBottom:1}}>kaiserufer.de ↗</a>
+            </GlassCard>
+          </div>}
     </div>
   );
 }
