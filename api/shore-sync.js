@@ -1,30 +1,15 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const clientId = process.env.VITE_SHORE_CLIENT_ID;
-  const clientSecret = process.env.VITE_SHORE_CLIENT_SECRET;
+  const accessToken = process.env.VITE_SHORE_ACCESS_TOKEN;
 
   try {
-    // Shore Access Token holen
-    const tokenRes = await fetch("https://api.shore.com/oauth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        grant_type: "client_credentials",
-        client_id: clientId,
-        client_secret: clientSecret,
-      }),
-    });
-
-    if (!tokenRes.ok) throw new Error("Shore Token Fehler");
-    const { access_token } = await tokenRes.json();
-
     // Kunden aus Shore laden
     const kundenRes = await fetch("https://api.shore.com/v1/customers?per_page=100", {
-      headers: { Authorization: `Bearer ${access_token}` },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
-    if (!kundenRes.ok) throw new Error("Shore Kunden Fehler");
+    if (!kundenRes.ok) throw new Error("Shore Fehler: " + kundenRes.status);
     const { customers } = await kundenRes.json();
 
     // Kunden für Supabase formatieren
