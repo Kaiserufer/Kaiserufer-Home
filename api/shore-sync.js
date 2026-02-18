@@ -4,13 +4,18 @@ export default async function handler(req, res) {
   const accessToken = process.env.VITE_SHORE_ACCESS_TOKEN;
 
   try {
-    // Kunden aus Shore laden
-    const kundenRes = await fetch("https://api.shore.com/v1/customers?per_page=100", {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    // Kunden aus Inventorum/Shore laden
+    const kundenRes = await fetch("https://app.inventorum.com/api/contacts/?limit=100", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "X-Api-Version": "12",
+        "Accept": "application/json",
+      },
     });
 
     if (!kundenRes.ok) throw new Error("Shore Fehler: " + kundenRes.status);
-    const { customers } = await kundenRes.json();
+    const result = await kundenRes.json();
+    const customers = result.data || [];
 
     // Kunden für Supabase formatieren
     const formatted = customers.map((k) => ({
