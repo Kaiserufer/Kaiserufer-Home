@@ -541,7 +541,7 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
               const u=getUnits(p.id);
               const ub=paesse.filter(pk=>pk.pat_id===p.id).some(pk=>!pk.bezahlt)||einzel.filter(e=>e.pat_id===p.id).some(e=>!e.bezahlt);
               return(
-                <GlassCard key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-hover slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"14px 22px"}}>
+ <div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-hover slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"14px 22px",background:T.glassLight,borderRadius:20,border:`1px solid ${T.gold}30`,cursor:"pointer",boxShadow:"0 2px 8px rgba(74,82,64,0.05)"}}>
                   <div className="liste-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <div style={{display:"flex",alignItems:"center",gap:14,minWidth:0}}>
                       <Avatar name={`${p.vorname} ${p.nachname}`} size={44}/>
