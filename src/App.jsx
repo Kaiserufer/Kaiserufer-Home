@@ -114,11 +114,15 @@ const Heading = ({children,style}) => (
   <h2 style={{fontFamily:"Georgia,serif",fontWeight:700,color:T.dark,margin:0,fontSize:26,letterSpacing:0.5,...style}}>{children}</h2>
 );
 
-const Avatar = ({name,size=48}) => (
-  <div style={{width:size,height:size,borderRadius:14,background:T.dark+"12",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,color:T.dark,fontSize:size*0.32,fontFamily:"Georgia,serif",flexShrink:0}}>
-    {name.split(" ").map(n=>n[0]).join("")}
-  </div>
-);
+const Avatar = ({name,size=48}) => {
+  const safe=(name||"?").trim()||"?";
+  const initials=safe.split(" ").filter(Boolean).map(n=>n[0]||"").join("").toUpperCase()||"?";
+  return(
+    <div style={{width:size,height:size,borderRadius:14,background:T.dark+"12",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,color:T.dark,fontSize:size*0.32,fontFamily:"Georgia,serif",flexShrink:0}}>
+      {initials}
+    </div>
+  );
+};
 
 const QRCode = ({value,size=120}) => {
   const s=21,cs=size/s;
@@ -537,7 +541,7 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
               const u=getUnits(p.id);
               const ub=paesse.filter(pk=>pk.pat_id===p.id).some(pk=>!pk.bezahlt)||einzel.filter(e=>e.pat_id===p.id).some(e=>!e.bezahlt);
               return(
-                <GlassCard key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-hover slide-in" style={{animationDelay:`${i*0.05}s`,padding:"14px 22px"}}>
+                <GlassCard key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-hover slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"14px 22px"}}>
                   <div className="liste-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <div style={{display:"flex",alignItems:"center",gap:14,minWidth:0}}>
                       <Avatar name={`${p.vorname} ${p.nachname}`} size={44}/>
