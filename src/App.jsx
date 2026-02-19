@@ -122,8 +122,13 @@ const Avatar = ({name,size=48}) => (
 );
 
 const QRCode = ({value,size=120}) => {
-  const url = window.location.origin + "?token=" + value;
-  return <QRCodeSVG value={url} size={size} bgColor={T.cream} fgColor={T.dark} style={{borderRadius:12}} />;
+  if (!value) return <div style={{width:size,height:size,background:T.cream,borderRadius:12}}/>;
+  try {
+    const url = window.location.origin + "?token=" + value;
+    return <QRCodeSVG value={url} size={size} bgColor={T.cream} fgColor={T.dark} style={{borderRadius:12}} />;
+  } catch(e) {
+    return <div style={{width:size,height:size,background:T.cream,borderRadius:12}}/>;
+  }
 };
 
 const Modal = ({children,onClose}) => (
