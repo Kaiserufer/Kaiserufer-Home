@@ -571,7 +571,7 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                       <span className="chevron" style={{color:T.gold,fontSize:20,fontWeight:300}}>›</span>
                     </div>
                   </div>
-                </GlassCard>
+</div>
               );
             })}
             {filtered.length===0&&<p style={{textAlign:"center",color:T.textLight,padding:40,fontSize:15}}>Keine Kunden gefunden</p>}
