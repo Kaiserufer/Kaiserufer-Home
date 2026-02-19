@@ -520,18 +520,9 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                   const r = await fetch("/api/shore-sync", {method:"POST"});
                   const data = await r.json();
                   if(data.error) throw new Error(data.error);
-                  const {createClient} = await import("@supabase/supabase-js");
-                  const sb = createClient("https://oqjcbxnbododdqlbdekt.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xamNieG5ib2RvZGRxbGJkZWt0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MTg3NzAsImV4cCI6MjA4Njk5NDc3MH0.2Ig0I_Wd26LAX7FAVTUz9SdJFaLeAOh394pT3FT6i_w");
-                  let neu = 0;
-                  for(const k of data.kunden) {
-                    const exists = patienten.find(p=>p.id===k.id);
-                    if(!exists) {
-                      await sb.from("patienten").insert(k);
-                      setPatienten(prev=>[...prev,k]);
-                      neu++;
-                    }
-                  }
-                  setShoreSyncMsg(`✓ ${neu} neue Kunden übernommen`);
+const {data:neuePat} = await supabase.from("patienten").select("*");
+                  if(neuePat) setPatienten(neuePat);
+                  setShoreSyncMsg(`✓ ${data.neu||0} neue Kunden · ${data.gesamt||0} gesamt`);
                 } catch(e) {
                   setShoreSyncMsg("Fehler: "+e.message);
                 }
