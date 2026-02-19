@@ -33,8 +33,8 @@ const css = `
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   @keyframes slideIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .glass{backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
-  .glass-dark{backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.glass{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.glass-dark{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
   .card-hover{transition:all 0.3s cubic-bezier(0.4,0,0.2,1)}
   .card-hover:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(74,82,64,0.12)}
   .btn-anim{transition:all 0.2s cubic-bezier(0.4,0,0.2,1)}
