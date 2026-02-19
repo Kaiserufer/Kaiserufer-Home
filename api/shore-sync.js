@@ -105,9 +105,8 @@ export default async function handler(req, res) {
         stammpreis: "",
       };
 
-      const { error } = await sb.from("patienten").upsert(kunde, { onConflict: "id", ignoreDuplicates: true });
-if (error) { return res.status(200).json({ ok:false, fehler: error.message, kunde_id: id, gesamt: allItems.length }); }
-neu++;
+const result = await sb.from("patienten").insert(kunde);
+      return res.status(200).json({ testKunde: kunde, insertError: result.error, insertStatus: result.status, insertData: result.data });
     }
 
     return res.status(200).json({ ok: true, gesamt: allItems.length, neu });
