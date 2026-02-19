@@ -106,7 +106,7 @@ export default async function handler(req, res) {
       };
 
 const result = await sb.from("patienten").insert(kunde);
-      return res.status(200).json({ testKunde: kunde, insertError: result.error, insertStatus: result.status, insertData: result.data });
+return res.status(200).json({ error: "DEBUG: " + JSON.stringify({id: kunde.id, vorname: kunde.vorname, nachname: kunde.nachname, err: result.error, status: result.status}) });
     }
 
     return res.status(200).json({ ok: true, gesamt: allItems.length, neu });
