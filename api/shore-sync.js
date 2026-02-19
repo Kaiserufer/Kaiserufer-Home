@@ -102,7 +102,7 @@ export default async function handler(req, res) {
         kennenlern: false,
         konvertiert: false,
         stammkunde: false,
-        stammpreis: "",
+        stammpreis: null,
       };
 
 const result = await sb.from("patienten").insert(kunde);
