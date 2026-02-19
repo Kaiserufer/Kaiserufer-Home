@@ -1,6 +1,19 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
-import { QRCodeSVG } from "qrcode.react";
+const QRCode = ({value,size=120}) => {
+  const s=21,cs=size/s;
+  let grid=Array.from({length:s},()=>Array(s).fill(false));
+  const addF=(r,c)=>{for(let i=0;i<7;i++)for(let j=0;j<7;j++)grid[r+i][c+j]=i===0||i===6||j===0||j===6||(i>=2&&i<=4&&j>=2&&j<=4);};
+  addF(0,0);addF(0,14);addF(14,0);
+  let hash=0;for(let i=0;i<value.length;i++)hash=((hash<<5)-hash+value.charCodeAt(i))|0;
+  for(let r=0;r<s;r++)for(let c=0;c<s;c++){if((r<8&&c<8)||(r<8&&c>12)||(r>12&&c<8))continue;grid[r][c]=((hash*(r*s+c+1)*7919)&0xFF)>127;}
+  return(
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{borderRadius:12}}>
+      <rect width={size} height={size} fill={T.cream} rx="8"/>
+      {grid.map((row,r)=>row.map((cell,c)=>cell?<rect key={`${r}-${c}`} x={c*cs} y={r*cs} width={cs} height={cs} fill={T.dark} rx="0.5"/>:null))}
+    </svg>
+  );
+};
 
 const T = {
   bg:"#D5D6B0",bgLight:"#E2E3C8",dark:"#4A5240",
@@ -122,13 +135,18 @@ const Avatar = ({name,size=48}) => (
 );
 
 const QRCode = ({value,size=120}) => {
-  if (!value) return <div style={{width:size,height:size,background:T.cream,borderRadius:12}}/>;
-  try {
-    const url = window.location.origin + "?token=" + value;
-    return <QRCodeSVG value={url} size={size} bgColor={T.cream} fgColor={T.dark} style={{borderRadius:12}} />;
-  } catch(e) {
-    return <div style={{width:size,height:size,background:T.cream,borderRadius:12}}/>;
-  }
+  const s=21,cs=size/s;
+  let grid=Array.from({length:s},()=>Array(s).fill(false));
+  const addF=(r,c)=>{for(let i=0;i<7;i++)for(let j=0;j<7;j++)grid[r+i][c+j]=i===0||i===6||j===0||j===6||(i>=2&&i<=4&&j>=2&&j<=4);};
+  addF(0,0);addF(0,14);addF(14,0);
+  let hash=0;for(let i=0;i<value.length;i++)hash=((hash<<5)-hash+value.charCodeAt(i))|0;
+  for(let r=0;r<s;r++)for(let c=0;c<s;c++){if((r<8&&c<8)||(r<8&&c>12)||(r>12&&c<8))continue;grid[r][c]=((hash*(r*s+c+1)*7919)&0xFF)>127;}
+  return(
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{borderRadius:12}}>
+      <rect width={size} height={size} fill={T.cream} rx="8"/>
+      {grid.map((row,r)=>row.map((cell,c)=>cell?<rect key={`${r}-${c}`} x={c*cs} y={r*cs} width={cs} height={cs} fill={T.dark} rx="0.5"/>:null))}
+    </svg>
+  );
 };
 
 const Modal = ({children,onClose}) => (
