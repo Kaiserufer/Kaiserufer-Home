@@ -22,8 +22,7 @@ const EINZELANGEBOTE = [
 ];
 
 const HE_ACTIONS = [{key:"HAUPTEINHEIT",label:"Haupteinheit"}];
-const LOGIN_PASS = "Pinguinmary1";
-
+const LOGIN_PASS = import.meta.env.VITE_LOGIN_PASS;
 const genId = () => Math.random().toString(36).substr(2,9);
 const genRechnung = (n) => `KU-2026-${String(n).padStart(4,"0")}`;
 const fmtDate = (d) => new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
