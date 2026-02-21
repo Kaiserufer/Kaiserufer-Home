@@ -943,7 +943,7 @@ export default function App() {
         <div>
           {mode==="staff"
             ?<button onClick={()=>setMode("kunde")} style={{padding:"7px 18px",borderRadius:12,border:"1px solid rgba(255,255,255,0.15)",background:"transparent",color:"rgba(255,255,255,0.6)",fontWeight:600,fontSize:11,cursor:"pointer",textTransform:"uppercase",letterSpacing:0.8,fontFamily:"inherit"}}>Abmelden</button>
-            :<button onClick={()=>setShowLogin(true)} style={{padding:"6px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.05)",color:"rgba(255,255,255,0.3)",fontWeight:500,fontSize:11,cursor:"pointer",letterSpacing:0.5,fontFamily:"inherit"}}>MitarbeiterIn</button>
+            :!loginPat&&<button onClick={()=>setShowLogin(true)} style={{padding:"6px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.05)",color:"rgba(255,255,255,0.3)",fontWeight:500,fontSize:11,cursor:"pointer",letterSpacing:0.5,fontFamily:"inherit"}}>MitarbeiterIn</button>
           }
         </div>
       </div>
