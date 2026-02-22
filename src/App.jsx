@@ -782,7 +782,9 @@ const KundenApp = ({kunde,paesse,log,einzel}) => {
         <a href="https://kaiserufer.de" target="_blank" rel="noopener noreferrer"
           style={{display:"inline-block",marginTop:10,fontSize:11,color:T.gold,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}40`,paddingBottom:1,opacity:0.8}}>
           kaiserufer.de ↗
-        </a><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer"
+       </a>
+        <br/>
+        <a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer"
   style={{display:"inline-block",marginTop:6,fontSize:11,color:T.textLight,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}20`,paddingBottom:1,opacity:0.6}}>
   Datenschutz ↗
 </a>
