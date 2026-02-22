@@ -779,7 +779,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
 
                   {/* Aktive Pässe */}
                   {aktPaesse.map(pk=>{
-                    const passLabel = pk.typ==="INDIVIDUELL" ? (pk.custom_name||"Individuell") : `${getPassName(pk.typ)}`;
+                    const passLabel = pk.typ==="INDIVIDUELL"||!PASS_TYPES[pk.typ] ? (pk.custom_name||"Individuell") : getPassName(pk.typ);
                     const heL=pk.he_total-pk.he_genutzt, bsL=pk.bs_total-pk.bs_genutzt;
                     const numInp2=(w)=>({width:w,padding:"3px 6px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:700,background:"transparent",color:T.dark,outline:"none",textAlign:"center"});
                     return(
