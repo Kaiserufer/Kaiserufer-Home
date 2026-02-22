@@ -106,22 +106,12 @@ const Btn = ({children,onClick,primary,small,disabled,outline,danger,style:s,cla
 );
 
 const SectionLabel = ({children}) => (
-  <div style={{fontSize:11,fontWeight:700,color:T.gold,marginBottom:14,textTransform:"uppercase",letterSpacing:2.5,fontFamily:"Georgia,serif"}}>{children}</div>
+  <div style={{fontSize:12,fontWeight:700,color:T.gold,marginBottom:14,textTransform:"uppercase",letterSpacing:2,fontFamily:"Georgia,serif"}}>{children}</div>
 );
 
 const Heading = ({children,style}) => (
   <h2 style={{fontFamily:"Georgia,serif",fontWeight:700,color:T.dark,margin:0,fontSize:26,letterSpacing:0.5,...style}}>{children}</h2>
 );
-
-const Avatar = ({name,size=48}) => {
-  const safe=(name||"?").trim()||"?";
-  const initials=safe.split(" ").filter(Boolean).map(n=>n[0]||"").join("").toUpperCase()||"?";
-  return(
-    <div style={{width:size,height:size,borderRadius:14,background:T.dark+"12",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,color:T.dark,fontSize:size*0.32,fontFamily:"Georgia,serif",flexShrink:0}}>
-      {initials}
-    </div>
-  );
-};
 
 const QRCode = ({value,size=120}) => (
   <img 
@@ -196,7 +186,7 @@ const StatistikPanel = ({patienten,paesse,einzelArr}) => {
         {[{val:patienten.length,label:"Kunden"},{val:aktive,label:"Aktive Pässe"},{val:offene,label:"Offen",color:offene>0?T.red:T.dark},{val:`${(umsatz/1000).toFixed(1)}k`,label:"Umsatz (€)"}].map((s,i)=>(
           <GlassCard key={i} style={{padding:16,textAlign:"center"}}>
             <div style={{fontSize:30,fontWeight:700,fontFamily:"Georgia,serif",color:s.color||T.dark}}>{s.val}</div>
-            <div style={{color:T.textLight,fontSize:10,textTransform:"uppercase",letterSpacing:1.5,marginTop:4}}>{s.label}</div>
+            <div style={{color:T.textLight,fontSize:11,textTransform:"uppercase",letterSpacing:1.5,marginTop:4}}>{s.label}</div>
           </GlassCard>
         ))}
       </div>
@@ -205,7 +195,7 @@ const StatistikPanel = ({patienten,paesse,einzelArr}) => {
           <Donut value={kv} total={kl} color={T.green}/>
           <div style={{flex:1,minWidth:140}}>
             <div style={{fontSize:14,fontWeight:600,color:T.dark,marginBottom:6}}>Konversionsrate</div>
-            <div style={{fontSize:13,color:T.textLight,lineHeight:1.8}}>
+            <div style={{fontSize:13,color:T.text,lineHeight:1.8}}>
               <strong style={{color:T.dark}}>{kl}</strong> Kennenlerngespräche<br/>
               <strong style={{color:T.green}}>{kv}</strong> → Flossenpass<br/>
               <strong style={{color:T.red}}>{kl-kv}</strong> nicht konvertiert
@@ -215,11 +205,11 @@ const StatistikPanel = ({patienten,paesse,einzelArr}) => {
         <GlassCard style={{padding:18}}>
           <div style={{fontSize:14,fontWeight:600,color:T.dark,marginBottom:14}}>Einheiten-Auslastung</div>
           <div style={{marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:5}}><span style={{color:T.textLight}}>Haupteinheiten</span><span style={{fontWeight:700}}>{gHE}/{tHE}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:5}}><span style={{color:T.text}}>Haupteinheiten</span><span style={{fontWeight:600}}>{gHE}/{tHE}</span></div>
             <Bar used={gHE} total={tHE} color={T.dark}/>
           </div>
           <div>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:5}}><span style={{color:T.textLight}}>Gruppenangebote</span><span style={{fontWeight:700}}>{gBS}/{tBS}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:5}}><span style={{color:T.text}}>Gruppenangebote</span><span style={{fontWeight:600}}>{gBS}/{tBS}</span></div>
             <Bar used={gBS} total={tBS} color={T.gold}/>
           </div>
         </GlassCard>
@@ -227,7 +217,7 @@ const StatistikPanel = ({patienten,paesse,einzelArr}) => {
       <GlassCard style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:18,flexWrap:"wrap",gap:12}}>
         <div>
           <div style={{fontSize:14,fontWeight:600,color:T.dark}}>Zahlungsübersicht</div>
-          <div style={{fontSize:13,color:T.textLight,marginTop:4}}>
+          <div style={{fontSize:13,color:T.text,marginTop:4}}>
             Gesamt: <strong style={{color:T.dark}}>{umsatz.toLocaleString("de-DE")} €</strong> · Bezahlt: <strong style={{color:T.green}}>{bezahlt.toLocaleString("de-DE")} €</strong> · Offen: <strong style={{color:T.red}}>{(umsatz-bezahlt).toLocaleString("de-DE")} €</strong>
           </div>
         </div>
@@ -245,16 +235,16 @@ const PassAktionen = ({pass,onHE,onBS,onKorrektur}) => {
       <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:2}}>Einheit abziehen</div>
       {HE_ACTIONS.map(a=>(
         <button key={a.key} disabled={heL===0} onClick={()=>onHE(pass,a.key,a.label)} className="btn-anim" style={row(heL===0,false)}>
-          <span style={{fontSize:13,fontWeight:600,color:T.dark}}>{a.label}</span>
-          <span style={{fontSize:11,color:T.textLight}}>HE −1</span>
+          <span style={{fontSize:14,fontWeight:500,color:T.dark}}>{a.label}</span>
+          <span style={{fontSize:12,color:T.textLight}}>HE −1</span>
         </button>
       ))}
       <button disabled={bsL===0} onClick={()=>onBS(pass)} className="btn-anim" style={row(bsL===0,false)}>
-        <span style={{fontSize:13,fontWeight:600,color:T.dark}}>Gruppenangebot</span>
-        <span style={{fontSize:11,color:T.textLight}}>GA −1</span>
+        <span style={{fontSize:14,fontWeight:500,color:T.dark}}>Gruppenangebot</span>
+        <span style={{fontSize:12,color:T.textLight}}>GA −1</span>
       </button>
       <button onClick={()=>onKorrektur(pass)} className="btn-anim" style={row(false,true)}>
-        <span style={{fontSize:13,fontWeight:600,color:T.red}}>Korrektur / Einheit hinzufügen</span>
+        <span style={{fontSize:14,fontWeight:500,color:T.red}}>Korrektur / Einheit hinzufügen</span>
       </button>
     </div>
   );
@@ -269,7 +259,7 @@ const KaufModal = ({selPat,rechnungsNr,onKauf,onClose}) => {
     <Modal onClose={onClose}>
       <div className="modal-box" style={{background:T.white,borderRadius:24,padding:32,width:520,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
         <Heading style={{marginBottom:4,fontSize:20}}>Angebot hinzufügen</Heading>
-        <p style={{color:T.textLight,fontSize:14,marginBottom:12}}>für {selPat?.vorname} {selPat?.nachname}{selPat?.stammkunde?" · Stammkunde":""}</p>
+        <p style={{color:T.text,fontSize:14,marginBottom:12}}>für {selPat?.vorname} {selPat?.nachname}{selPat?.stammkunde?" · Stammkunde":""}</p>
         {selPat?.stammkunde&&selPat?.stammpreis&&<p style={{fontSize:13,color:T.gold,marginBottom:12}}>Stammpreis: <strong>{selPat.stammpreis} €</strong></p>}
         <div style={{marginBottom:20}}>
           <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:6}}>Rechnungsnummer (optional)</div>
@@ -279,12 +269,12 @@ const KaufModal = ({selPat,rechnungsNr,onKauf,onClose}) => {
         {Object.entries(PASS_TYPES).map(([k,v])=>(
           <div key={k} className="kauf-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderRadius:14,border:`1px solid ${T.gold}30`,marginBottom:8,background:T.cream+"40"}}>
             <div>
-              <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:600}}>Flossenpass {v.name}</div>
-              <div style={{fontSize:12,color:T.textLight,marginTop:2}}>{v.he} Haupteinheiten · {v.bs} Gruppenangebot{v.bs!==1?"e":""}</div>
+              <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:600,color:T.dark}}>Flossenpass {v.name}</div>
+              <div style={{fontSize:13,color:T.text,marginTop:2}}>{v.he} Haupteinheiten · {v.bs} Gruppenangebot{v.bs!==1?"e":""}</div>
             </div>
             <div className="kauf-right" style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" min={0} value={passPreise[k]} onChange={e=>setPassPreise(p=>({...p,[k]:Number(e.target.value)}))} style={inp}/>
-              <span style={{fontSize:12,color:T.textLight}}>€</span>
+              <span style={{fontSize:13,color:T.text}}>€</span>
               <Btn small primary onClick={()=>onKauf("pass",k,passPreise[k],eigeneRechnung.trim())}>Hinzufügen</Btn>
             </div>
           </div>
@@ -292,10 +282,10 @@ const KaufModal = ({selPat,rechnungsNr,onKauf,onClose}) => {
         <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,margin:"20px 0 10px"}}>Einzelangebote</div>
         {EINZELANGEBOTE.map(e=>(
           <div key={e.key} className="kauf-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderRadius:14,border:`1px solid ${T.gold}30`,marginBottom:8,background:T.cream+"40"}}>
-            <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:600}}>{e.name}</div>
+            <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:600,color:T.dark}}>{e.name}</div>
             <div className="kauf-right" style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" min={0} value={einzelPreise[e.key]} onChange={ev=>setEinzelPreise(p=>({...p,[e.key]:Number(ev.target.value)}))} style={inp}/>
-              <span style={{fontSize:12,color:T.textLight}}>€</span>
+              <span style={{fontSize:13,color:T.text}}>€</span>
               <Btn small primary onClick={()=>onKauf("einzel",e,einzelPreise[e.key],eigeneRechnung.trim())}>Hinzufügen</Btn>
             </div>
           </div>
@@ -327,12 +317,20 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
 
   const inp={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"};
 
-  const filtered=patienten.filter(p=>{
-    const q=search.toLowerCase();
-    return `${p.vorname} ${p.nachname} ${p.email}`.toLowerCase().includes(q)
-      ||paesse.some(pk=>pk.pat_id===p.id&&pk.rechnung.toLowerCase().includes(q))
-      ||einzel.some(e=>e.pat_id===p.id&&e.rechnung.toLowerCase().includes(q));
-  });
+  // Alphabetisch sortiert, dann gefiltert
+  const filtered=patienten
+    .slice()
+    .sort((a,b)=>{
+      const na=`${a.nachname} ${a.vorname}`.toLowerCase();
+      const nb=`${b.nachname} ${b.vorname}`.toLowerCase();
+      return na.localeCompare(nb,"de");
+    })
+    .filter(p=>{
+      const q=search.toLowerCase();
+      return `${p.vorname} ${p.nachname} ${p.email}`.toLowerCase().includes(q)
+        ||paesse.some(pk=>pk.pat_id===p.id&&pk.rechnung.toLowerCase().includes(q))
+        ||einzel.some(e=>e.pat_id===p.id&&e.rechnung.toLowerCase().includes(q));
+    });
 
   const patPaesse =selPat?paesse.filter(pk=>pk.pat_id===selPat.id):[];
   const patEinzel =selPat?einzel.filter(e=>e.pat_id===selPat.id).sort((a,b)=>b.datum.localeCompare(a.datum)):[];
@@ -354,30 +352,31 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   };
 
   const handleKauf = async (typ, info, preis, eigeneRechnung) => {
-  setSaving(true);
-  let rechnungStr;
-  if(eigeneRechnung) {
-    rechnungStr = eigeneRechnung;
-  } else {
-    const nr = await getRechnungsNr();
-    rechnungStr = genRechnung(nr);
-  }
-  if(typ==="pass") {
-    const pt = PASS_TYPES[info];
-    const neuerPass = {id:genId(),pat_id:selPat.id,typ:info,he_total:pt.he,he_genutzt:0,bs_total:pt.bs,bs_genutzt:0,preis,rechnung:rechnungStr,bezahlt:false,datum:new Date().toISOString().split("T")[0],aktiv:true};
-    await supabase.from("paesse").insert(neuerPass);
-    setPaesse(prev=>[...prev,neuerPass]);
-  } else {
-    const neuerEinzel = {id:genId(),pat_id:selPat.id,key:info.key,name:info.name,preis,rechnung:rechnungStr,bezahlt:false,datum:new Date().toISOString().split("T")[0]};
-    const neuerLog = {id:genId(),pat_id:selPat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};
-    await supabase.from("einzel").insert(neuerEinzel);
-    await supabase.from("log").insert(neuerLog);
-    setEinzel(prev=>[...prev,neuerEinzel]);
-    setLog(prev=>[...prev,neuerLog]);
-  }
-  setSaving(false);
-  setKaufModal(false);
-};
+    setSaving(true);
+    let rechnungStr;
+    if(eigeneRechnung) {
+      rechnungStr = eigeneRechnung;
+    } else {
+      const nr = await getRechnungsNr();
+      rechnungStr = genRechnung(nr);
+    }
+    if(typ==="pass") {
+      const pt = PASS_TYPES[info];
+      const neuerPass = {id:genId(),pat_id:selPat.id,typ:info,he_total:pt.he,he_genutzt:0,bs_total:pt.bs,bs_genutzt:0,preis,rechnung:rechnungStr,bezahlt:false,datum:new Date().toISOString().split("T")[0],aktiv:true};
+      await supabase.from("paesse").insert(neuerPass);
+      setPaesse(prev=>[...prev,neuerPass]);
+    } else {
+      const neuerEinzel = {id:genId(),pat_id:selPat.id,key:info.key,name:info.name,preis,rechnung:rechnungStr,bezahlt:false,datum:new Date().toISOString().split("T")[0]};
+      const neuerLog = {id:genId(),pat_id:selPat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};
+      await supabase.from("einzel").insert(neuerEinzel);
+      await supabase.from("log").insert(neuerLog);
+      setEinzel(prev=>[...prev,neuerEinzel]);
+      setLog(prev=>[...prev,neuerLog]);
+    }
+    setSaving(false);
+    setKaufModal(false);
+  };
+
   const heAbziehen=async(pass,aktionTyp,aktionLabel)=>{
     if(pass.he_genutzt>=pass.he_total) return;
     const updated={...pass,he_genutzt:pass.he_genutzt+1};
@@ -431,11 +430,12 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     await supabase.from("einzel").update({bezahlt:!e.bezahlt}).eq("id",eid);
     setEinzel(prev=>prev.map(x=>x.id===eid?{...x,bezahlt:!x.bezahlt}:x));
   };
-  
+
   const updatePassRechnung=async(pid,rechnung)=>{
-  await supabase.from("paesse").update({rechnung}).eq("id",pid);
-  setPaesse(prev=>prev.map(p=>p.id===pid?{...p,rechnung}:p));
-};
+    await supabase.from("paesse").update({rechnung}).eq("id",pid);
+    setPaesse(prev=>prev.map(p=>p.id===pid?{...p,rechnung}:p));
+  };
+
   const updatePassPreis=async(pid,preis)=>{
     await supabase.from("paesse").update({preis}).eq("id",pid);
     setPaesse(prev=>prev.map(p=>p.id===pid?{...p,preis}:p));
@@ -458,7 +458,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
       <GlassCard>
         <div style={{textAlign:"center",padding:"24px 8px"}}>
           <div style={{fontSize:40,marginBottom:16}}>📷</div>
-          <p style={{color:T.textLight,marginBottom:20,lineHeight:1.7,fontSize:15}}>Kamera-Scanner wird in der Produktion aktiviert.<br/>Zum Testen QR-Token eingeben:</p>
+          <p style={{color:T.text,marginBottom:20,lineHeight:1.7,fontSize:15}}>Kamera-Scanner wird in der Produktion aktiviert.<br/>Zum Testen QR-Token eingeben:</p>
           <div style={{display:"flex",gap:8,justifyContent:"center",maxWidth:420,margin:"0 auto",flexWrap:"wrap"}}>
             <input value={scanInput} onChange={e=>setScanInput(e.target.value)} placeholder="z.B. KU-A7F3B2C9" onKeyDown={e=>e.key==="Enter"&&handleScan()} style={{...inp,flex:1,fontFamily:"monospace",minWidth:180}}/>
             <Btn primary onClick={handleScan}>Scannen</Btn>
@@ -476,7 +476,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
         <Modal onClose={()=>{setBsModal(null);setBsNotiz("");}}>
           <GlassCard className="modal-box" style={{width:400,background:T.white}}>
             <Heading style={{fontSize:20,marginBottom:4}}>Gruppenangebot abhaken</Heading>
-            <p style={{color:T.textLight,fontSize:14,marginBottom:16}}>Noch {bsModal.bs_total-bsModal.bs_genutzt} von {bsModal.bs_total} übrig</p>
+            <p style={{color:T.text,fontSize:14,marginBottom:16}}>Noch {bsModal.bs_total-bsModal.bs_genutzt} von {bsModal.bs_total} übrig</p>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <input value={bsNotiz} onChange={e=>setBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." style={inp} autoFocus/>
               <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap"}}>
@@ -494,18 +494,18 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
             <Heading style={{fontSize:20,marginBottom:16}}>Korrektur</Heading>
             <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <label style={{fontSize:12,fontWeight:600,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Einheitentyp</label>
+                <label style={{fontSize:13,fontWeight:600,color:T.text,textTransform:"uppercase",letterSpacing:1}}>Einheitentyp</label>
                 <select value={korrekturTyp} onChange={e=>setKorrekturTyp(e.target.value)} style={inp}>
                   <option value="HE">Haupteinheit (HE)</option>
                   <option value="BS">Gruppenangebot (GA)</option>
                 </select>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <label style={{fontSize:12,fontWeight:600,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Anzahl zurückbuchen</label>
+                <label style={{fontSize:13,fontWeight:600,color:T.text,textTransform:"uppercase",letterSpacing:1}}>Anzahl zurückbuchen</label>
                 <input type="number" min={1} max={10} value={korrekturAnzahl} onChange={e=>setKorrekturAnzahl(e.target.value)} style={inp}/>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <label style={{fontSize:12,fontWeight:600,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Grund (optional)</label>
+                <label style={{fontSize:13,fontWeight:600,color:T.text,textTransform:"uppercase",letterSpacing:1}}>Grund (optional)</label>
                 <input value={korrekturGrund} onChange={e=>setKorrekturGrund(e.target.value)} placeholder="z.B. Buchungsfehler..." style={inp}/>
               </div>
               <div style={{display:"flex",gap:8,justifyContent:"flex-end",flexWrap:"wrap",marginTop:4}}>
@@ -530,7 +530,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                   const r = await fetch("/api/shore-sync", {method:"POST"});
                   const data = await r.json();
                   if(data.error) throw new Error(data.error);
-const {data:neuePat} = await supabase.from("patienten").select("*");
+                  const {data:neuePat} = await supabase.from("patienten").select("*");
                   if(neuePat) setPatienten(neuePat);
                   setShoreSyncMsg(`✓ ${data.neu||0} neue Kunden · ${data.gesamt||0} gesamt`);
                 } catch(e) {
@@ -547,16 +547,13 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
               const u=getUnits(p.id);
               const ub=paesse.filter(pk=>pk.pat_id===p.id).some(pk=>!pk.bezahlt)||einzel.filter(e=>e.pat_id===p.id).some(e=>!e.bezahlt);
               return(
- <div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-hover slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"14px 22px",background:T.glassLight,borderRadius:20,border:`1px solid ${T.gold}30`,cursor:"pointer",boxShadow:"0 2px 8px rgba(74,82,64,0.05)"}}>
+                <div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-hover slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"14px 22px",background:T.glassLight,borderRadius:20,border:`1px solid ${T.gold}30`,cursor:"pointer",boxShadow:"0 2px 8px rgba(74,82,64,0.05)"}}>
                   <div className="liste-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <div style={{display:"flex",alignItems:"center",gap:14,minWidth:0}}>
-                      <Avatar name={`${p.vorname} ${p.nachname}`} size={44}/>
-                      <div style={{minWidth:0}}>
-                        <div style={{fontWeight:600,color:T.dark,fontSize:15}}>{p.vorname} {p.nachname}</div>
-                        <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,flexWrap:"wrap"}}>
-                          <span style={{fontSize:13,color:T.textLight}}>{p.email}</span>
-                          {p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}
-                        </div>
+                    <div style={{minWidth:0}}>
+                      <div style={{fontWeight:600,color:T.dark,fontSize:16}}>{p.vorname} {p.nachname}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,flexWrap:"wrap"}}>
+                        <span style={{fontSize:13,color:T.text}}>{p.email}</span>
+                        {p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}
                       </div>
                     </div>
                     <div className="liste-right" style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
@@ -577,7 +574,7 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                       <span className="chevron" style={{color:T.gold,fontSize:20,fontWeight:300}}>›</span>
                     </div>
                   </div>
-</div>
+                </div>
               );
             })}
             {filtered.length===0&&<p style={{textAlign:"center",color:T.textLight,padding:40,fontSize:15}}>Keine Kunden gefunden</p>}
@@ -589,7 +586,6 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
         <div className="fade-in">
           <div className="header-row" style={{display:"flex",alignItems:"center",gap:14,marginBottom:28}}>
             <Btn onClick={()=>setView("liste")}>← Zurück</Btn>
-            <Avatar name={`${selPat.vorname} ${selPat.nachname}`} size={40}/>
             <Heading style={{fontSize:22}}>{selPat.vorname} {selPat.nachname}</Heading>
             {saving&&<span style={{fontSize:12,color:T.gold}}>Speichern...</span>}
           </div>
@@ -602,12 +598,12 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                     ["QR-Code",<code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:12,wordBreak:"break-all"}}>{selPat.qr}</code>],
                     ["Kunde seit",fmtDate(selPat.erstellt)]].map(([label,val])=>(
                     <div key={label} style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
-                      <span style={{color:T.textLight,minWidth:90,flexShrink:0}}>{label}:</span>
-                      <span style={{wordBreak:"break-word"}}>{val}</span>
+                      <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:13}}>{label}:</span>
+                      <span style={{wordBreak:"break-word",color:T.dark,fontSize:14}}>{val}</span>
                     </div>
                   ))}
                   <div className="stammk-row" style={{display:"flex",gap:12,alignItems:"center",paddingTop:10,marginTop:4,borderTop:`1px solid ${T.gold}18`}}>
-                    <span style={{color:T.textLight,minWidth:90,flexShrink:0}}>Stammkunde:</span>
+                    <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:13}}>Stammkunde:</span>
                     <div className="stammk-inner" style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                       {["Ja","Nein"].map(opt=>{
                         const aktiv=opt==="Ja"?!!selPat.stammkunde:!selPat.stammkunde;
@@ -620,9 +616,9 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                       })}
                       {selPat.stammkunde&&(
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontSize:13,color:T.textLight}}>Preis:</span>
+                          <span style={{fontSize:13,color:T.text}}>Preis:</span>
                           <input type="number" min={0} value={selPat.stammpreis} onChange={e=>updatePatient(selPat.id,{stammpreis:e.target.value})} placeholder="z.B. 420" style={{width:90,padding:"5px 10px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:13,background:T.cream,color:T.text,outline:"none"}}/>
-                          <span style={{fontSize:13,color:T.textLight}}>€</span>
+                          <span style={{fontSize:13,color:T.text}}>€</span>
                         </div>
                       )}
                     </div>
@@ -641,10 +637,10 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                   return(
                     <div key={pk.id} style={{borderRadius:16,border:`1px solid ${T.gold}25`,background:T.white+"80",overflow:"hidden",marginBottom:10}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px",borderBottom:`1px solid ${T.gold}18`,background:T.cream+"60",flexWrap:"wrap",gap:8}}>
-                        <strong style={{fontFamily:"Georgia,serif",fontSize:15,color:T.dark}}>Flossenpass {info.name}</strong>
+                        <strong style={{fontFamily:"Georgia,serif",fontSize:16,color:T.dark}}>Flossenpass {info.name}</strong>
                         <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                          <span style={{fontSize:12,color:T.textLight}}>{pk.datum}</span>
-                          <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,fontWeight:700,textTransform:"uppercase",color:pk.bezahlt?T.green:T.red,background:pk.bezahlt?T.green+"15":T.red+"10",padding:"5px 12px",borderRadius:10}}>
+                          <span style={{fontSize:13,color:T.text}}>{pk.datum}</span>
+                          <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,textTransform:"uppercase",color:pk.bezahlt?T.green:T.red,background:pk.bezahlt?T.green+"15":T.red+"10",padding:"5px 12px",borderRadius:10}}>
                             <input type="checkbox" checked={pk.bezahlt} onChange={()=>toggleBezahlt(pk.id)} style={{accentColor:T.green,width:14,height:14}}/>
                             {pk.bezahlt?"Bezahlt":"Offen"}
                           </label>
@@ -654,7 +650,7 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                         {[{label:"Haupteinheiten",used:pk.he_genutzt,total:pk.he_total,left:heL,color:T.dark},{label:"Gruppenangebote",used:pk.bs_genutzt,total:pk.bs_total,left:bsL,color:T.gold}].map((e,ei)=>(
                           <div key={e.label} style={{padding:"12px 18px",borderLeft:ei>0?`1px solid ${T.gold}18`:"none"}}>
                             <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:7}}>
-                              <span style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>{e.label}</span>
+                              <span style={{fontSize:12,color:T.text,textTransform:"uppercase",letterSpacing:1}}>{e.label}</span>
                               <span style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:e.left===0?T.red:T.dark}}>{e.left}<span style={{fontSize:11,fontWeight:400,color:T.textLight}}>/{e.total}</span></span>
                             </div>
                             <Bar used={e.used} total={e.total} color={e.color} h={6}/>
@@ -663,15 +659,15 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                       </div>
                       <div className="pass-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
                         <div style={{padding:"10px 18px"}}>
-                          <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Rechnungs-Nr.</div>
+                          <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Rechnungs-Nr.</div>
                           <input value={pk.rechnung} onChange={e=>updatePassRechnung(pk.id,e.target.value)}
-  style={{fontSize:13,fontWeight:700,background:"transparent",border:`1px solid ${T.gold}40`,borderRadius:8,padding:"2px 8px",color:T.dark,outline:"none",width:150}}/>
+                            style={{fontSize:13,fontWeight:600,background:"transparent",border:`1px solid ${T.gold}40`,borderRadius:8,padding:"2px 8px",color:T.dark,outline:"none",width:150}}/>
                         </div>
                         <div style={{padding:"10px 18px"}}>
-                          <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Preis</div>
+                          <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Preis</div>
                           <div style={{display:"flex",alignItems:"center",gap:4}}>
-                            <input type="number" min={0} value={pk.preis} onChange={e=>updatePassPreis(pk.id,Number(e.target.value))} style={{width:78,padding:"3px 8px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:700,background:"transparent",color:T.dark,outline:"none",textAlign:"right"}}/>
-                            <span style={{fontSize:12,color:T.textLight}}>€</span>
+                            <input type="number" min={0} value={pk.preis} onChange={e=>updatePassPreis(pk.id,Number(e.target.value))} style={{width:78,padding:"3px 8px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:600,background:"transparent",color:T.dark,outline:"none",textAlign:"right"}}/>
+                            <span style={{fontSize:13,color:T.text}}>€</span>
                           </div>
                         </div>
                       </div>
@@ -689,8 +685,8 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                         <div style={{display:"flex",flexDirection:"column",gap:3}}>
                           <span style={{fontSize:14,fontWeight:600,color:T.dark}}>{e.name}</span>
                           <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-                            <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.textLight}}>{e.rechnung}</code>
-                            <span style={{fontSize:12,color:T.textLight}}>{fmtDate(e.datum)}</span>
+                            <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.text}}>{e.rechnung}</code>
+                            <span style={{fontSize:13,color:T.text}}>{fmtDate(e.datum)}</span>
                             <strong style={{fontSize:13,color:T.dark}}>{e.preis} €</strong>
                           </div>
                         </div>
@@ -709,11 +705,11 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                       <div key={pk.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:12,background:T.cream+"60",marginBottom:6,opacity:0.7,flexWrap:"wrap",gap:8}}>
                         <div>
                           <span style={{fontSize:14,fontWeight:600,color:T.dark,fontFamily:"Georgia,serif"}}>Flossenpass {PASS_TYPES[pk.typ].name}</span>
-                          <span style={{fontSize:12,color:T.textLight,marginLeft:8}}>{fmtDate(pk.datum)}</span>
+                          <span style={{fontSize:13,color:T.text,marginLeft:8}}>{fmtDate(pk.datum)}</span>
                         </div>
                         <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                          <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.textLight}}>{pk.rechnung}</code>
-                          <span style={{fontSize:13,color:T.textLight}}>{pk.preis} €</span>
+                          <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.text}}>{pk.rechnung}</code>
+                          <span style={{fontSize:13,color:T.text}}>{pk.preis} €</span>
                           <Badge variant={pk.bezahlt?"cream":"red"} small>{pk.bezahlt?"Bezahlt":"Offen"}</Badge>
                         </div>
                       </div>
@@ -731,9 +727,9 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                     <div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.cream+"80",borderRadius:12,fontSize:14,marginBottom:4,animationDelay:`${i*0.03}s`}}>
                       <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                         <Badge variant={b.v} small>{b.label}</Badge>
-                        <span>{l.notiz}</span>
+                        <span style={{color:T.dark}}>{l.notiz}</span>
                       </div>
-                      <span style={{fontSize:11,color:T.textLight,flexShrink:0,marginLeft:8}}>{fmtDateTime(l.datum)}</span>
+                      <span style={{fontSize:12,color:T.textLight,flexShrink:0,marginLeft:8}}>{fmtDateTime(l.datum)}</span>
                     </div>
                   );
                 })}
@@ -750,8 +746,8 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                 {patLog.filter(l=>l.typ==="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch keine Notizen</p>}
                 {patLog.filter(l=>l.typ==="NOTIZ").map((l,i)=>(
                   <div key={l.id} style={{padding:"10px 14px",background:T.gold+"12",borderRadius:12,fontSize:14,marginBottom:4,borderLeft:`3px solid ${T.gold}`}}>
-                    <div style={{fontSize:11,color:T.textLight,marginBottom:4}}>{fmtDateTime(l.datum)}</div>
-                    <div style={{color:T.text,lineHeight:1.6,wordBreak:"break-word"}}>{l.notiz}</div>
+                    <div style={{fontSize:12,color:T.textLight,marginBottom:4}}>{fmtDateTime(l.datum)}</div>
+                    <div style={{color:T.dark,lineHeight:1.6,wordBreak:"break-word"}}>{l.notiz}</div>
                   </div>
                 ))}
               </GlassCard>
@@ -770,7 +766,7 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                     ["Pass",aktiverPass?`Flossenpass ${PASS_TYPES[aktiverPass.typ].name}`:"–"]].map(([label,val])=>(
                     <div key={label} style={{display:"flex",gap:8,alignItems:"flex-start"}}>
                       <span style={{fontSize:11,color:T.textLight,minWidth:36,flexShrink:0}}>{label}</span>
-                      <span style={{fontSize:12,color:T.dark,fontWeight:500}}>{val}</span>
+                      <span style={{fontSize:13,color:T.dark,fontWeight:500}}>{val}</span>
                     </div>
                   ))}
                 </div>
@@ -791,7 +787,6 @@ const KundenApp = ({kunde,paesse,log,einzel}) => {
   return(
     <div className="fade-in resp-pad" style={{padding:28,maxWidth:580,margin:"0 auto"}}>
       <div style={{textAlign:"center",marginBottom:32}}>
-        <Avatar name={`${kunde.vorname} ${kunde.nachname}`} size={64}/>
         <Heading style={{marginTop:12,fontSize:24}}>Hallo {kunde.vorname}!</Heading>
         <p style={{color:T.textLight,margin:"6px 0 0",fontSize:15}}>Willkommen bei Kaiserufer Home</p>
         <a href="https://kaiserufer.de" target="_blank" rel="noopener noreferrer"
