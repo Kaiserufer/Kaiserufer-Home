@@ -253,100 +253,160 @@ const PassAktionen = ({pass,onHE,onBS,onKorrektur}) => {
   );
 };
 
-const KaufModal = ({selPat,rechnungsNr,onKauf,onClose}) => {
-  const [passPreise,setPassPreise]=useState(Object.fromEntries(Object.entries(PASS_TYPES).map(([k,v])=>[k,v.preis])));
-  const [einzelPreise,setEinzelPreise]=useState(Object.fromEntries(EINZELANGEBOTE.map(e=>[e.key,e.preis])));
-  const [eigeneRechnung,setEigeneRechnung]=useState("");
-  // Individuell
-  const [indivName,setIndivName]=useState("");
-  const [indivHE,setIndivHE]=useState(0);
-  const [indivBS,setIndivBS]=useState(0);
-  const [indivPreis,setIndivPreis]=useState(0);
-  const [indivRechnung,setIndivRechnung]=useState("");
-  const [indivDatum,setIndivDatum]=useState(todayISO());
+const PASS_OPTIONS = [
+  {key:"BASIS",  label:"Basis  – 3 HE · 1 GA",  he:3,  bs:1, preis:299},
+  {key:"PLUS",   label:"Plus   – 5 HE · 3 GA",  he:5,  bs:3, preis:499},
+  {key:"DELUXE", label:"Deluxe – 10 HE · 5 GA", he:10, bs:5, preis:899},
+  {key:"INDIVIDUELL", label:"Individuell",        he:0,  bs:0, preis:0},
+];
+const EINZEL_OPTIONS = EINZELANGEBOTE.map(e=>e.name);
 
-  const inp={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"};
-  const numInp={width:80,padding:"4px 8px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:13,fontWeight:700,background:T.cream,color:T.dark,outline:"none",textAlign:"right"};
-  const labelStyle={fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:1.5,marginBottom:5,display:"block"};
+const KaufModal = ({selPat,onKauf,onClose}) => {
+  // Flossenpass state
+  const [passTyp,setPassTyp]=useState("BASIS");
+  const [passHE,setPassHE]=useState(3);
+  const [passBS,setPassBS]=useState(1);
+  const [passPreis,setPassPreis]=useState(299);
+  const [passRechnung,setPassRechnung]=useState("");
+  const [passDatum,setPassDatum]=useState(todayISO());
+  const [passName,setPassName]=useState("");
+
+  // Einzelangebot state
+  const [einzelSel,setEinzelSel]=useState(EINZELANGEBOTE[0].name);
+  const [einzelCustom,setEinzelCustom]=useState("");
+  const [einzelPreis,setEinzelPreis]=useState(EINZELANGEBOTE[0].preis);
+  const [einzelRechnung,setEinzelRechnung]=useState("");
+  const [einzelDatum,setEinzelDatum]=useState(todayISO());
+
+  const inp={width:"100%",padding:"9px 12px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.dark,outline:"none"};
+  const lbl={fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:1.5,marginBottom:5,display:"block"};
+
+  const onPassTypChange=(key)=>{
+    const opt=PASS_OPTIONS.find(p=>p.key===key);
+    setPassTyp(key);
+    if(key!=="INDIVIDUELL"){setPassHE(opt.he);setPassBS(opt.bs);setPassPreis(opt.preis);}
+    else{setPassHE(0);setPassBS(0);setPassPreis(0);}
+  };
+
+  const onEinzelSelChange=(name)=>{
+    setEinzelSel(name);
+    const found=EINZELANGEBOTE.find(e=>e.name===name);
+    if(found) setEinzelPreis(found.preis);
+    else setEinzelPreis(0);
+  };
+
+  const submitPass=()=>{
+    if(passTyp==="INDIVIDUELL"){
+      onKauf("individuell",{name:passName||"Individuell",he:passHE,bs:passBS,datum:passDatum,rechnung:passRechnung.trim()},passPreis,"");
+    } else {
+      onKauf("pass",passTyp,passPreis,passRechnung.trim(),passDatum);
+    }
+  };
+
+  const submitEinzel=()=>{
+    const name=einzelCustom.trim()||einzelSel;
+    const found=EINZELANGEBOTE.find(e=>e.name===einzelSel);
+    const key=einzelCustom.trim()?("CUSTOM_"+einzelCustom.trim().toUpperCase().replace(/\s+/g,"_")):found?.key||"CUSTOM";
+    onKauf("einzel",{key,name},einzelPreis,einzelRechnung.trim(),einzelDatum);
+  };
+
+  const row2={display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12};
+  const row3={display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12};
 
   return(
     <Modal onClose={onClose}>
-      <div className="modal-box" style={{background:T.white,borderRadius:24,padding:32,width:540,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
+      <div className="modal-box" style={{background:T.white,borderRadius:24,padding:28,width:500,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
         <Heading style={{marginBottom:4,fontSize:20}}>Angebot hinzufügen</Heading>
-        <p style={{color:T.text,fontSize:14,marginBottom:16}}>für {selPat?.vorname} {selPat?.nachname}{selPat?.stammkunde?" · Stammkunde":""}</p>
-        {selPat?.stammkunde&&selPat?.stammpreis&&<p style={{fontSize:13,color:T.gold,marginBottom:12}}>Stammpreis: <strong>{selPat.stammpreis} €</strong></p>}
+        <p style={{color:T.text,fontSize:14,marginBottom:20}}>für <strong>{selPat?.vorname} {selPat?.nachname}</strong>{selPat?.stammkunde?" · Stammkunde":""}{selPat?.stammkunde&&selPat?.stammpreis?` · Stammpreis: ${selPat.stammpreis} €`:""}</p>
 
-        {/* Rechnungsnummer für Standard-Pässe */}
-        <div style={{marginBottom:20,padding:"12px 16px",borderRadius:12,background:T.cream+"60",border:`1px solid ${T.gold}25`}}>
-          <label style={labelStyle}>Rechnungsnummer für Flossenpass (optional – leer = automatisch)</label>
-          <input value={eigeneRechnung} onChange={e=>setEigeneRechnung(e.target.value)} placeholder="z.B. RE-2025-0042" style={{...inp,fontSize:13}}/>
-        </div>
+        {/* ── Flossenpass ── */}
+        <div style={{background:T.cream+"60",borderRadius:16,padding:18,border:`1px solid ${T.gold}30`,marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:14}}>Flossenpass</div>
 
-        {/* Standard Flossenpässe */}
-        <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Flossenpässe</div>
-        {Object.entries(PASS_TYPES).map(([k,v])=>(
-          <div key={k} className="kauf-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderRadius:14,border:`1px solid ${T.gold}30`,marginBottom:8,background:T.cream+"40"}}>
-            <div>
-              <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:600,color:T.dark}}>Flossenpass {v.name}</div>
-              <div style={{fontSize:13,color:T.text,marginTop:2}}>{v.he} HE · {v.bs} GA</div>
+          <div style={{marginBottom:12}}>
+            <label style={lbl}>Typ auswählen</label>
+            <select value={passTyp} onChange={e=>onPassTypChange(e.target.value)} style={inp}>
+              {PASS_OPTIONS.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </div>
+
+          {passTyp==="INDIVIDUELL"&&(
+            <div style={{marginBottom:12}}>
+              <label style={lbl}>Bezeichnung</label>
+              <input value={passName} onChange={e=>setPassName(e.target.value)} placeholder="z.B. Flossenpass Special" style={inp}/>
             </div>
-            <div className="kauf-right" style={{display:"flex",alignItems:"center",gap:8}}>
-              <input type="number" min={0} value={passPreise[k]} onChange={e=>setPassPreise(p=>({...p,[k]:Number(e.target.value)}))} style={numInp}/>
-              <span style={{fontSize:13,color:T.text}}>€</span>
-              <Btn small primary onClick={()=>onKauf("pass",k,passPreise[k],eigeneRechnung.trim())}>Hinzufügen</Btn>
+          )}
+
+          <div style={row3}>
+            <div>
+              <label style={lbl}>HE gesamt</label>
+              <input type="number" min={0} value={passHE} onChange={e=>setPassHE(Number(e.target.value))} style={inp}/>
+            </div>
+            <div>
+              <label style={lbl}>GA gesamt</label>
+              <input type="number" min={0} value={passBS} onChange={e=>setPassBS(Number(e.target.value))} style={inp}/>
+            </div>
+            <div>
+              <label style={lbl}>Preis (€)</label>
+              <input type="number" min={0} value={passPreis} onChange={e=>setPassPreis(Number(e.target.value))} style={inp}/>
             </div>
           </div>
-        ))}
 
-        {/* Individuell */}
-        <div style={{margin:"20px 0 10px",fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2}}>Flossenpass Individuell</div>
-        <div style={{padding:"16px",borderRadius:14,border:`1px solid ${T.gold}40`,background:T.cream+"40"}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+          <div style={row2}>
             <div>
-              <label style={labelStyle}>Name / Bezeichnung</label>
-              <input value={indivName} onChange={e=>setIndivName(e.target.value)} placeholder="z.B. Flossenpass Special" style={{...inp,fontSize:13}}/>
+              <label style={lbl}>Rechnungs-Nr. (optional)</label>
+              <input value={passRechnung} onChange={e=>setPassRechnung(e.target.value)} placeholder="leer = automatisch" style={inp}/>
             </div>
             <div>
-              <label style={labelStyle}>Rechnungsnummer</label>
-              <input value={indivRechnung} onChange={e=>setIndivRechnung(e.target.value)} placeholder="z.B. RE-2025-0042" style={{...inp,fontSize:13}}/>
+              <label style={lbl}>Datum</label>
+              <input type="date" value={passDatum} onChange={e=>setPassDatum(e.target.value)} style={inp}/>
             </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
-            <div>
-              <label style={labelStyle}>HE gesamt</label>
-              <input type="number" min={0} value={indivHE} onChange={e=>setIndivHE(Number(e.target.value))} style={{...inp,fontSize:14,fontWeight:700}}/>
-            </div>
-            <div>
-              <label style={labelStyle}>GA gesamt</label>
-              <input type="number" min={0} value={indivBS} onChange={e=>setIndivBS(Number(e.target.value))} style={{...inp,fontSize:14,fontWeight:700}}/>
-            </div>
-            <div>
-              <label style={labelStyle}>Preis (€)</label>
-              <input type="number" min={0} value={indivPreis} onChange={e=>setIndivPreis(Number(e.target.value))} style={{...inp,fontSize:14,fontWeight:700}}/>
-            </div>
-            <div>
-              <label style={labelStyle}>Datum</label>
-              <input type="date" value={indivDatum} onChange={e=>setIndivDatum(e.target.value)} style={{...inp,fontSize:13}}/>
-            </div>
-          </div>
+
           <div style={{display:"flex",justifyContent:"flex-end"}}>
-            <Btn small primary onClick={()=>onKauf("individuell",{name:indivName||"Individuell",he:indivHE,bs:indivBS,datum:indivDatum,rechnung:indivRechnung.trim()},indivPreis,"")}>Hinzufügen</Btn>
+            <Btn primary onClick={submitPass}>Flossenpass hinzufügen</Btn>
           </div>
         </div>
 
-        {/* Einzelangebote */}
-        <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,margin:"20px 0 10px"}}>Einzelangebote</div>
-        {EINZELANGEBOTE.map(e=>(
-          <div key={e.key} className="kauf-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderRadius:14,border:`1px solid ${T.gold}30`,marginBottom:8,background:T.cream+"40"}}>
-            <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:600,color:T.dark}}>{e.name}</div>
-            <div className="kauf-right" style={{display:"flex",alignItems:"center",gap:8}}>
-              <input type="number" min={0} value={einzelPreise[e.key]} onChange={ev=>setEinzelPreise(p=>({...p,[e.key]:Number(ev.target.value)}))} style={numInp}/>
-              <span style={{fontSize:13,color:T.text}}>€</span>
-              <Btn small primary onClick={()=>onKauf("einzel",e,einzelPreise[e.key],eigeneRechnung.trim())}>Hinzufügen</Btn>
+        {/* ── Einzelangebot ── */}
+        <div style={{background:T.cream+"60",borderRadius:16,padding:18,border:`1px solid ${T.gold}30`}}>
+          <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:14}}>Einzelangebot</div>
+
+          <div style={row2}>
+            <div>
+              <label style={lbl}>Auswählen</label>
+              <select value={einzelSel} onChange={e=>onEinzelSelChange(e.target.value)} style={inp}>
+                {EINZEL_OPTIONS.map(n=><option key={n}>{n}</option>)}
+                <option value="__custom__">Eigene Eingabe …</option>
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Oder eigener Name</label>
+              <input value={einzelCustom} onChange={e=>setEinzelCustom(e.target.value)} placeholder="z.B. Sondersitzung" style={inp}/>
             </div>
           </div>
-        ))}
-        <div style={{marginTop:20,textAlign:"right"}}><Btn onClick={onClose}>Abbrechen</Btn></div>
+
+          <div style={row3}>
+            <div>
+              <label style={lbl}>Preis (€)</label>
+              <input type="number" min={0} value={einzelPreis} onChange={e=>setEinzelPreis(Number(e.target.value))} style={inp}/>
+            </div>
+            <div>
+              <label style={lbl}>Rechnungs-Nr.</label>
+              <input value={einzelRechnung} onChange={e=>setEinzelRechnung(e.target.value)} placeholder="optional" style={inp}/>
+            </div>
+            <div>
+              <label style={lbl}>Datum</label>
+              <input type="date" value={einzelDatum} onChange={e=>setEinzelDatum(e.target.value)} style={inp}/>
+            </div>
+          </div>
+
+          <div style={{display:"flex",justifyContent:"flex-end"}}>
+            <Btn primary onClick={submitEinzel}>Einzelangebot hinzufügen</Btn>
+          </div>
+        </div>
+
+        <div style={{marginTop:16,textAlign:"right"}}><Btn onClick={onClose}>Abbrechen</Btn></div>
       </div>
     </Modal>
   );
@@ -404,34 +464,24 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     return nr;
   };
 
-  const handleKauf = async (typ, info, preis, eigeneRechnung) => {
+  const handleKauf = async (typ, info, preis, eigeneRechnung, datum) => {
     setSaving(true);
+    const datumStr = datum || todayISO();
     let rechnungStr;
     if(typ==="individuell") {
-      // individuell has its own rechnung in info
       rechnungStr = info.rechnung || genRechnung(await getRechnungsNr());
-      const neuerPass = {
-        id:genId(),pat_id:selPat.id,
-        typ:"INDIVIDUELL",
-        he_total:info.he,he_genutzt:0,
-        bs_total:info.bs,bs_genutzt:0,
-        preis,rechnung:rechnungStr,
-        bezahlt:false,
-        datum:info.datum||todayISO(),
-        aktiv:true,
-        custom_name:info.name
-      };
+      const neuerPass = {id:genId(),pat_id:selPat.id,typ:"INDIVIDUELL",he_total:info.he,he_genutzt:0,bs_total:info.bs,bs_genutzt:0,preis,rechnung:rechnungStr,bezahlt:false,datum:info.datum||datumStr,aktiv:true,custom_name:info.name};
       await supabase.from("paesse").insert(neuerPass);
       setPaesse(prev=>[...prev,neuerPass]);
     } else if(typ==="pass") {
       rechnungStr = eigeneRechnung || genRechnung(await getRechnungsNr());
       const pt = PASS_TYPES[info];
-      const neuerPass = {id:genId(),pat_id:selPat.id,typ:info,he_total:pt.he,he_genutzt:0,bs_total:pt.bs,bs_genutzt:0,preis,rechnung:rechnungStr,bezahlt:false,datum:todayISO(),aktiv:true};
+      const neuerPass = {id:genId(),pat_id:selPat.id,typ:info,he_total:pt.he,he_genutzt:0,bs_total:pt.bs,bs_genutzt:0,preis,rechnung:rechnungStr,bezahlt:false,datum:datumStr,aktiv:true};
       await supabase.from("paesse").insert(neuerPass);
       setPaesse(prev=>[...prev,neuerPass]);
     } else {
       rechnungStr = eigeneRechnung || genRechnung(await getRechnungsNr());
-      const neuerEinzel = {id:genId(),pat_id:selPat.id,key:info.key,name:info.name,preis,rechnung:rechnungStr,bezahlt:false,datum:todayISO()};
+      const neuerEinzel = {id:genId(),pat_id:selPat.id,key:info.key,name:info.name,preis,rechnung:rechnungStr,bezahlt:false,datum:datumStr};
       const neuerLog = {id:genId(),pat_id:selPat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};
       await supabase.from("einzel").insert(neuerEinzel);
       await supabase.from("log").insert(neuerLog);
