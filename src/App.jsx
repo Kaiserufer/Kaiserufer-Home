@@ -232,23 +232,37 @@ const StatistikPanel = ({patienten,paesse,einzelArr}) => {
 
 const PassAktionen = ({pass,onHE,onBS,onKorrektur}) => {
   const heL=pass.he_total-pass.he_genutzt,bsL=pass.bs_total-pass.bs_genutzt;
+  const [showMore,setShowMore]=useState(false);
   const row=(dis,red)=>({display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 14px",borderRadius:12,border:`1px solid ${red?T.red+"20":T.gold+"25"}`,background:red?T.red+"08":T.white+"80",cursor:dis?"not-allowed":"pointer",opacity:dis?0.35:1,width:"100%",textAlign:"left"});
   return(
     <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:14,paddingTop:14,borderTop:`1px solid ${T.gold}18`}}>
-      <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:2}}>Einheit abziehen</div>
-      {HE_ACTIONS.map(a=>(
-        <button key={a.key} disabled={heL===0} onClick={()=>onHE(pass,a.key,a.label)} className="btn-anim" style={row(heL===0,false)}>
-          <span style={{fontSize:14,fontWeight:500,color:T.dark}}>{a.label}</span>
-          <span style={{fontSize:12,color:T.textLight}}>HE −1</span>
-        </button>
-      ))}
-      <button disabled={bsL===0} onClick={()=>onBS(pass)} className="btn-anim" style={row(bsL===0,false)}>
-        <span style={{fontSize:14,fontWeight:500,color:T.dark}}>Gruppenangebot</span>
-        <span style={{fontSize:12,color:T.textLight}}>GA −1</span>
+      {/* Haupt-Button */}
+      <button
+        disabled={heL===0}
+        onClick={()=>onHE(pass,"HAUPTEINHEIT","Haupteinheit")}
+        className="btn-anim"
+        style={{width:"100%",padding:"14px 20px",borderRadius:14,border:"none",background:heL===0?T.dark+"20":T.dark,color:heL===0?T.textLight:T.cream,cursor:heL===0?"not-allowed":"pointer",opacity:heL===0?0.4:1,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:heL===0?"none":`0 4px 16px ${T.dark}25`}}
+      >
+        <span style={{fontSize:15,fontWeight:700,letterSpacing:0.3}}>✓ Termin war heute</span>
+        <span style={{fontSize:13,fontWeight:600,background:"rgba(255,255,255,0.15)",padding:"3px 10px",borderRadius:8}}>HE −1 · noch {heL-1 < 0 ? 0 : heL-1} übrig</span>
       </button>
-      <button onClick={()=>onKorrektur(pass)} className="btn-anim" style={row(false,true)}>
-        <span style={{fontSize:14,fontWeight:500,color:T.red}}>Korrektur / Einheit hinzufügen</span>
+
+      {/* Weitere Aktionen aufklappbar */}
+      <button onClick={()=>setShowMore(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.textLight,textAlign:"left",padding:"2px 4px",letterSpacing:0.5}}>
+        {showMore?"▲ weniger":"▼ weitere Aktionen"}
       </button>
+
+      {showMore&&(
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          <button disabled={bsL===0} onClick={()=>onBS(pass)} className="btn-anim" style={row(bsL===0,false)}>
+            <span style={{fontSize:14,fontWeight:500,color:T.dark}}>Gruppenangebot abhaken</span>
+            <span style={{fontSize:12,color:T.textLight}}>GA −1 · noch {bsL} übrig</span>
+          </button>
+          <button onClick={()=>onKorrektur(pass)} className="btn-anim" style={row(false,true)}>
+            <span style={{fontSize:14,fontWeight:500,color:T.red}}>Korrektur / Einheit hinzufügen</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
