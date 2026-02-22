@@ -230,39 +230,19 @@ const StatistikPanel = ({patienten,paesse,einzelArr}) => {
   );
 };
 
-const PassAktionen = ({pass,onHE,onBS,onKorrektur}) => {
-  const heL=pass.he_total-pass.he_genutzt,bsL=pass.bs_total-pass.bs_genutzt;
-  const [showMore,setShowMore]=useState(false);
+const PassAktionen = ({pass,onBS,onKorrektur}) => {
+  const bsL=pass.bs_total-pass.bs_genutzt;
   const row=(dis,red)=>({display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 14px",borderRadius:12,border:`1px solid ${red?T.red+"20":T.gold+"25"}`,background:red?T.red+"08":T.white+"80",cursor:dis?"not-allowed":"pointer",opacity:dis?0.35:1,width:"100%",textAlign:"left"});
   return(
-    <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:14,paddingTop:14,borderTop:`1px solid ${T.gold}18`}}>
-      {/* Haupt-Button */}
-      <button
-        disabled={heL===0}
-        onClick={()=>onHE(pass,"HAUPTEINHEIT","Haupteinheit")}
-        className="btn-anim"
-        style={{width:"100%",padding:"14px 20px",borderRadius:14,border:"none",background:heL===0?T.dark+"20":T.dark,color:heL===0?T.textLight:T.cream,cursor:heL===0?"not-allowed":"pointer",opacity:heL===0?0.4:1,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:heL===0?"none":`0 4px 16px ${T.dark}25`}}
-      >
-        <span style={{fontSize:15,fontWeight:700,letterSpacing:0.3}}>✓ Termin war heute</span>
-        <span style={{fontSize:13,fontWeight:600,background:"rgba(255,255,255,0.15)",padding:"3px 10px",borderRadius:8}}>HE −1 · noch {heL-1 < 0 ? 0 : heL-1} übrig</span>
+    <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:14,paddingTop:14,borderTop:`1px solid ${T.gold}18`}}>
+      <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:2}}>Weitere Aktionen</div>
+      <button disabled={bsL===0} onClick={()=>onBS(pass)} className="btn-anim" style={row(bsL===0,false)}>
+        <span style={{fontSize:14,fontWeight:500,color:T.dark}}>Gruppenangebot abhaken</span>
+        <span style={{fontSize:12,color:T.textLight}}>GA −1 · noch {bsL} übrig</span>
       </button>
-
-      {/* Weitere Aktionen aufklappbar */}
-      <button onClick={()=>setShowMore(v=>!v)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.textLight,textAlign:"left",padding:"2px 4px",letterSpacing:0.5}}>
-        {showMore?"▲ weniger":"▼ weitere Aktionen"}
+      <button onClick={()=>onKorrektur(pass)} className="btn-anim" style={row(false,true)}>
+        <span style={{fontSize:14,fontWeight:500,color:T.red}}>Korrektur / Einheit hinzufügen</span>
       </button>
-
-      {showMore&&(
-        <div style={{display:"flex",flexDirection:"column",gap:6}}>
-          <button disabled={bsL===0} onClick={()=>onBS(pass)} className="btn-anim" style={row(bsL===0,false)}>
-            <span style={{fontSize:14,fontWeight:500,color:T.dark}}>Gruppenangebot abhaken</span>
-            <span style={{fontSize:12,color:T.textLight}}>GA −1 · noch {bsL} übrig</span>
-          </button>
-          <button onClick={()=>onKorrektur(pass)} className="btn-anim" style={row(false,true)}>
-            <span style={{fontSize:14,fontWeight:500,color:T.red}}>Korrektur / Einheit hinzufügen</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 };
@@ -744,16 +724,40 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                         <span style={{wordBreak:"break-word",color:T.dark,fontSize:14}}>{val}</span>
                       </div>
                     ))}
-                    {/* Einheiten übrig */}
-                    <div style={{marginTop:8,paddingTop:10,borderTop:`1px solid ${T.gold}18`,display:"flex",gap:20,flexWrap:"wrap"}}>
-                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.red+"10",borderRadius:12,padding:"8px 18px",border:`1px solid ${T.red}20`}}>
-                        <span style={{fontSize:26,fontWeight:700,color:T.red,fontFamily:"Georgia,serif"}}>{heUebrig}</span>
-                        <span style={{fontSize:11,color:T.red,textTransform:"uppercase",letterSpacing:1,marginTop:2}}>HE übrig</span>
+                    {/* Einheiten übrig + Termin-Buttons */}
+                    <div style={{marginTop:8,paddingTop:10,borderTop:`1px solid ${T.gold}18`}}>
+                      <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:12}}>
+                        <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.red+"10",borderRadius:12,padding:"8px 18px",border:`1px solid ${T.red}20`}}>
+                          <span style={{fontSize:26,fontWeight:700,color:T.red,fontFamily:"Georgia,serif"}}>{heUebrig}</span>
+                          <span style={{fontSize:11,color:T.red,textTransform:"uppercase",letterSpacing:1,marginTop:2}}>HE übrig</span>
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.red+"10",borderRadius:12,padding:"8px 18px",border:`1px solid ${T.red}20`}}>
+                          <span style={{fontSize:26,fontWeight:700,color:T.red,fontFamily:"Georgia,serif"}}>{bsUebrig}</span>
+                          <span style={{fontSize:11,color:T.red,textTransform:"uppercase",letterSpacing:1,marginTop:2}}>GA übrig</span>
+                        </div>
                       </div>
-                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.red+"10",borderRadius:12,padding:"8px 18px",border:`1px solid ${T.red}20`}}>
-                        <span style={{fontSize:26,fontWeight:700,color:T.red,fontFamily:"Georgia,serif"}}>{bsUebrig}</span>
-                        <span style={{fontSize:11,color:T.red,textTransform:"uppercase",letterSpacing:1,marginTop:2}}>GA übrig</span>
-                      </div>
+                      {aktiverPass&&(
+                        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                          <button
+                            disabled={heUebrig===0}
+                            onClick={()=>heAbziehen(aktiverPass,"HAUPTEINHEIT","Haupteinheit")}
+                            className="btn-anim"
+                            style={{flex:1,minWidth:160,padding:"14px 16px",borderRadius:18,border:"none",background:heUebrig===0?T.dark+"20":T.dark,color:heUebrig===0?T.textLight:T.cream,cursor:heUebrig===0?"not-allowed":"pointer",opacity:heUebrig===0?0.4:1,fontWeight:700,fontSize:14,boxShadow:heUebrig===0?"none":`0 4px 16px ${T.dark}25`,lineHeight:1.3}}
+                          >
+                            ✓ Termin war heute<br/>
+                            <span style={{fontSize:11,fontWeight:400,opacity:0.75}}>Haupteinheit −1</span>
+                          </button>
+                          <button
+                            disabled={bsUebrig===0}
+                            onClick={()=>setBsModal(aktiverPass)}
+                            className="btn-anim"
+                            style={{flex:1,minWidth:160,padding:"14px 16px",borderRadius:18,border:`2px solid ${T.gold}`,background:bsUebrig===0?T.gold+"10":"transparent",color:bsUebrig===0?T.textLight:T.dark,cursor:bsUebrig===0?"not-allowed":"pointer",opacity:bsUebrig===0?0.4:1,fontWeight:700,fontSize:14,boxShadow:"none",lineHeight:1.3}}
+                          >
+                            ✓ Termin war heute<br/>
+                            <span style={{fontSize:11,fontWeight:400,opacity:0.75}}>Gruppenangebot −1</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                     {/* Stammkunde */}
                     <div className="stammk-row" style={{display:"flex",gap:12,alignItems:"center",paddingTop:10,marginTop:4,borderTop:`1px solid ${T.gold}18`}}>
