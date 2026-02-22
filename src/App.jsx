@@ -10,15 +10,17 @@ const T = {
 };
 
 const PASS_TYPES = {
-  BASIS:  {name:"Basis", he:3, bs:1, preis:299},
-  PLUS:   {name:"Plus",  he:5, bs:3, preis:499},
-  DELUXE: {name:"Deluxe",he:10,bs:5, preis:899},
+  BASIS:  {name:"Basis",  he:3,  bs:1, preis:299},
+  PLUS:   {name:"Plus",   he:5,  bs:3, preis:499},
+  DELUXE: {name:"Deluxe", he:10, bs:5, preis:899},
 };
 
+const getPassName = (typ) => PASS_TYPES[typ]?.name ?? "Individuell";
+
 const EINZELANGEBOTE = [
-  {key:"QUICKIE",      name:"Psycho Quickie",        preis:70 },
-  {key:"TDCS",         name:"tDCS",                  preis:55 },
-  {key:"NEUROFEEDBACK",name:"Neurofeedback 5er Karte",preis:350},
+  {key:"QUICKIE",      name:"Psycho Quickie",         preis:70 },
+  {key:"TDCS",         name:"tDCS",                   preis:55 },
+  {key:"NEUROFEEDBACK",name:"Neurofeedback 5er Karte", preis:350},
 ];
 
 const HE_ACTIONS = [{key:"HAUPTEINHEIT",label:"Haupteinheit"}];
@@ -27,13 +29,14 @@ const genId = () => Math.random().toString(36).substr(2,9);
 const genRechnung = (n) => `KU-2026-${String(n).padStart(4,"0")}`;
 const fmtDate = (d) => new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
 const fmtDateTime = (d) => new Date(d).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+const todayISO = () => new Date().toISOString().split("T")[0];
 
 const css = `
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   @keyframes slideIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
   @keyframes spin{to{transform:rotate(360deg)}}
-.glass{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-.glass-dark{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .glass{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  .glass-dark{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
   .card-hover{transition:all 0.3s cubic-bezier(0.4,0,0.2,1)}
   .card-hover:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(74,82,64,0.12)}
   .btn-anim{transition:all 0.2s cubic-bezier(0.4,0,0.2,1)}
@@ -48,6 +51,7 @@ const css = `
     .stat-grid-2{grid-template-columns:1fr!important}
     .akte-grid{grid-template-columns:1fr!important}
     .pass-2col{grid-template-columns:1fr!important}
+    .pass-3col{grid-template-columns:1fr!important}
     .kunden-units{grid-template-columns:1fr!important}
     .kunden-btns{grid-template-columns:1fr!important}
     .liste-row{flex-direction:column!important;align-items:flex-start!important;gap:10px!important}
@@ -114,10 +118,9 @@ const Heading = ({children,style}) => (
 );
 
 const QRCode = ({value,size=120}) => (
-  <img 
+  <img
     src={`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=https://kaiserufer-home.vercel.app?token=${value}`}
-    width={size} height={size} style={{borderRadius:12}}
-    alt="QR Code"
+    width={size} height={size} style={{borderRadius:12}} alt="QR Code"
   />
 );
 
@@ -175,9 +178,9 @@ const LoginModal = ({onLogin,onClose}) => {
 const StatistikPanel = ({patienten,paesse,einzelArr}) => {
   const kl=patienten.filter(p=>p.kennenlern).length,kv=patienten.filter(p=>p.konvertiert).length;
   const offene=paesse.filter(p=>!p.bezahlt).length+einzelArr.filter(e=>!e.bezahlt).length;
-  const aktive=paesse.filter(p=>p.aktiv).length;
-  const tHE=paesse.filter(p=>p.aktiv).reduce((s,p)=>s+p.he_total,0),gHE=paesse.filter(p=>p.aktiv).reduce((s,p)=>s+p.he_genutzt,0);
-  const tBS=paesse.filter(p=>p.aktiv).reduce((s,p)=>s+p.bs_total,0),gBS=paesse.filter(p=>p.aktiv).reduce((s,p)=>s+p.bs_genutzt,0);
+  const aktive=paesse.filter(p=>p.he_genutzt<p.he_total||p.bs_genutzt<p.bs_total).length;
+  const tHE=paesse.filter(p=>p.he_genutzt<p.he_total).reduce((s,p)=>s+p.he_total,0),gHE=paesse.filter(p=>p.he_genutzt<p.he_total).reduce((s,p)=>s+p.he_genutzt,0);
+  const tBS=paesse.filter(p=>p.bs_genutzt<p.bs_total).reduce((s,p)=>s+p.bs_total,0),gBS=paesse.filter(p=>p.bs_genutzt<p.bs_total).reduce((s,p)=>s+p.bs_genutzt,0);
   const umsatz=paesse.reduce((s,p)=>s+p.preis,0)+einzelArr.reduce((s,e)=>s+e.preis,0);
   const bezahlt=paesse.filter(p=>p.bezahlt).reduce((s,p)=>s+p.preis,0)+einzelArr.filter(e=>e.bezahlt).reduce((s,e)=>s+e.preis,0);
   return(
@@ -254,37 +257,90 @@ const KaufModal = ({selPat,rechnungsNr,onKauf,onClose}) => {
   const [passPreise,setPassPreise]=useState(Object.fromEntries(Object.entries(PASS_TYPES).map(([k,v])=>[k,v.preis])));
   const [einzelPreise,setEinzelPreise]=useState(Object.fromEntries(EINZELANGEBOTE.map(e=>[e.key,e.preis])));
   const [eigeneRechnung,setEigeneRechnung]=useState("");
-  const inp={width:80,padding:"4px 8px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:13,fontWeight:700,background:T.cream,color:T.dark,outline:"none",textAlign:"right"};
+  // Individuell
+  const [indivName,setIndivName]=useState("");
+  const [indivHE,setIndivHE]=useState(0);
+  const [indivBS,setIndivBS]=useState(0);
+  const [indivPreis,setIndivPreis]=useState(0);
+  const [indivRechnung,setIndivRechnung]=useState("");
+  const [indivDatum,setIndivDatum]=useState(todayISO());
+
+  const inp={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"};
+  const numInp={width:80,padding:"4px 8px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:13,fontWeight:700,background:T.cream,color:T.dark,outline:"none",textAlign:"right"};
+  const labelStyle={fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:1.5,marginBottom:5,display:"block"};
+
   return(
     <Modal onClose={onClose}>
-      <div className="modal-box" style={{background:T.white,borderRadius:24,padding:32,width:520,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
+      <div className="modal-box" style={{background:T.white,borderRadius:24,padding:32,width:540,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
         <Heading style={{marginBottom:4,fontSize:20}}>Angebot hinzufügen</Heading>
-        <p style={{color:T.text,fontSize:14,marginBottom:12}}>für {selPat?.vorname} {selPat?.nachname}{selPat?.stammkunde?" · Stammkunde":""}</p>
+        <p style={{color:T.text,fontSize:14,marginBottom:16}}>für {selPat?.vorname} {selPat?.nachname}{selPat?.stammkunde?" · Stammkunde":""}</p>
         {selPat?.stammkunde&&selPat?.stammpreis&&<p style={{fontSize:13,color:T.gold,marginBottom:12}}>Stammpreis: <strong>{selPat.stammpreis} €</strong></p>}
-        <div style={{marginBottom:20}}>
-          <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:6}}>Rechnungsnummer (optional)</div>
-          <input value={eigeneRechnung} onChange={e=>setEigeneRechnung(e.target.value)} placeholder="z.B. RE-2025-0042  (leer = automatisch)" style={{width:"100%",padding:"8px 12px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:13,background:T.cream,color:T.dark,outline:"none"}}/>
+
+        {/* Rechnungsnummer für Standard-Pässe */}
+        <div style={{marginBottom:20,padding:"12px 16px",borderRadius:12,background:T.cream+"60",border:`1px solid ${T.gold}25`}}>
+          <label style={labelStyle}>Rechnungsnummer für Flossenpass (optional – leer = automatisch)</label>
+          <input value={eigeneRechnung} onChange={e=>setEigeneRechnung(e.target.value)} placeholder="z.B. RE-2025-0042" style={{...inp,fontSize:13}}/>
         </div>
+
+        {/* Standard Flossenpässe */}
         <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Flossenpässe</div>
         {Object.entries(PASS_TYPES).map(([k,v])=>(
           <div key={k} className="kauf-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderRadius:14,border:`1px solid ${T.gold}30`,marginBottom:8,background:T.cream+"40"}}>
             <div>
               <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:600,color:T.dark}}>Flossenpass {v.name}</div>
-              <div style={{fontSize:13,color:T.text,marginTop:2}}>{v.he} Haupteinheiten · {v.bs} Gruppenangebot{v.bs!==1?"e":""}</div>
+              <div style={{fontSize:13,color:T.text,marginTop:2}}>{v.he} HE · {v.bs} GA</div>
             </div>
             <div className="kauf-right" style={{display:"flex",alignItems:"center",gap:8}}>
-              <input type="number" min={0} value={passPreise[k]} onChange={e=>setPassPreise(p=>({...p,[k]:Number(e.target.value)}))} style={inp}/>
+              <input type="number" min={0} value={passPreise[k]} onChange={e=>setPassPreise(p=>({...p,[k]:Number(e.target.value)}))} style={numInp}/>
               <span style={{fontSize:13,color:T.text}}>€</span>
               <Btn small primary onClick={()=>onKauf("pass",k,passPreise[k],eigeneRechnung.trim())}>Hinzufügen</Btn>
             </div>
           </div>
         ))}
+
+        {/* Individuell */}
+        <div style={{margin:"20px 0 10px",fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2}}>Flossenpass Individuell</div>
+        <div style={{padding:"16px",borderRadius:14,border:`1px solid ${T.gold}40`,background:T.cream+"40"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+            <div>
+              <label style={labelStyle}>Name / Bezeichnung</label>
+              <input value={indivName} onChange={e=>setIndivName(e.target.value)} placeholder="z.B. Flossenpass Special" style={{...inp,fontSize:13}}/>
+            </div>
+            <div>
+              <label style={labelStyle}>Rechnungsnummer</label>
+              <input value={indivRechnung} onChange={e=>setIndivRechnung(e.target.value)} placeholder="z.B. RE-2025-0042" style={{...inp,fontSize:13}}/>
+            </div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:12,marginBottom:12}}>
+            <div>
+              <label style={labelStyle}>HE gesamt</label>
+              <input type="number" min={0} value={indivHE} onChange={e=>setIndivHE(Number(e.target.value))} style={{...inp,fontSize:14,fontWeight:700}}/>
+            </div>
+            <div>
+              <label style={labelStyle}>GA gesamt</label>
+              <input type="number" min={0} value={indivBS} onChange={e=>setIndivBS(Number(e.target.value))} style={{...inp,fontSize:14,fontWeight:700}}/>
+            </div>
+            <div>
+              <label style={labelStyle}>Preis (€)</label>
+              <input type="number" min={0} value={indivPreis} onChange={e=>setIndivPreis(Number(e.target.value))} style={{...inp,fontSize:14,fontWeight:700}}/>
+            </div>
+            <div>
+              <label style={labelStyle}>Datum</label>
+              <input type="date" value={indivDatum} onChange={e=>setIndivDatum(e.target.value)} style={{...inp,fontSize:13}}/>
+            </div>
+          </div>
+          <div style={{display:"flex",justifyContent:"flex-end"}}>
+            <Btn small primary onClick={()=>onKauf("individuell",{name:indivName||"Individuell",he:indivHE,bs:indivBS,datum:indivDatum,rechnung:indivRechnung.trim()},indivPreis,"")}>Hinzufügen</Btn>
+          </div>
+        </div>
+
+        {/* Einzelangebote */}
         <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,margin:"20px 0 10px"}}>Einzelangebote</div>
         {EINZELANGEBOTE.map(e=>(
           <div key={e.key} className="kauf-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderRadius:14,border:`1px solid ${T.gold}30`,marginBottom:8,background:T.cream+"40"}}>
             <div style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:600,color:T.dark}}>{e.name}</div>
             <div className="kauf-right" style={{display:"flex",alignItems:"center",gap:8}}>
-              <input type="number" min={0} value={einzelPreise[e.key]} onChange={ev=>setEinzelPreise(p=>({...p,[e.key]:Number(ev.target.value)}))} style={inp}/>
+              <input type="number" min={0} value={einzelPreise[e.key]} onChange={ev=>setEinzelPreise(p=>({...p,[e.key]:Number(ev.target.value)}))} style={numInp}/>
               <span style={{fontSize:13,color:T.text}}>€</span>
               <Btn small primary onClick={()=>onKauf("einzel",e,einzelPreise[e.key],eigeneRechnung.trim())}>Hinzufügen</Btn>
             </div>
@@ -317,14 +373,11 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
 
   const inp={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"};
 
-  // Alphabetisch nach Vorname sortiert, dann gefiltert
+  const isPassAlt = (pk) => pk.he_genutzt>=pk.he_total && pk.bs_genutzt>=pk.bs_total;
+
   const filtered=patienten
     .slice()
-    .sort((a,b)=>{
-      const na=`${a.vorname} ${a.nachname}`.toLowerCase();
-      const nb=`${b.vorname} ${b.nachname}`.toLowerCase();
-      return na.localeCompare(nb,"de");
-    })
+    .sort((a,b)=>`${a.vorname} ${a.nachname}`.toLowerCase().localeCompare(`${b.vorname} ${b.nachname}`.toLowerCase(),"de"))
     .filter(p=>{
       const q=search.toLowerCase();
       return `${p.vorname} ${p.nachname} ${p.email}`.toLowerCase().includes(q)
@@ -335,7 +388,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   const patPaesse =selPat?paesse.filter(pk=>pk.pat_id===selPat.id):[];
   const patEinzel =selPat?einzel.filter(e=>e.pat_id===selPat.id).sort((a,b)=>b.datum.localeCompare(a.datum)):[];
   const patLog    =selPat?log.filter(l=>l.pat_id===selPat.id).sort((a,b)=>b.datum.localeCompare(a.datum)):[];
-  const aktiverPass=patPaesse.find(p=>p.aktiv);
+  const aktiverPass=patPaesse.find(p=>!isPassAlt(p));
 
   const handleScan=()=>{
     const pat=patienten.find(p=>p.qr===scanInput.trim().toUpperCase());
@@ -354,19 +407,31 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   const handleKauf = async (typ, info, preis, eigeneRechnung) => {
     setSaving(true);
     let rechnungStr;
-    if(eigeneRechnung) {
-      rechnungStr = eigeneRechnung;
-    } else {
-      const nr = await getRechnungsNr();
-      rechnungStr = genRechnung(nr);
-    }
-    if(typ==="pass") {
+    if(typ==="individuell") {
+      // individuell has its own rechnung in info
+      rechnungStr = info.rechnung || genRechnung(await getRechnungsNr());
+      const neuerPass = {
+        id:genId(),pat_id:selPat.id,
+        typ:"INDIVIDUELL",
+        he_total:info.he,he_genutzt:0,
+        bs_total:info.bs,bs_genutzt:0,
+        preis,rechnung:rechnungStr,
+        bezahlt:false,
+        datum:info.datum||todayISO(),
+        aktiv:true,
+        custom_name:info.name
+      };
+      await supabase.from("paesse").insert(neuerPass);
+      setPaesse(prev=>[...prev,neuerPass]);
+    } else if(typ==="pass") {
+      rechnungStr = eigeneRechnung || genRechnung(await getRechnungsNr());
       const pt = PASS_TYPES[info];
-      const neuerPass = {id:genId(),pat_id:selPat.id,typ:info,he_total:pt.he,he_genutzt:0,bs_total:pt.bs,bs_genutzt:0,preis,rechnung:rechnungStr,bezahlt:false,datum:new Date().toISOString().split("T")[0],aktiv:true};
+      const neuerPass = {id:genId(),pat_id:selPat.id,typ:info,he_total:pt.he,he_genutzt:0,bs_total:pt.bs,bs_genutzt:0,preis,rechnung:rechnungStr,bezahlt:false,datum:todayISO(),aktiv:true};
       await supabase.from("paesse").insert(neuerPass);
       setPaesse(prev=>[...prev,neuerPass]);
     } else {
-      const neuerEinzel = {id:genId(),pat_id:selPat.id,key:info.key,name:info.name,preis,rechnung:rechnungStr,bezahlt:false,datum:new Date().toISOString().split("T")[0]};
+      rechnungStr = eigeneRechnung || genRechnung(await getRechnungsNr());
+      const neuerEinzel = {id:genId(),pat_id:selPat.id,key:info.key,name:info.name,preis,rechnung:rechnungStr,bezahlt:false,datum:todayISO()};
       const neuerLog = {id:genId(),pat_id:selPat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};
       await supabase.from("einzel").insert(neuerEinzel);
       await supabase.from("log").insert(neuerLog);
@@ -431,14 +496,9 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     setEinzel(prev=>prev.map(x=>x.id===eid?{...x,bezahlt:!x.bezahlt}:x));
   };
 
-  const updatePassRechnung=async(pid,rechnung)=>{
-    await supabase.from("paesse").update({rechnung}).eq("id",pid);
-    setPaesse(prev=>prev.map(p=>p.id===pid?{...p,rechnung}:p));
-  };
-
-  const updatePassPreis=async(pid,preis)=>{
-    await supabase.from("paesse").update({preis}).eq("id",pid);
-    setPaesse(prev=>prev.map(p=>p.id===pid?{...p,preis}:p));
+  const updatePassField=async(pid,field,val)=>{
+    await supabase.from("paesse").update({[field]:val}).eq("id",pid);
+    setPaesse(prev=>prev.map(p=>p.id===pid?{...p,[field]:val}:p));
   };
 
   const updatePassEinheiten=async(pid,field,val)=>{
@@ -453,7 +513,10 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     if(selPat?.id===id) setSelPat(prev=>({...prev,...fields}));
   };
 
-  const getUnits=(patId)=>{ const ap=paesse.find(pk=>pk.pat_id===patId&&pk.aktiv); if(!ap) return null; return{he:ap.he_total-ap.he_genutzt,bs:ap.bs_total-ap.bs_genutzt,typ:ap.typ}; };
+  const getUnits=(patId)=>{ const ap=paesse.find(pk=>pk.pat_id===patId&&!isPassAlt(pk)); if(!ap) return null; return{he:ap.he_total-ap.he_genutzt,bs:ap.bs_total-ap.bs_genutzt,typ:ap.typ}; };
+
+  // Inline editable field styles
+  const editInp=(w)=>({fontSize:13,fontWeight:600,background:"transparent",border:`1px solid ${T.gold}40`,borderRadius:8,padding:"3px 8px",color:T.dark,outline:"none",width:w});
 
   if(scanMode) return(
     <div className="fade-in resp-pad" style={{padding:28}}>
@@ -564,15 +627,15 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                     </div>
                     <div className="liste-right" style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
                       <div style={{display:"flex",border:`1px solid ${T.gold}30`,borderRadius:10,overflow:"hidden"}}>
-                        {[{label:"HE",val:u?u.he:null,red:u&&u.he===0},{label:"GA",val:u?u.bs:null,red:u&&u.bs===0}].map((col,ci)=>(
+                        {[{label:"HE",val:u?u.he:null},{label:"GA",val:u?u.bs:null}].map((col,ci)=>(
                           <div key={col.label} style={{width:44,padding:"5px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.gold}30`:"none",background:T.white+"60"}}>
                             <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8,marginBottom:2}}>{col.label}</div>
-                            <div style={{fontSize:16,fontWeight:700,fontFamily:"Georgia,serif",color:col.red?T.red:col.val===null?T.textLight+"60":T.dark,lineHeight:1}}>{col.val!==null?col.val:"–"}</div>
+                            <div style={{fontSize:16,fontWeight:700,fontFamily:"Georgia,serif",color:col.val===0?T.red:col.val===null?T.textLight+"60":T.red,lineHeight:1}}>{col.val!==null?col.val:"–"}</div>
                           </div>
                         ))}
                       </div>
                       <div className="badge-w" style={{width:58,textAlign:"center"}}>
-                        {u?<Badge variant="green">{PASS_TYPES[u.typ].name}</Badge>:<span style={{fontSize:12,color:T.textLight+"60"}}>–</span>}
+                        {u?<Badge variant="green">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:T.textLight+"60"}}>–</span>}
                       </div>
                       <div className="badge-w" style={{width:44,textAlign:"center"}}>
                         {ub?<Badge variant="red">Offen</Badge>:null}
@@ -588,227 +651,271 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
         </div>
       )}
 
-      {view==="akte"&&selPat&&(
-        <div className="fade-in">
-          <div className="header-row" style={{display:"flex",alignItems:"center",gap:14,marginBottom:28}}>
-            <Btn onClick={()=>setView("liste")}>← Zurück</Btn>
-            <Heading style={{fontSize:22}}>{selPat.vorname} {selPat.nachname}</Heading>
-            {saving&&<span style={{fontSize:12,color:T.gold}}>Speichern...</span>}
-          </div>
-          <div className="akte-grid" style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:20,alignItems:"start"}}>
-            <div style={{display:"flex",flexDirection:"column",gap:16}}>
-              <GlassCard>
-                <SectionLabel>Stammdaten</SectionLabel>
-                <div style={{display:"flex",flexDirection:"column",gap:8,fontSize:14}}>
-                  {[["E-Mail",selPat.email],["Telefon",selPat.telefon],["Adresse",selPat.adresse],
-                    ["QR-Code",<code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:12,wordBreak:"break-all"}}>{selPat.qr}</code>],
-                    ["Kunde seit",fmtDate(selPat.erstellt)]].map(([label,val])=>(
-                    <div key={label} style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
-                      <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:13}}>{label}:</span>
-                      <span style={{wordBreak:"break-word",color:T.dark,fontSize:14}}>{val}</span>
+      {view==="akte"&&selPat&&(()=>{
+        const aktPaesse=patPaesse.filter(pk=>!isPassAlt(pk));
+        const altPaesse=patPaesse.filter(pk=>isPassAlt(pk));
+        // Einheiten für Stammdaten
+        const heUebrig=aktPaesse.reduce((s,p)=>s+(p.he_total-p.he_genutzt),0);
+        const bsUebrig=aktPaesse.reduce((s,p)=>s+(p.bs_total-p.bs_genutzt),0);
+
+        return(
+          <div className="fade-in">
+            <div className="header-row" style={{display:"flex",alignItems:"center",gap:14,marginBottom:28}}>
+              <Btn onClick={()=>setView("liste")}>← Zurück</Btn>
+              <Heading style={{fontSize:22}}>{selPat.vorname} {selPat.nachname}</Heading>
+              {saving&&<span style={{fontSize:12,color:T.gold}}>Speichern...</span>}
+            </div>
+            <div className="akte-grid" style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:20,alignItems:"start"}}>
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
+
+                {/* Stammdaten */}
+                <GlassCard>
+                  <SectionLabel>Stammdaten</SectionLabel>
+                  <div style={{display:"flex",flexDirection:"column",gap:8,fontSize:14}}>
+                    {[["E-Mail",selPat.email],["Telefon",selPat.telefon],["Adresse",selPat.adresse],
+                      ["QR-Code",<code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:12,wordBreak:"break-all"}}>{selPat.qr}</code>],
+                      ["Kunde seit",fmtDate(selPat.erstellt)]].map(([label,val])=>(
+                      <div key={label} style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
+                        <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:13}}>{label}:</span>
+                        <span style={{wordBreak:"break-word",color:T.dark,fontSize:14}}>{val}</span>
+                      </div>
+                    ))}
+                    {/* Einheiten übrig */}
+                    <div style={{marginTop:8,paddingTop:10,borderTop:`1px solid ${T.gold}18`,display:"flex",gap:20,flexWrap:"wrap"}}>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.red+"10",borderRadius:12,padding:"8px 18px",border:`1px solid ${T.red}20`}}>
+                        <span style={{fontSize:26,fontWeight:700,color:T.red,fontFamily:"Georgia,serif"}}>{heUebrig}</span>
+                        <span style={{fontSize:11,color:T.red,textTransform:"uppercase",letterSpacing:1,marginTop:2}}>HE übrig</span>
+                      </div>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.red+"10",borderRadius:12,padding:"8px 18px",border:`1px solid ${T.red}20`}}>
+                        <span style={{fontSize:26,fontWeight:700,color:T.red,fontFamily:"Georgia,serif"}}>{bsUebrig}</span>
+                        <span style={{fontSize:11,color:T.red,textTransform:"uppercase",letterSpacing:1,marginTop:2}}>GA übrig</span>
+                      </div>
                     </div>
-                  ))}
-                  <div className="stammk-row" style={{display:"flex",gap:12,alignItems:"center",paddingTop:10,marginTop:4,borderTop:`1px solid ${T.gold}18`}}>
-                    <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:13}}>Stammkunde:</span>
-                    <div className="stammk-inner" style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                      {["Ja","Nein"].map(opt=>{
-                        const aktiv=opt==="Ja"?!!selPat.stammkunde:!selPat.stammkunde;
-                        return(
-                          <button key={opt} onClick={()=>updatePatient(selPat.id,{stammkunde:opt==="Ja"})}
-                            style={{padding:"5px 18px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",border:`1px solid ${aktiv?(opt==="Ja"?T.green:T.dark)+"60":T.gold+"30"}`,background:aktiv?(opt==="Ja"?T.green+"18":T.dark+"10"):"transparent",color:aktiv?(opt==="Ja"?T.green:T.dark):T.textLight,transition:"all 0.15s"}}>
-                            {opt}
-                          </button>
-                        );
-                      })}
-                      {selPat.stammkunde&&(
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontSize:13,color:T.text}}>Preis:</span>
-                          <input type="number" min={0} value={selPat.stammpreis} onChange={e=>updatePatient(selPat.id,{stammpreis:e.target.value})} placeholder="z.B. 420" style={{width:90,padding:"5px 10px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:13,background:T.cream,color:T.text,outline:"none"}}/>
-                          <span style={{fontSize:13,color:T.text}}>€</span>
-                        </div>
-                      )}
+                    {/* Stammkunde */}
+                    <div className="stammk-row" style={{display:"flex",gap:12,alignItems:"center",paddingTop:10,marginTop:4,borderTop:`1px solid ${T.gold}18`}}>
+                      <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:13}}>Stammkunde:</span>
+                      <div className="stammk-inner" style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                        {["Ja","Nein"].map(opt=>{
+                          const aktiv=opt==="Ja"?!!selPat.stammkunde:!selPat.stammkunde;
+                          return(
+                            <button key={opt} onClick={()=>updatePatient(selPat.id,{stammkunde:opt==="Ja"})}
+                              style={{padding:"5px 18px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",border:`1px solid ${aktiv?(opt==="Ja"?T.green:T.dark)+"60":T.gold+"30"}`,background:aktiv?(opt==="Ja"?T.green+"18":T.dark+"10"):"transparent",color:aktiv?(opt==="Ja"?T.green:T.dark):T.textLight,transition:"all 0.15s"}}>
+                              {opt}
+                            </button>
+                          );
+                        })}
+                        {selPat.stammkunde&&(
+                          <div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <span style={{fontSize:13,color:T.text}}>Preis:</span>
+                            <input type="number" min={0} value={selPat.stammpreis} onChange={e=>updatePatient(selPat.id,{stammpreis:e.target.value})} placeholder="z.B. 420" style={{width:90,padding:"5px 10px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:13,background:T.cream,color:T.text,outline:"none"}}/>
+                            <span style={{fontSize:13,color:T.text}}>€</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </GlassCard>
+                </GlassCard>
 
-              <GlassCard>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
-                  <SectionLabel>Angebote & Pässe</SectionLabel>
-                  <Btn small primary onClick={()=>setKaufModal(true)}>+ Hinzufügen</Btn>
-                </div>
-                {patPaesse.filter(pk=>pk.aktiv).length===0&&patEinzel.length===0&&<p style={{color:T.textLight,textAlign:"center",padding:"8px 0",fontSize:14}}>Noch keine Angebote</p>}
-                {patPaesse.filter(pk=>pk.aktiv).map(pk=>{
-                  const info=PASS_TYPES[pk.typ];const heL=pk.he_total-pk.he_genutzt,bsL=pk.bs_total-pk.bs_genutzt;
-                  return(
-                    <div key={pk.id} style={{borderRadius:16,border:`1px solid ${T.gold}25`,background:T.white+"80",overflow:"hidden",marginBottom:10}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px",borderBottom:`1px solid ${T.gold}18`,background:T.cream+"60",flexWrap:"wrap",gap:8}}>
-                        <strong style={{fontFamily:"Georgia,serif",fontSize:16,color:T.dark}}>Flossenpass {info.name}</strong>
-                        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                          <span style={{fontSize:13,color:T.text}}>{pk.datum}</span>
+                {/* Angebote & Pässe */}
+                <GlassCard>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+                    <SectionLabel>Angebote & Pässe</SectionLabel>
+                    <Btn small primary onClick={()=>setKaufModal(true)}>+ Hinzufügen</Btn>
+                  </div>
+                  {aktPaesse.length===0&&patEinzel.length===0&&<p style={{color:T.textLight,textAlign:"center",padding:"8px 0",fontSize:14}}>Noch keine Angebote</p>}
+
+                  {/* Aktive Pässe */}
+                  {aktPaesse.map(pk=>{
+                    const passLabel = pk.typ==="INDIVIDUELL" ? (pk.custom_name||"Individuell") : `${getPassName(pk.typ)}`;
+                    const heL=pk.he_total-pk.he_genutzt, bsL=pk.bs_total-pk.bs_genutzt;
+                    const numInp2=(w)=>({width:w,padding:"3px 6px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:700,background:"transparent",color:T.dark,outline:"none",textAlign:"center"});
+                    return(
+                      <div key={pk.id} style={{borderRadius:16,border:`1px solid ${T.gold}25`,background:T.white+"80",overflow:"hidden",marginBottom:12}}>
+                        {/* Header */}
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px",borderBottom:`1px solid ${T.gold}18`,background:T.cream+"60",flexWrap:"wrap",gap:8}}>
+                          <strong style={{fontFamily:"Georgia,serif",fontSize:16,color:T.dark}}>Flossenpass {passLabel}</strong>
                           <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,textTransform:"uppercase",color:pk.bezahlt?T.green:T.red,background:pk.bezahlt?T.green+"15":T.red+"10",padding:"5px 12px",borderRadius:10}}>
                             <input type="checkbox" checked={pk.bezahlt} onChange={()=>toggleBezahlt(pk.id)} style={{accentColor:T.green,width:14,height:14}}/>
                             {pk.bezahlt?"Bezahlt":"Offen"}
                           </label>
                         </div>
-                      </div>
-                      <div className="pass-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
-                        {[
-                          {label:"Haupteinheiten",genutzt:"he_genutzt",total:"he_total",used:pk.he_genutzt,tot:pk.he_total,left:heL,color:T.dark},
-                          {label:"Gruppenangebote",genutzt:"bs_genutzt",total:"bs_total",used:pk.bs_genutzt,tot:pk.bs_total,left:bsL,color:T.gold}
-                        ].map((e,ei)=>{
-                          const numInp={width:48,padding:"3px 6px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:700,background:"transparent",color:T.dark,outline:"none",textAlign:"center"};
-                          return(
-                            <div key={e.label} style={{padding:"12px 18px",borderLeft:ei>0?`1px solid ${T.gold}18`:"none"}}>
-                              <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{e.label}</div>
-                              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
-                                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                                  <span style={{fontSize:10,color:T.textLight}}>Genutzt</span>
-                                  <input type="number" min={0} max={e.tot} value={e.used}
-                                    onChange={ev=>updatePassEinheiten(pk.id,e.genutzt,ev.target.value)}
-                                    style={numInp}/>
-                                </div>
-                                <span style={{fontSize:16,color:T.textLight,marginTop:14}}>/</span>
-                                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                                  <span style={{fontSize:10,color:T.textLight}}>Gesamt</span>
-                                  <input type="number" min={0} value={e.tot}
-                                    onChange={ev=>updatePassEinheiten(pk.id,e.total,ev.target.value)}
-                                    style={numInp}/>
-                                </div>
-                                <span style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:e.left===0?T.red:T.dark,marginTop:14,marginLeft:4}}>{e.left}<span style={{fontSize:11,fontWeight:400,color:T.textLight}}> übrig</span></span>
-                              </div>
-                              <Bar used={e.used} total={e.tot} color={e.color} h={6}/>
+
+                        {/* Rechnungsnummer · Datum · Preis */}
+                        <div className="pass-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
+                          {[
+                            {label:"Rechnungs-Nr.", content:<input value={pk.rechnung} onChange={e=>updatePassField(pk.id,"rechnung",e.target.value)} style={{...editInp(140),width:"100%"}}/>},
+                            {label:"Datum", content:<input type="date" value={pk.datum} onChange={e=>updatePassField(pk.id,"datum",e.target.value)} style={{...editInp(140),width:"100%"}}/>},
+                            {label:"Preis", content:<div style={{display:"flex",alignItems:"center",gap:4}}><input type="number" min={0} value={pk.preis} onChange={e=>updatePassField(pk.id,"preis",Number(e.target.value))} style={{...editInp(80),textAlign:"right"}}/><span style={{fontSize:13,color:T.text}}>€</span></div>},
+                          ].map((f,fi)=>(
+                            <div key={f.label} style={{padding:"10px 14px",borderLeft:fi>0?`1px solid ${T.gold}18`:"none"}}>
+                              <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:5}}>{f.label}</div>
+                              {f.content}
                             </div>
-                          );
-                        })}
-                      </div>
-                      <div className="pass-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
-                        <div style={{padding:"10px 18px"}}>
-                          <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Rechnungs-Nr.</div>
-                          <input value={pk.rechnung} onChange={e=>updatePassRechnung(pk.id,e.target.value)}
-                            style={{fontSize:13,fontWeight:600,background:"transparent",border:`1px solid ${T.gold}40`,borderRadius:8,padding:"2px 8px",color:T.dark,outline:"none",width:150}}/>
+                          ))}
+                        </div>
+
+                        {/* Einheiten */}
+                        <div className="pass-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
+                          {[
+                            {label:"Haupteinheiten",genutzt:"he_genutzt",total:"he_total",used:pk.he_genutzt,tot:pk.he_total,left:heL,color:T.dark},
+                            {label:"Gruppenangebote",genutzt:"bs_genutzt",total:"bs_total",used:pk.bs_genutzt,tot:pk.bs_total,left:bsL,color:T.gold}
+                          ].map((e,ei)=>{
+                            const ni={width:46,padding:"3px 6px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:700,background:"transparent",color:T.dark,outline:"none",textAlign:"center"};
+                            return(
+                              <div key={e.label} style={{padding:"12px 14px",borderLeft:ei>0?`1px solid ${T.gold}18`:"none"}}>
+                                <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{e.label}</div>
+                                <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                                    <span style={{fontSize:10,color:T.textLight}}>Genutzt</span>
+                                    <input type="number" min={0} max={e.tot} value={e.used} onChange={ev=>updatePassEinheiten(pk.id,e.genutzt,ev.target.value)} style={ni}/>
+                                  </div>
+                                  <span style={{fontSize:16,color:T.textLight,marginTop:14}}>/</span>
+                                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                                    <span style={{fontSize:10,color:T.textLight}}>Gesamt</span>
+                                    <input type="number" min={0} value={e.tot} onChange={ev=>updatePassEinheiten(pk.id,e.total,ev.target.value)} style={ni}/>
+                                  </div>
+                                  <span style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:T.red,marginTop:14,marginLeft:4}}>{e.left}<span style={{fontSize:11,fontWeight:400,color:T.textLight}}> übrig</span></span>
+                                </div>
+                                <Bar used={e.used} total={e.tot} color={e.color} h={6}/>
+                              </div>
+                            );
+                          })}
                         </div>
                         <div style={{padding:"10px 18px"}}>
-                          <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Preis</div>
-                          <div style={{display:"flex",alignItems:"center",gap:4}}>
-                            <input type="number" min={0} value={pk.preis} onChange={e=>updatePassPreis(pk.id,Number(e.target.value))} style={{width:78,padding:"3px 8px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:600,background:"transparent",color:T.dark,outline:"none",textAlign:"right"}}/>
-                            <span style={{fontSize:13,color:T.text}}>€</span>
+                          <PassAktionen pass={pk} onHE={heAbziehen} onBS={(p)=>setBsModal(p)} onKorrektur={(p)=>{setKorrekturModal(p);setKorrekturTyp("HE");setKorrekturAnzahl(1);setKorrekturGrund("");}}/>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Einzelangebote */}
+                  {patEinzel.length>0&&(
+                    <div style={{marginTop:aktPaesse.length>0?12:0}}>
+                      <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Einzelangebote</div>
+                      {patEinzel.map(e=>(
+                        <div key={e.id} className="einzel-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",borderRadius:12,border:`1px solid ${T.gold}25`,background:T.white+"80",marginBottom:6}}>
+                          <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                            <span style={{fontSize:14,fontWeight:600,color:T.dark}}>{e.name}</span>
+                            <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                              <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.text}}>{e.rechnung}</code>
+                              <span style={{fontSize:13,color:T.text}}>{fmtDate(e.datum)}</span>
+                              <strong style={{fontSize:13,color:T.dark}}>{e.preis} €</strong>
+                            </div>
                           </div>
+                          <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,fontWeight:700,textTransform:"uppercase",color:e.bezahlt?T.green:T.red,background:e.bezahlt?T.green+"15":T.red+"10",padding:"5px 12px",borderRadius:10,flexShrink:0}}>
+                            <input type="checkbox" checked={e.bezahlt} onChange={()=>toggleEinzelBez(e.id)} style={{accentColor:T.green,width:14,height:14}}/>
+                            {e.bezahlt?"Bezahlt":"Offen"}
+                          </label>
                         </div>
-                      </div>
-                      <div style={{padding:"10px 18px"}}>
-                        <PassAktionen pass={pk} onHE={heAbziehen} onBS={(p)=>setBsModal(p)} onKorrektur={(p)=>{setKorrekturModal(p);setKorrekturTyp("HE");setKorrekturAnzahl(1);setKorrekturGrund("");}}/>
-                      </div>
+                      ))}
                     </div>
-                  );
-                })}
-                {patEinzel.length>0&&(
-                  <div style={{marginTop:patPaesse.filter(p=>p.aktiv).length>0?12:0}}>
-                    <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Einzelangebote</div>
-                    {patEinzel.map(e=>(
-                      <div key={e.id} className="einzel-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",borderRadius:12,border:`1px solid ${T.gold}25`,background:T.white+"80",marginBottom:6}}>
-                        <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                          <span style={{fontSize:14,fontWeight:600,color:T.dark}}>{e.name}</span>
-                          <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-                            <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.text}}>{e.rechnung}</code>
-                            <span style={{fontSize:13,color:T.text}}>{fmtDate(e.datum)}</span>
-                            <strong style={{fontSize:13,color:T.dark}}>{e.preis} €</strong>
+                  )}
+
+                  {/* Alte Pässe */}
+                  {altPaesse.length>0&&(
+                    <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${T.gold}18`}}>
+                      <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Alte Pässe</div>
+                      {altPaesse.map(pk=>{
+                        const passLabel = pk.typ==="INDIVIDUELL" ? (pk.custom_name||"Individuell") : getPassName(pk.typ);
+                        return(
+                          <div key={pk.id} style={{borderRadius:14,border:`1px solid ${T.gold}20`,background:T.cream+"50",marginBottom:8,overflow:"hidden",opacity:0.8}}>
+                            <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.gold}15`,background:T.cream+"80",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                              <span style={{fontSize:14,fontWeight:600,color:T.dark,fontFamily:"Georgia,serif"}}>Flossenpass {passLabel}</span>
+                              <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                                <Badge variant={pk.bezahlt?"cream":"red"} small>{pk.bezahlt?"Bezahlt":"Offen"}</Badge>
+                                <Badge variant="default" small>Aufgebraucht</Badge>
+                              </div>
+                            </div>
+                            <div className="pass-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr"}}>
+                              {[
+                                {label:"Rechnungs-Nr.", val:<code style={{fontSize:12,color:T.text}}>{pk.rechnung}</code>},
+                                {label:"Datum", val:<span style={{fontSize:13,color:T.dark}}>{fmtDate(pk.datum)}</span>},
+                                {label:"Preis", val:<strong style={{fontSize:13,fontFamily:"Georgia,serif"}}>{pk.preis} €</strong>},
+                              ].map((f,fi)=>(
+                                <div key={f.label} style={{padding:"8px 14px",borderLeft:fi>0?`1px solid ${T.gold}15`:"none"}}>
+                                  <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{f.label}</div>
+                                  {f.val}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                        <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,fontWeight:700,textTransform:"uppercase",color:e.bezahlt?T.green:T.red,background:e.bezahlt?T.green+"15":T.red+"10",padding:"5px 12px",borderRadius:10,flexShrink:0}}>
-                          <input type="checkbox" checked={e.bezahlt} onChange={()=>toggleEinzelBez(e.id)} style={{accentColor:T.green,width:14,height:14}}/>
-                          {e.bezahlt?"Bezahlt":"Offen"}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {patPaesse.filter(pk=>!pk.aktiv).length>0&&(
-                  <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${T.gold}18`}}>
-                    <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Ältere Pässe</div>
-                    {patPaesse.filter(pk=>!pk.aktiv).map(pk=>(
-                      <div key={pk.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:12,background:T.cream+"60",marginBottom:6,opacity:0.7,flexWrap:"wrap",gap:8}}>
-                        <div>
-                          <span style={{fontSize:14,fontWeight:600,color:T.dark,fontFamily:"Georgia,serif"}}>Flossenpass {PASS_TYPES[pk.typ].name}</span>
-                          <span style={{fontSize:13,color:T.text,marginLeft:8}}>{fmtDate(pk.datum)}</span>
-                        </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </GlassCard>
+
+                {/* Verlauf */}
+                <GlassCard>
+                  <SectionLabel>Einheiten-Verlauf</SectionLabel>
+                  {patLog.filter(l=>l.typ!=="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch kein Verlauf</p>}
+                  {patLog.filter(l=>l.typ!=="NOTIZ").map((l,i)=>{
+                    const b=logBadge(l.typ);
+                    return(
+                      <div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.cream+"80",borderRadius:12,fontSize:14,marginBottom:4,animationDelay:`${i*0.03}s`}}>
                         <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                          <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.text}}>{pk.rechnung}</code>
-                          <span style={{fontSize:13,color:T.text}}>{pk.preis} €</span>
-                          <Badge variant={pk.bezahlt?"cream":"red"} small>{pk.bezahlt?"Bezahlt":"Offen"}</Badge>
+                          <Badge variant={b.v} small>{b.label}</Badge>
+                          <span style={{color:T.dark}}>{l.notiz}</span>
                         </div>
+                        <span style={{fontSize:12,color:T.textLight,flexShrink:0,marginLeft:8}}>{fmtDateTime(l.datum)}</span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </GlassCard>
+                    );
+                  })}
+                </GlassCard>
 
-              <GlassCard>
-                <SectionLabel>Einheiten-Verlauf</SectionLabel>
-                {patLog.filter(l=>l.typ!=="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch kein Verlauf</p>}
-                {patLog.filter(l=>l.typ!=="NOTIZ").map((l,i)=>{
-                  const b=logBadge(l.typ);
-                  return(
-                    <div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.cream+"80",borderRadius:12,fontSize:14,marginBottom:4,animationDelay:`${i*0.03}s`}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                        <Badge variant={b.v} small>{b.label}</Badge>
-                        <span style={{color:T.dark}}>{l.notiz}</span>
-                      </div>
-                      <span style={{fontSize:12,color:T.textLight,flexShrink:0,marginLeft:8}}>{fmtDateTime(l.datum)}</span>
+                {/* Notizen */}
+                <GlassCard>
+                  <SectionLabel>Notizen</SectionLabel>
+                  <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+                    <textarea value={notizText} onChange={e=>setNotizText(e.target.value)} placeholder="Notiz eingeben..." rows={3} style={{...inp,resize:"vertical",lineHeight:1.5}}/>
+                    <div style={{display:"flex",justifyContent:"flex-end"}}>
+                      <Btn small primary disabled={!notizText.trim()} onClick={notizSpeichern}>Notiz speichern</Btn>
                     </div>
-                  );
-                })}
-              </GlassCard>
-
-              <GlassCard>
-                <SectionLabel>Notizen</SectionLabel>
-                <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-                  <textarea value={notizText} onChange={e=>setNotizText(e.target.value)} placeholder="Notiz eingeben..." rows={3} style={{...inp,resize:"vertical",lineHeight:1.5}}/>
-                  <div style={{display:"flex",justifyContent:"flex-end"}}>
-                    <Btn small primary disabled={!notizText.trim()} onClick={notizSpeichern}>Notiz speichern</Btn>
                   </div>
-                </div>
-                {patLog.filter(l=>l.typ==="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch keine Notizen</p>}
-                {patLog.filter(l=>l.typ==="NOTIZ").map((l,i)=>(
-                  <div key={l.id} style={{padding:"10px 14px",background:T.gold+"12",borderRadius:12,fontSize:14,marginBottom:4,borderLeft:`3px solid ${T.gold}`}}>
-                    <div style={{fontSize:12,color:T.textLight,marginBottom:4}}>{fmtDateTime(l.datum)}</div>
-                    <div style={{color:T.dark,lineHeight:1.6,wordBreak:"break-word"}}>{l.notiz}</div>
-                  </div>
-                ))}
-              </GlassCard>
-            </div>
-
-            <div className="qr-sidebar" style={{position:"sticky",top:78}}>
-              <GlassCard style={{textAlign:"center"}}>
-                <SectionLabel>QR-Code</SectionLabel>
-                <div style={{background:T.cream,borderRadius:16,padding:18,display:"inline-block",marginBottom:12}}>
-                  <QRCode value={selPat.qr} size={140}/>
-                </div>
-                <div style={{display:"flex",flexDirection:"column",gap:6,textAlign:"left"}}>
-                  {[["Token",<code style={{fontFamily:"monospace",fontSize:11,color:T.textLight,wordBreak:"break-all"}}>{selPat.qr}</code>],
-                    ["Name",`${selPat.vorname} ${selPat.nachname}`],
-                    ["Seit",fmtDate(selPat.erstellt)],
-                    ["Pass",aktiverPass?`Flossenpass ${PASS_TYPES[aktiverPass.typ].name}`:"–"]].map(([label,val])=>(
-                    <div key={label} style={{display:"flex",gap:8,alignItems:"flex-start"}}>
-                      <span style={{fontSize:11,color:T.textLight,minWidth:36,flexShrink:0}}>{label}</span>
-                      <span style={{fontSize:13,color:T.dark,fontWeight:500}}>{val}</span>
+                  {patLog.filter(l=>l.typ==="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch keine Notizen</p>}
+                  {patLog.filter(l=>l.typ==="NOTIZ").map((l,i)=>(
+                    <div key={l.id} style={{padding:"10px 14px",background:T.gold+"12",borderRadius:12,fontSize:14,marginBottom:4,borderLeft:`3px solid ${T.gold}`}}>
+                      <div style={{fontSize:12,color:T.textLight,marginBottom:4}}>{fmtDateTime(l.datum)}</div>
+                      <div style={{color:T.dark,lineHeight:1.6,wordBreak:"break-word"}}>{l.notiz}</div>
                     </div>
                   ))}
-                </div>
-              </GlassCard>
+                </GlassCard>
+              </div>
+
+              {/* QR Sidebar */}
+              <div className="qr-sidebar" style={{position:"sticky",top:78}}>
+                <GlassCard style={{textAlign:"center"}}>
+                  <SectionLabel>QR-Code</SectionLabel>
+                  <div style={{background:T.cream,borderRadius:16,padding:18,display:"inline-block",marginBottom:12}}>
+                    <QRCode value={selPat.qr} size={140}/>
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6,textAlign:"left"}}>
+                    {[["Token",<code style={{fontFamily:"monospace",fontSize:11,color:T.textLight,wordBreak:"break-all"}}>{selPat.qr}</code>],
+                      ["Name",`${selPat.vorname} ${selPat.nachname}`],
+                      ["Seit",fmtDate(selPat.erstellt)],
+                      ["Pass",aktiverPass?`Flossenpass ${getPassName(aktiverPass.typ)}`:"–"]].map(([label,val])=>(
+                      <div key={label} style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                        <span style={{fontSize:11,color:T.textLight,minWidth:36,flexShrink:0}}>{label}</span>
+                        <span style={{fontSize:13,color:T.dark,fontWeight:500}}>{val}</span>
+                      </div>
+                    ))}
+                  </div>
+                </GlassCard>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
 
 const KundenApp = ({kunde,paesse,log,einzel}) => {
   const mp=paesse.filter(p=>p.pat_id===kunde.id);
-  const ml=log.filter(l=>l.pat_id===kunde.id&&l.typ!=="NOTIZ").sort((a,b)=>b.datum.localeCompare(a.datum));
+  const ml=log.filter(l=>l.pat_id===kunde.id&&l.typ!=="NOTIZ"&&l.typ!=="KORREKTUR").sort((a,b)=>b.datum.localeCompare(a.datum));
   const me=einzel.filter(e=>e.pat_id===kunde.id);
-  const ap=mp.find(p=>p.aktiv);
+  const isPassAlt=(pk)=>pk.he_genutzt>=pk.he_total&&pk.bs_genutzt>=pk.bs_total;
+  const ap=mp.find(p=>!isPassAlt(p));
   return(
     <div className="fade-in resp-pad" style={{padding:28,maxWidth:580,margin:"0 auto"}}>
       <div style={{textAlign:"center",marginBottom:32}}>
@@ -820,11 +927,12 @@ const KundenApp = ({kunde,paesse,log,einzel}) => {
         </a>
       </div>
       {ap&&(()=>{
-        const info=PASS_TYPES[ap.typ],heL=ap.he_total-ap.he_genutzt,bsL=ap.bs_total-ap.bs_genutzt;
+        const passLabel = ap.typ==="INDIVIDUELL" ? (ap.custom_name||"Individuell") : getPassName(ap.typ);
+        const heL=ap.he_total-ap.he_genutzt,bsL=ap.bs_total-ap.bs_genutzt;
         return(
           <GlassCard style={{marginBottom:16}}>
             <div style={{marginBottom:18}}>
-              <strong style={{fontSize:18,fontFamily:"Georgia,serif"}}>Flossenpass {info.name}</strong>
+              <strong style={{fontSize:18,fontFamily:"Georgia,serif"}}>Flossenpass {passLabel}</strong>
               <span style={{fontSize:13,color:T.textLight,marginLeft:10}}>seit {fmtDate(ap.datum)}</span>
             </div>
             <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
@@ -853,17 +961,20 @@ const KundenApp = ({kunde,paesse,log,einzel}) => {
           </GlassCard>
         );
       })()}
-      {mp.filter(p=>!p.aktiv).map(pk=>(
-        <GlassCard key={pk.id} style={{marginBottom:12,opacity:0.5,padding:16}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-            <div>
-              <strong style={{fontSize:15,fontFamily:"Georgia,serif"}}>Flossenpass {PASS_TYPES[pk.typ].name}</strong>
-              <span style={{fontSize:12,color:T.textLight,marginLeft:8}}>{fmtDate(pk.datum)}</span>
+      {mp.filter(p=>p.he_genutzt>=p.he_total&&p.bs_genutzt>=p.bs_total).map(pk=>{
+        const passLabel = pk.typ==="INDIVIDUELL" ? (pk.custom_name||"Individuell") : getPassName(pk.typ);
+        return(
+          <GlassCard key={pk.id} style={{marginBottom:12,opacity:0.5,padding:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+              <div>
+                <strong style={{fontSize:15,fontFamily:"Georgia,serif"}}>Flossenpass {passLabel}</strong>
+                <span style={{fontSize:12,color:T.textLight,marginLeft:8}}>{fmtDate(pk.datum)}</span>
+              </div>
+              <Badge variant="cream">Aufgebraucht</Badge>
             </div>
-            <Badge variant="cream">Aufgebraucht</Badge>
-          </div>
-        </GlassCard>
-      ))}
+          </GlassCard>
+        );
+      })}
       {mp.length===0&&me.length===0&&<GlassCard style={{textAlign:"center",padding:48}}><p style={{color:T.textLight,lineHeight:1.7,fontSize:15}}>Du hast noch keine Angebote.<br/>Sprich uns gerne an!</p></GlassCard>}
       {ml.length>0&&(
         <GlassCard style={{marginTop:16}}>
@@ -882,18 +993,21 @@ const KundenApp = ({kunde,paesse,log,einzel}) => {
       {(mp.length>0||me.length>0)&&(
         <GlassCard style={{marginTop:16}}>
           <SectionLabel>Meine Rechnungen</SectionLabel>
-          {mp.map(pk=>(
-            <div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14}}>
-              <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                <code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:12}}>{pk.rechnung}</code>
-                <span style={{color:T.textLight}}>Flossenpass {PASS_TYPES[pk.typ].name}</span>
+          {mp.map(pk=>{
+            const passLabel = pk.typ==="INDIVIDUELL" ? (pk.custom_name||"Individuell") : getPassName(pk.typ);
+            return(
+              <div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:12}}>{pk.rechnung}</code>
+                  <span style={{color:T.textLight}}>Flossenpass {passLabel}</span>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{color:T.textLight,fontSize:12}}>{fmtDate(pk.datum)}</span>
+                  <strong style={{fontFamily:"Georgia,serif"}}>{pk.preis} €</strong>
+                </div>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <span style={{color:T.textLight,fontSize:12}}>{fmtDate(pk.datum)}</span>
-                <strong style={{fontFamily:"Georgia,serif"}}>{pk.preis} €</strong>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {me.map(e=>(
             <div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14}}>
               <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
