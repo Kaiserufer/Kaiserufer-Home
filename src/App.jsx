@@ -125,7 +125,7 @@ const Avatar = ({name,size=48}) => {
 
 const QRCode = ({value,size=120}) => (
   <img 
-    src={`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=https://home.kaiserufer.de?token=${value}`}
+    src={`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=https://kaiserufer-home.vercel.app?token=${value}`}
     width={size} height={size} style={{borderRadius:12}}
     alt="QR Code"
   />
