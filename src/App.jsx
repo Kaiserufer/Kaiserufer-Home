@@ -317,12 +317,12 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
 
   const inp={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"};
 
-  // Alphabetisch sortiert, dann gefiltert
+  // Alphabetisch nach Vorname sortiert, dann gefiltert
   const filtered=patienten
     .slice()
     .sort((a,b)=>{
-      const na=`${a.nachname} ${a.vorname}`.toLowerCase();
-      const nb=`${b.nachname} ${b.vorname}`.toLowerCase();
+      const na=`${a.vorname} ${a.nachname}`.toLowerCase();
+      const nb=`${b.vorname} ${b.nachname}`.toLowerCase();
       return na.localeCompare(nb,"de");
     })
     .filter(p=>{
@@ -439,6 +439,12 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   const updatePassPreis=async(pid,preis)=>{
     await supabase.from("paesse").update({preis}).eq("id",pid);
     setPaesse(prev=>prev.map(p=>p.id===pid?{...p,preis}:p));
+  };
+
+  const updatePassEinheiten=async(pid,field,val)=>{
+    const n=Math.max(0,parseInt(val)||0);
+    await supabase.from("paesse").update({[field]:n}).eq("id",pid);
+    setPaesse(prev=>prev.map(p=>p.id===pid?{...p,[field]:n}:p));
   };
 
   const updatePatient=async(id,fields)=>{
@@ -647,15 +653,34 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                         </div>
                       </div>
                       <div className="pass-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
-                        {[{label:"Haupteinheiten",used:pk.he_genutzt,total:pk.he_total,left:heL,color:T.dark},{label:"Gruppenangebote",used:pk.bs_genutzt,total:pk.bs_total,left:bsL,color:T.gold}].map((e,ei)=>(
-                          <div key={e.label} style={{padding:"12px 18px",borderLeft:ei>0?`1px solid ${T.gold}18`:"none"}}>
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:7}}>
-                              <span style={{fontSize:12,color:T.text,textTransform:"uppercase",letterSpacing:1}}>{e.label}</span>
-                              <span style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:e.left===0?T.red:T.dark}}>{e.left}<span style={{fontSize:11,fontWeight:400,color:T.textLight}}>/{e.total}</span></span>
+                        {[
+                          {label:"Haupteinheiten",genutzt:"he_genutzt",total:"he_total",used:pk.he_genutzt,tot:pk.he_total,left:heL,color:T.dark},
+                          {label:"Gruppenangebote",genutzt:"bs_genutzt",total:"bs_total",used:pk.bs_genutzt,tot:pk.bs_total,left:bsL,color:T.gold}
+                        ].map((e,ei)=>{
+                          const numInp={width:48,padding:"3px 6px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:700,background:"transparent",color:T.dark,outline:"none",textAlign:"center"};
+                          return(
+                            <div key={e.label} style={{padding:"12px 18px",borderLeft:ei>0?`1px solid ${T.gold}18`:"none"}}>
+                              <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{e.label}</div>
+                              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                                  <span style={{fontSize:10,color:T.textLight}}>Genutzt</span>
+                                  <input type="number" min={0} max={e.tot} value={e.used}
+                                    onChange={ev=>updatePassEinheiten(pk.id,e.genutzt,ev.target.value)}
+                                    style={numInp}/>
+                                </div>
+                                <span style={{fontSize:16,color:T.textLight,marginTop:14}}>/</span>
+                                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                                  <span style={{fontSize:10,color:T.textLight}}>Gesamt</span>
+                                  <input type="number" min={0} value={e.tot}
+                                    onChange={ev=>updatePassEinheiten(pk.id,e.total,ev.target.value)}
+                                    style={numInp}/>
+                                </div>
+                                <span style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:e.left===0?T.red:T.dark,marginTop:14,marginLeft:4}}>{e.left}<span style={{fontSize:11,fontWeight:400,color:T.textLight}}> übrig</span></span>
+                              </div>
+                              <Bar used={e.used} total={e.tot} color={e.color} h={6}/>
                             </div>
-                            <Bar used={e.used} total={e.total} color={e.color} h={6}/>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       <div className="pass-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
                         <div style={{padding:"10px 18px"}}>
