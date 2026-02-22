@@ -584,7 +584,8 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
           <div style={{marginBottom:20}}>
             <Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading>
             <p style={{color:T.textLight,fontSize:13,marginTop:4}}>{filtered.length} Kunden</p>
-          </div> style={{display:"flex",gap:10,marginBottom:18,flexWrap:"wrap"}}>
+          </div>
+          <div className="toolbar" style={{display:"flex",gap:10,marginBottom:18,flexWrap:"wrap"}}>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name, E-Mail oder Rechnungsnummer..." style={{...inp,flex:1,minWidth:200}}/>
             <div className="toolbar-btns" style={{display:"flex",gap:8}}>
               <Btn primary onClick={()=>setScanMode(true)}>📷 QR</Btn>
