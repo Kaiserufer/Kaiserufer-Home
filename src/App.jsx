@@ -86,6 +86,7 @@ const css = `
     .log-row{flex-direction:column!important;align-items:flex-start!important;gap:4px!important}
     .einzel-row{flex-direction:column!important;align-items:flex-start!important;gap:8px!important}
     .rechnung-row{flex-direction:column!important;align-items:flex-start!important;gap:4px!important}
+    .vk-row{flex-direction:column!important;align-items:flex-start!important;gap:6px!important}
     .qr-sidebar{position:static!important}
     .modal-box{width:calc(100vw - 32px)!important;max-width:none!important;margin:16px!important}
     .nav-bar{padding:0 14px!important}
@@ -392,6 +393,39 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   const heUebrig=aktPaesse.reduce((s,p)=>s+((p.he_total||0)-(p.he_genutzt||0)),0);
   const bsUebrig=aktPaesse.reduce((s,p)=>s+((p.bs_total||0)-(p.bs_genutzt||0)),0);
 
+  // Alle Verkäufe dieses Kunden sortiert nach Datum (neueste zuerst)
+  const alleVerkaufe=[
+    ...patPaesse.map(pk=>({
+      id:pk.id, art:"pass", name:`Flossenpass ${getPassLabel(pk)}`,
+      rechnung:pk.rechnung, datum:pk.datum, preis:pk.preis||0,
+      bezahlt:pk.bezahlt, status:isPassAlt(pk)?"Aufgebraucht":"Aktiv"
+    })),
+    ...patEinzel.map(e=>({
+      id:e.id, art:"einzel", name:e.name,
+      rechnung:e.rechnung, datum:e.datum, preis:e.preis||0,
+      bezahlt:e.bezahlt, status:"Einzeln"
+    }))
+  ].sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));
+
+  const downloadCSV=()=>{
+    const header=["Vorname","Nachname","E-Mail","Telefon","QR-Code","Stammkunde","Stammpreis (€)","Kunde seit","Aktiver Pass","HE übrig","GA übrig"];
+    const rows=filtered.map(p=>{
+      const ap=paesse.find(pk=>pk.pat_id===p.id&&!isPassAlt(pk));
+      const he=ap?(ap.he_total||0)-(ap.he_genutzt||0):"";
+      const bs=ap?(ap.bs_total||0)-(ap.bs_genutzt||0):"";
+      return [
+        p.vorname||"", p.nachname||"", p.email||"", p.telefon||"",
+        p.qr||"", p.stammkunde?"Ja":"Nein", p.stammpreis||"",
+        fmtDate(p.erstellt), ap?`Flossenpass ${getPassLabel(ap)}`:"–", he, bs
+      ].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";");
+    });
+    const csv=[header.map(h=>`"${h}"`).join(";"),...rows].join("\n");
+    const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download="gaesteliste-kaiserufer.csv";a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleScan=()=>{
     const pat=patienten.find(p=>p.qr===scanInput.trim().toUpperCase());
     if(pat){setSelPat(pat);setView("akte");setScanMode(false);setScanInput("");}
@@ -581,15 +615,13 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
 
       {view==="liste"&&(
         <div className="fade-in">
-          <div style={{marginBottom:20}}>
-            <Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading>
-            <p style={{color:T.textLight,fontSize:13,marginTop:4}}>{filtered.length} Kunden</p>
-          </div>
-          <div className="toolbar" style={{display:"flex",gap:10,marginBottom:18,flexWrap:"wrap"}}>
+          {/* Toolbar zuerst */}
+          <div className="toolbar" style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name, E-Mail oder Rechnungsnummer..." style={{...inp,flex:1,minWidth:200}}/>
             <div className="toolbar-btns" style={{display:"flex",gap:8}}>
               <Btn primary onClick={()=>setScanMode(true)}>📷 QR</Btn>
               <Btn outline onClick={()=>setShowStats(!showStats)}>{showStats?"✕":"📊"} Statistik</Btn>
+              <Btn outline onClick={downloadCSV}>⬇ CSV</Btn>
               <Btn outline disabled={shoreSync} onClick={async()=>{
                 setShoreSync(true);setShoreSyncMsg("");
                 try{
@@ -606,6 +638,13 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
           </div>
           {shoreSyncMsg&&<div style={{padding:"10px 16px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.red+"12":T.green+"12",color:shoreSyncMsg.startsWith("Fehler")?T.red:T.green,fontSize:13,fontWeight:600,marginBottom:12}}>{shoreSyncMsg}</div>}
           {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
+
+          {/* Überschrift unter Suchleiste, über der Liste */}
+          <div style={{marginBottom:16}}>
+            <Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading>
+            <p style={{color:T.textLight,fontSize:13,marginTop:4}}>{filtered.length} Kunden</p>
+          </div>
+
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {filtered.map((p,i)=>{
               const u=getUnits(p.id);
@@ -776,7 +815,6 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                           </div>
                         ))}
                       </div>
-                      {/* Korrektur-Link */}
                       <div style={{padding:"8px 18px"}}>
                         <button onClick={()=>{setKorrekturModal(pk);setKorrekturTyp("HE");setKorrekturAnzahl(1);setKorrekturGrund("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.red+"80",padding:"4px 0",letterSpacing:0.3}}>
                           ✎ Korrektur / Einheit zurückbuchen
@@ -834,6 +872,33 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+              </GlassCard>
+
+              {/* Verkaufshistorie */}
+              <GlassCard>
+                <SectionLabel>Verkaufshistorie</SectionLabel>
+                {alleVerkaufe.length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch keine Verkäufe</p>}
+                {alleVerkaufe.map(item=>(
+                  <div key={item.id} className="vk-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.cream+"80",borderRadius:12,fontSize:14,marginBottom:4,flexWrap:"wrap",gap:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <Badge variant={item.art==="pass"?"green":"gold"} small>{item.art==="pass"?"Flossenpass":"Einzelangebot"}</Badge>
+                      <span style={{fontWeight:600,color:T.dark}}>{item.name}</span>
+                      <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.text}}>{item.rechnung||"–"}</code>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0,flexWrap:"wrap"}}>
+                      <span style={{fontSize:12,color:T.textLight}}>{fmtDate(item.datum)}</span>
+                      <strong style={{fontFamily:"Georgia,serif",fontSize:14}}>{item.preis} €</strong>
+                      <Badge variant={item.bezahlt?"green":"red"} small>{item.bezahlt?"Bezahlt":"Offen"}</Badge>
+                    </div>
+                  </div>
+                ))}
+                {alleVerkaufe.length>0&&(
+                  <div style={{marginTop:12,paddingTop:10,borderTop:`1px solid ${T.gold}18`,display:"flex",justifyContent:"flex-end",gap:16,fontSize:13,flexWrap:"wrap"}}>
+                    <span style={{color:T.textLight}}>Gesamt: <strong style={{color:T.dark}}>{alleVerkaufe.reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span>
+                    <span style={{color:T.textLight}}>Bezahlt: <strong style={{color:T.green}}>{alleVerkaufe.filter(i=>i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span>
+                    <span style={{color:T.textLight}}>Offen: <strong style={{color:T.red}}>{alleVerkaufe.filter(i=>!i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span>
                   </div>
                 )}
               </GlassCard>
