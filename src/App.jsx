@@ -263,13 +263,18 @@ const PassAktionen = ({pass,onHE,onBS,onKorrektur}) => {
 const KaufModal = ({selPat,rechnungsNr,onKauf,onClose}) => {
   const [passPreise,setPassPreise]=useState(Object.fromEntries(Object.entries(PASS_TYPES).map(([k,v])=>[k,v.preis])));
   const [einzelPreise,setEinzelPreise]=useState(Object.fromEntries(EINZELANGEBOTE.map(e=>[e.key,e.preis])));
+  const [eigeneRechnung,setEigeneRechnung]=useState("");
   const inp={width:80,padding:"4px 8px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:13,fontWeight:700,background:T.cream,color:T.dark,outline:"none",textAlign:"right"};
   return(
     <Modal onClose={onClose}>
       <div className="modal-box" style={{background:T.white,borderRadius:24,padding:32,width:520,maxHeight:"85vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
         <Heading style={{marginBottom:4,fontSize:20}}>Angebot hinzufügen</Heading>
-        <p style={{color:T.textLight,fontSize:14,marginBottom:selPat?.stammkunde?8:24}}>für {selPat?.vorname} {selPat?.nachname}{selPat?.stammkunde?" · Stammkunde":""}</p>
-        {selPat?.stammkunde&&selPat?.stammpreis&&<p style={{fontSize:13,color:T.gold,marginBottom:24}}>Stammpreis: <strong>{selPat.stammpreis} €</strong></p>}
+        <p style={{color:T.textLight,fontSize:14,marginBottom:12}}>für {selPat?.vorname} {selPat?.nachname}{selPat?.stammkunde?" · Stammkunde":""}</p>
+        {selPat?.stammkunde&&selPat?.stammpreis&&<p style={{fontSize:13,color:T.gold,marginBottom:12}}>Stammpreis: <strong>{selPat.stammpreis} €</strong></p>}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:6}}>Rechnungsnummer (optional)</div>
+          <input value={eigeneRechnung} onChange={e=>setEigeneRechnung(e.target.value)} placeholder="z.B. RE-2025-0042  (leer = automatisch)" style={{width:"100%",padding:"8px 12px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:13,background:T.cream,color:T.dark,outline:"none"}}/>
+        </div>
         <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Flossenpässe</div>
         {Object.entries(PASS_TYPES).map(([k,v])=>(
           <div key={k} className="kauf-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderRadius:14,border:`1px solid ${T.gold}30`,marginBottom:8,background:T.cream+"40"}}>
@@ -280,7 +285,7 @@ const KaufModal = ({selPat,rechnungsNr,onKauf,onClose}) => {
             <div className="kauf-right" style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" min={0} value={passPreise[k]} onChange={e=>setPassPreise(p=>({...p,[k]:Number(e.target.value)}))} style={inp}/>
               <span style={{fontSize:12,color:T.textLight}}>€</span>
-              <Btn small primary onClick={()=>onKauf("pass",k,passPreise[k])}>Hinzufügen</Btn>
+              <Btn small primary onClick={()=>onKauf("pass",k,passPreise[k],eigeneRechnung.trim())}>Hinzufügen</Btn>
             </div>
           </div>
         ))}
@@ -291,7 +296,7 @@ const KaufModal = ({selPat,rechnungsNr,onKauf,onClose}) => {
             <div className="kauf-right" style={{display:"flex",alignItems:"center",gap:8}}>
               <input type="number" min={0} value={einzelPreise[e.key]} onChange={ev=>setEinzelPreise(p=>({...p,[e.key]:Number(ev.target.value)}))} style={inp}/>
               <span style={{fontSize:12,color:T.textLight}}>€</span>
-              <Btn small primary onClick={()=>onKauf("einzel",e,einzelPreise[e.key])}>Hinzufügen</Btn>
+              <Btn small primary onClick={()=>onKauf("einzel",e,einzelPreise[e.key],eigeneRechnung.trim())}>Hinzufügen</Btn>
             </div>
           </div>
         ))}
@@ -348,26 +353,31 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     return nr;
   };
 
-  const handleKauf = async (typ, info, preis) => {
-    setSaving(true);
+  const handleKauf = async (typ, info, preis, eigeneRechnung) => {
+  setSaving(true);
+  let rechnungStr;
+  if(eigeneRechnung) {
+    rechnungStr = eigeneRechnung;
+  } else {
     const nr = await getRechnungsNr();
-    if(typ==="pass") {
-      const pt = PASS_TYPES[info];
-      const neuerPass = {id:genId(),pat_id:selPat.id,typ:info,he_total:pt.he,he_genutzt:0,bs_total:pt.bs,bs_genutzt:0,preis,rechnung:genRechnung(nr),bezahlt:false,datum:new Date().toISOString().split("T")[0],aktiv:true};
-      await supabase.from("paesse").insert(neuerPass);
-      setPaesse(prev=>[...prev,neuerPass]);
-    } else {
-      const neuerEinzel = {id:genId(),pat_id:selPat.id,key:info.key,name:info.name,preis,rechnung:genRechnung(nr),bezahlt:false,datum:new Date().toISOString().split("T")[0]};
-      const neuerLog = {id:genId(),pat_id:selPat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};
-      await supabase.from("einzel").insert(neuerEinzel);
-      await supabase.from("log").insert(neuerLog);
-      setEinzel(prev=>[...prev,neuerEinzel]);
-      setLog(prev=>[...prev,neuerLog]);
-    }
-    setSaving(false);
-    setKaufModal(false);
-  };
-
+    rechnungStr = genRechnung(nr);
+  }
+  if(typ==="pass") {
+    const pt = PASS_TYPES[info];
+    const neuerPass = {id:genId(),pat_id:selPat.id,typ:info,he_total:pt.he,he_genutzt:0,bs_total:pt.bs,bs_genutzt:0,preis,rechnung:rechnungStr,bezahlt:false,datum:new Date().toISOString().split("T")[0],aktiv:true};
+    await supabase.from("paesse").insert(neuerPass);
+    setPaesse(prev=>[...prev,neuerPass]);
+  } else {
+    const neuerEinzel = {id:genId(),pat_id:selPat.id,key:info.key,name:info.name,preis,rechnung:rechnungStr,bezahlt:false,datum:new Date().toISOString().split("T")[0]};
+    const neuerLog = {id:genId(),pat_id:selPat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};
+    await supabase.from("einzel").insert(neuerEinzel);
+    await supabase.from("log").insert(neuerLog);
+    setEinzel(prev=>[...prev,neuerEinzel]);
+    setLog(prev=>[...prev,neuerLog]);
+  }
+  setSaving(false);
+  setKaufModal(false);
+};
   const heAbziehen=async(pass,aktionTyp,aktionLabel)=>{
     if(pass.he_genutzt>=pass.he_total) return;
     const updated={...pass,he_genutzt:pass.he_genutzt+1};
@@ -421,7 +431,11 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     await supabase.from("einzel").update({bezahlt:!e.bezahlt}).eq("id",eid);
     setEinzel(prev=>prev.map(x=>x.id===eid?{...x,bezahlt:!x.bezahlt}:x));
   };
-
+  
+  const updatePassRechnung=async(pid,rechnung)=>{
+  await supabase.from("paesse").update({rechnung}).eq("id",pid);
+  setPaesse(prev=>prev.map(p=>p.id===pid?{...p,rechnung}:p));
+};
   const updatePassPreis=async(pid,preis)=>{
     await supabase.from("paesse").update({preis}).eq("id",pid);
     setPaesse(prev=>prev.map(p=>p.id===pid?{...p,preis}:p));
@@ -650,7 +664,8 @@ const {data:neuePat} = await supabase.from("patienten").select("*");
                       <div className="pass-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
                         <div style={{padding:"10px 18px"}}>
                           <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Rechnungs-Nr.</div>
-                          <code style={{fontSize:13,fontWeight:700,color:T.dark}}>{pk.rechnung}</code>
+                          <input value={pk.rechnung} onChange={e=>updatePassRechnung(pk.id,e.target.value)}
+  style={{fontSize:13,fontWeight:700,background:"transparent",border:`1px solid ${T.gold}40`,borderRadius:8,padding:"2px 8px",color:T.dark,outline:"none",width:150}}/>
                         </div>
                         <div style={{padding:"10px 18px"}}>
                           <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Preis</div>
