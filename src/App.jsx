@@ -230,22 +230,7 @@ const StatistikPanel = ({patienten,paesse,einzelArr}) => {
   );
 };
 
-const PassAktionen = ({pass,onBS,onKorrektur}) => {
-  const bsL=pass.bs_total-pass.bs_genutzt;
-  const row=(dis,red)=>({display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 14px",borderRadius:12,border:`1px solid ${red?T.red+"20":T.gold+"25"}`,background:red?T.red+"08":T.white+"80",cursor:dis?"not-allowed":"pointer",opacity:dis?0.35:1,width:"100%",textAlign:"left"});
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:14,paddingTop:14,borderTop:`1px solid ${T.gold}18`}}>
-      <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:2}}>Weitere Aktionen</div>
-      <button disabled={bsL===0} onClick={()=>onBS(pass)} className="btn-anim" style={row(bsL===0,false)}>
-        <span style={{fontSize:14,fontWeight:500,color:T.dark}}>Gruppenangebot abhaken</span>
-        <span style={{fontSize:12,color:T.textLight}}>GA −1 · noch {bsL} übrig</span>
-      </button>
-      <button onClick={()=>onKorrektur(pass)} className="btn-anim" style={row(false,true)}>
-        <span style={{fontSize:14,fontWeight:500,color:T.red}}>Korrektur / Einheit hinzufügen</span>
-      </button>
-    </div>
-  );
-};
+
 
 const PASS_OPTIONS = [
   {key:"BASIS",  label:"Basis  – 3 HE · 1 GA",  he:3,  bs:1, preis:299},
