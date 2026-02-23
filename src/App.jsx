@@ -347,6 +347,213 @@ const KaufModal = ({selPat,onKauf,onClose}) => {
   );
 };
 
+const KIEingabeModal = ({patienten,paesse,einzel,onKauf,onClose,getRechnungsNr}) => {
+  const [recording,setRecording]=useState(false);
+  const [transcript,setTranscript]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [eintraege,setEintraege]=useState([]); // Array von erkannten Einträgen
+  const [saving,setSaving]=useState(false);
+  const [savedCount,setSavedCount]=useState(0);
+  const [error,setError]=useState("");
+  const mediaRef=useRef(null);
+  const chunksRef=useRef([]);
+
+  const matchPat=(name)=>patienten.find(p=>{
+    if(!name) return false;
+    const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();
+    const parts=name.toLowerCase().split(" ");
+    return parts.some(part=>part.length>2&&full.includes(part));
+  })||null;
+
+  const promptText=(patNames)=>`Du bist ein Assistent für ein Kundenverwaltungssystem.
+Extrahiere ALLE genannten Einträge und antworte NUR mit einem JSON-Array ohne Markdown-Backticks.
+Jedes Element hat folgende Struktur:
+{
+  "kundenname": "Vorname Nachname oder null",
+  "typ": "pass oder einzel",
+  "pass_typ": "BASIS, PLUS, DELUXE oder INDIVIDUELL oder null",
+  "einzel_name": "Name des Einzelangebots oder null",
+  "he_total": Zahl oder null,
+  "bs_total": Zahl oder null,
+  "preis": Zahl oder null,
+  "rechnung": "Rechnungsnummer oder null",
+  "datum": "YYYY-MM-DD oder null",
+  "custom_name": "Bezeichnung bei individuellem Pass oder null"
+}
+
+Bekannte Kunden: ${patNames}
+Bekannte Pass-Typen: BASIS (3 HE, 1 GA, 299€), PLUS (5 HE, 3 GA, 499€), DELUXE (10 HE, 5 GA, 899€)
+Bekannte Einzelangebote: Psycho Quickie (70€), tDCS (55€), Neurofeedback 5er Karte (350€)
+Heutiges Datum: ${todayISO()}
+Wichtig: Gib immer ein Array zurück, auch bei nur einem Eintrag.`;
+
+  const processResult=(raw)=>{
+    const clean=raw.replace(/```json|```/g,"").trim();
+    const arr=JSON.parse(clean);
+    return (Array.isArray(arr)?arr:[arr]).map((item,i)=>({
+      ...item,
+      _id:i,
+      _skip:false,
+      matched_pat:matchPat(item.kundenname)
+    }));
+  };
+
+  const startRec=async()=>{
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      const mr=new MediaRecorder(stream);
+      chunksRef.current=[];
+      mr.ondataavailable=e=>chunksRef.current.push(e.data);
+      mr.onstop=async()=>{
+        stream.getTracks().forEach(t=>t.stop());
+        setLoading(true);
+        try{
+          const blob=new Blob(chunksRef.current,{type:"audio/webm"});
+          const base64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.readAsDataURL(blob);});
+          const patNames=patienten.map(p=>`${p.vorname} ${p.nachname}`).join(", ");
+          const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:[{type:"text",text:promptText(patNames)},{type:"document",source:{type:"base64",media_type:"audio/webm",data:base64}}]}]})});
+          const data=await resp.json();
+          const text=data.content?.map(c=>c.text||"").join("")||"";
+          setEintraege(processResult(text));
+          setError("");
+        }catch(e){setError("Fehler beim Verarbeiten. Bitte nochmal versuchen.");console.error(e);}
+        setLoading(false);
+      };
+      mr.start();
+      mediaRef.current=mr;
+      setRecording(true);
+      setError("");
+      setEintraege([]);
+    }catch(e){setError("Mikrofon konnte nicht gestartet werden.");}
+  };
+
+  const stopRec=()=>{
+    if(mediaRef.current&&mediaRef.current.state!=="inactive"){
+      mediaRef.current.stop();
+      setRecording(false);
+    }
+  };
+
+  const handleManualText=async()=>{
+    if(!transcript.trim()) return;
+    setLoading(true);setError("");setEintraege([]);
+    try{
+      const patNames=patienten.map(p=>`${p.vorname} ${p.nachname}`).join(", ");
+      const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:`${promptText(patNames)}\n\nText: "${transcript}"`}]})});
+      const d=await resp.json();
+      const txt=d.content?.map(c=>c.text||"").join("")||"";
+      setEintraege(processResult(txt));
+    }catch(e){setError("Fehler beim Verarbeiten.");console.error(e);}
+    setLoading(false);
+  };
+
+  const alleBestaetigen=async()=>{
+    setSaving(true);setSavedCount(0);
+    const aktive=eintraege.filter(e=>!e._skip&&e.matched_pat);
+    for(let i=0;i<aktive.length;i++){
+      const v=aktive[i];
+      const pat=v.matched_pat;
+      const datum=v.datum||todayISO();
+      const rechnung=v.rechnung||genRechnung(await getRechnungsNr());
+      if(v.typ==="pass"){
+        const typ=v.pass_typ||"INDIVIDUELL";
+        if(typ==="INDIVIDUELL"){
+          await onKauf(pat,"individuell",{name:v.custom_name||"Individuell",he:v.he_total||0,bs:v.bs_total||0,datum,rechnung},v.preis||0,"");
+        } else {
+          await onKauf(pat,"pass",typ,v.preis||PASS_TYPES[typ]?.preis||0,rechnung,datum);
+        }
+      } else {
+        const name=v.einzel_name||"Einzelangebot";
+        const found=EINZELANGEBOTE.find(ea=>ea.name.toLowerCase().includes(name.toLowerCase()));
+        await onKauf(pat,"einzel",{key:found?.key||"CUSTOM",name},v.preis||found?.preis||0,rechnung,datum);
+      }
+      setSavedCount(i+1);
+    }
+    setSaving(false);
+    onClose();
+  };
+
+  const toggleSkip=(id)=>setEintraege(prev=>prev.map(e=>e._id===id?{...e,_skip:!e._skip}:e));
+
+  const aktiveCount=eintraege.filter(e=>!e._skip&&e.matched_pat).length;
+  const inp2={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"};
+  const lbl={fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:1.5,marginBottom:5,display:"block"};
+
+  return(
+    <Modal onClose={onClose}>
+      <div className="modal-box" style={{background:T.white,borderRadius:24,padding:28,width:540,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
+        <Heading style={{fontSize:20,marginBottom:4}}>🎤 KI-Masseneingabe</Heading>
+        <p style={{color:T.text,fontSize:14,marginBottom:20}}>Sprich <strong>mehrere Einträge</strong> auf einmal, z.B.:<br/><em style={{fontSize:13,color:T.textLight}}>"Anna Müller, Plus Pass, 499 Euro, Rechnung KU-0042... Maria Schmidt, Basis Pass, 299 Euro... Thomas Bauer, tDCS, 55 Euro"</em></p>
+
+        <div style={{display:"flex",gap:10,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+          {!recording
+            ?<button onClick={startRec} style={{padding:"14px 24px",borderRadius:16,background:T.red,color:"#fff",border:"none",fontWeight:700,fontSize:15,cursor:"pointer",boxShadow:`0 4px 16px ${T.red}40`}}>🎤 Aufnahme starten</button>
+            :<button onClick={stopRec} style={{padding:"14px 24px",borderRadius:16,background:T.dark,color:T.cream,border:"none",fontWeight:700,fontSize:15,cursor:"pointer"}}>⏹ Aufnahme stoppen</button>
+          }
+          {recording&&<span style={{fontSize:13,color:T.red,fontWeight:600}}>● Aufnahme läuft... einfach alle Einträge durchsprechen</span>}
+        </div>
+
+        <div style={{marginBottom:16}}>
+          <label style={lbl}>Oder direkt eintippen (mehrere durch Komma/Zeilenumbruch)</label>
+          <div style={{display:"flex",gap:8}}>
+            <textarea value={transcript} onChange={e=>setTranscript(e.target.value)} rows={3} placeholder="z.B. Anna Müller Plus Pass 499€, Maria Schmidt Basis Pass 299€..." style={{...inp2,flex:1,resize:"vertical"}}/>
+            <Btn primary small onClick={handleManualText} disabled={!transcript.trim()||loading}>KI →</Btn>
+          </div>
+        </div>
+
+        {loading&&<div style={{textAlign:"center",padding:20}}><Spinner/><p style={{color:T.gold,fontSize:13}}>KI analysiert alle Einträge...</p></div>}
+        {saving&&<div style={{textAlign:"center",padding:12,background:T.green+"12",borderRadius:12,color:T.green,fontWeight:600,fontSize:13,marginBottom:12}}>Speichere {savedCount}/{aktiveCount}...</div>}
+        {error&&<div style={{padding:"10px 14px",borderRadius:10,background:T.red+"12",color:T.red,fontSize:13,marginBottom:12}}>{error}</div>}
+
+        {eintraege.length>0&&!loading&&(
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>
+              {eintraege.length} Einträge erkannt – prüfen & bestätigen
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {eintraege.map((v,i)=>(
+                <div key={v._id} style={{borderRadius:14,border:`1px solid ${v._skip?T.gold+"20":v.matched_pat?T.green+"40":T.red+"40"}`,background:v._skip?T.cream+"30":v.matched_pat?T.green+"08":T.red+"08",padding:"12px 16px",opacity:v._skip?0.45:1}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:700,fontSize:14,color:T.dark,marginBottom:4}}>
+                        {v.matched_pat
+                          ?`${v.matched_pat.vorname} ${v.matched_pat.nachname}`
+                          :<span style={{color:T.red}}>⚠ "{v.kundenname}" – nicht gefunden</span>
+                        }
+                      </div>
+                      <div style={{fontSize:12,color:T.text,display:"flex",gap:12,flexWrap:"wrap"}}>
+                        <span>{v.typ==="pass"?`Flossenpass ${v.pass_typ||"Individuell"}${v.custom_name?` – ${v.custom_name}`:""}`:v.einzel_name||"Einzelangebot"}</span>
+                        {v.typ==="pass"&&<span style={{color:T.textLight}}>{v.he_total||"–"} HE · {v.bs_total||"–"} GA</span>}
+                        {v.preis&&<span style={{fontWeight:600,color:T.dark}}>{v.preis} €</span>}
+                        {v.rechnung&&<code style={{background:T.bgLight,padding:"1px 6px",borderRadius:6,fontSize:11}}>{v.rechnung}</code>}
+                        {v.datum&&<span style={{color:T.textLight}}>{fmtDate(v.datum)}</span>}
+                      </div>
+                    </div>
+                    <button onClick={()=>toggleSkip(v._id)} style={{padding:"4px 12px",borderRadius:8,border:`1px solid ${v._skip?T.green+"60":T.red+"40"}`,background:"transparent",color:v._skip?T.green:T.red,fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0,textTransform:"uppercase"}}>
+                      {v._skip?"↩ Zurück":"✕ Überspringen"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,flexWrap:"wrap",gap:8}}>
+              <span style={{fontSize:13,color:T.textLight}}>{aktiveCount} von {eintraege.length} werden gespeichert</span>
+              <div style={{display:"flex",gap:8}}>
+                <Btn small onClick={()=>setEintraege([])}>Nochmal</Btn>
+                <Btn small primary disabled={aktiveCount===0||saving} onClick={alleBestaetigen}>
+                  {saving?`Speichere...`:`✓ Alle ${aktiveCount} speichern`}
+                </Btn>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div style={{textAlign:"right"}}><Btn small onClick={onClose}>Abbrechen</Btn></div>
+      </div>
+    </Modal>
+  );
+};
+
 const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnungsNr,setRechnungsNr,einzel,setEinzel}) => {
   const [view,setView]=useState("liste");
   const [selPat,setSelPat]=useState(null);
@@ -355,6 +562,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   const [scanInput,setScanInput]=useState("");
   const [showStats,setShowStats]=useState(false);
   const [kaufModal,setKaufModal]=useState(false);
+  const [kiModal,setKiModal]=useState(false);
   const [bsModal,setBsModal]=useState(null);
   const [bsNotiz,setBsNotiz]=useState("");
   const [korrekturModal,setKorrekturModal]=useState(null);
@@ -432,7 +640,34 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     else alert("QR-Code nicht gefunden: "+scanInput);
   };
 
-  const getRechnungsNr=async()=>{
+  const handleKaufFuerPat=async(pat,typ,info,preis,eigeneRechnung,datum)=>{
+    setSaving(true);
+    const datumStr=datum||todayISO();
+    let rechnungStr;
+    if(typ==="individuell"){
+      rechnungStr=info.rechnung||genRechnung(await getRechnungsNrInner());
+      const np={id:genId(),pat_id:pat.id,typ:"INDIVIDUELL",he_total:info.he||0,he_genutzt:0,bs_total:info.bs||0,bs_genutzt:0,preis:preis||0,rechnung:rechnungStr,bezahlt:false,datum:info.datum||datumStr,aktiv:true,custom_name:info.name||"Individuell"};
+      await supabase.from("paesse").insert(np);
+      setPaesse(prev=>[...prev,np]);
+    } else if(typ==="pass"){
+      rechnungStr=eigeneRechnung||genRechnung(await getRechnungsNrInner());
+      const pt=PASS_TYPES[info];
+      const np={id:genId(),pat_id:pat.id,typ:info,he_total:pt.he,he_genutzt:0,bs_total:pt.bs,bs_genutzt:0,preis:preis||0,rechnung:rechnungStr,bezahlt:false,datum:datumStr,aktiv:true};
+      await supabase.from("paesse").insert(np);
+      setPaesse(prev=>[...prev,np]);
+    } else {
+      rechnungStr=eigeneRechnung||genRechnung(await getRechnungsNrInner());
+      const ne={id:genId(),pat_id:pat.id,key:info.key,name:info.name,preis:preis||0,rechnung:rechnungStr,bezahlt:false,datum:datumStr};
+      const nl={id:genId(),pat_id:pat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};
+      await supabase.from("einzel").insert(ne);
+      await supabase.from("log").insert(nl);
+      setEinzel(prev=>[...prev,ne]);
+      setLog(prev=>[...prev,nl]);
+    }
+    setSaving(false);
+  };
+
+  const getRechnungsNrInner=async()=>{
     const {data}=await supabase.from("einstellungen").select("value").eq("key","rechnungs_nr").single();
     const nr=parseInt(data?.value||"0")+1;
     await supabase.from("einstellungen").update({value:String(nr)}).eq("key","rechnungs_nr");
@@ -567,6 +802,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   return(
     <div className="resp-pad" style={{padding:28}}>
       {kaufModal&&<KaufModal selPat={selPat} onKauf={handleKauf} onClose={()=>setKaufModal(false)}/>}
+      {kiModal&&<KIEingabeModal patienten={patienten} paesse={paesse} einzel={einzel} onKauf={handleKaufFuerPat} onClose={()=>setKiModal(false)} getRechnungsNr={getRechnungsNrInner}/>}
 
       {bsModal&&(
         <Modal onClose={()=>{setBsModal(null);setBsNotiz("");}}>
@@ -622,6 +858,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
               <Btn primary onClick={()=>setScanMode(true)}>📷 QR</Btn>
               <Btn outline onClick={()=>setShowStats(!showStats)}>{showStats?"✕":"📊"} Statistik</Btn>
               <Btn outline onClick={downloadCSV}>⬇ CSV</Btn>
+              <Btn primary onClick={()=>setKiModal(true)}>🎤 KI-Eingabe</Btn>
               <Btn outline disabled={shoreSync} onClick={async()=>{
                 setShoreSync(true);setShoreSyncMsg("");
                 try{
