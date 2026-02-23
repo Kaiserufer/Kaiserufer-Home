@@ -63,10 +63,7 @@ const css=`
   .kunde-card-2{animation-delay:0.2s}
   .kunde-card-3{animation-delay:0.3s}
   .kunde-card-4{animation-delay:0.4s}
-  .kunde-unit-box{transition:all 0.3s ease;position:relative;overflow:hidden}
-  .kunde-unit-box::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.08) 50%,transparent 70%);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;pointer-events:none}
-  .kunde-book-btn{transition:all 0.3s cubic-bezier(0.4,0,0.2,1)}
-  .kunde-book-btn:hover:not([data-disabled="true"]){transform:translateY(-2px);box-shadow:0 8px 28px rgba(184,168,138,0.3)!important}
+  .kunde-book-btn{transition:opacity 0.2s ease}
   *{box-sizing:border-box}
   input,textarea,select,button{font-family:inherit}
   ::selection{background:rgba(184,168,138,0.3)}
@@ -246,7 +243,7 @@ Jedes Element: {"kundenname":"string","typ":"pass/einzel","pass_typ":"BASIS/PLUS
 Kunden: ${patNames} | BASIS=3HE 1GA 299€, PLUS=5HE 3GA 499€, DELUXE=10HE 5GA 899€ | Quickie 70€, tDCS 55€, Neurofeedback 350€ | Heute: ${todayISO()}
 alt/aufgebraucht→ist_alt:true. bezahlt→bezahlt:true. offen→bezahlt:false. Immer Array.`;
   const parseResult=(raw)=>{const c=raw.replace(/```json|```/g,"").trim();const arr=JSON.parse(c);return(Array.isArray(arr)?arr:[arr]).map((item,i)=>({...item,_id:i,_skip:false,matched_pat:matchPat(item.kundenname)}));};
-  const analyzeText=async(text)=>{if(!text.trim())return;setLoading(true);setError("");setEintraege([]);try{const pn=patienten.map(p=>`${p.vorname} ${p.nachname}`).join(", ");const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:`${buildPrompt(pn)}\n\nText: "${text}"`}]})});const data=await resp.json();const txt=data.content?.map(c=>c.text||"").join("")||"";setEintraege(parseResult(txt));}catch(e){setError("Fehler beim Verarbeiten.");console.error(e);}setLoading(false);};
+  const analyzeText=async(text)=>{if(!text.trim())return;if(!ANTHROPIC_KEY){setError("API-Key fehlt. Bitte VITE_ANTHROPIC_KEY in Vercel setzen und neu deployen.");return;}setLoading(true);setError("");setEintraege([]);try{const pn=patienten.map(p=>`${p.vorname} ${p.nachname}`).join(", ");const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:`${buildPrompt(pn)}\n\nText: "${text}"`}]})});if(!resp.ok){const errData=await resp.json().catch(()=>({}));setError(`API-Fehler ${resp.status}: ${errData.error?.message||resp.statusText}`);setLoading(false);return;}const data=await resp.json();const txt=data.content?.map(c=>c.text||"").join("")||"";if(!txt){setError("Leere Antwort von der KI.");setLoading(false);return;}setEintraege(parseResult(txt));}catch(e){setError("Fehler: "+e.message);console.error(e);}setLoading(false);};
   const startRec=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setError("Spracherkennung nicht unterstützt. Bitte Chrome/Edge.");return;}try{const r=new SR();r.lang="de-DE";r.continuous=true;r.interimResults=true;let ft="";r.onresult=(e)=>{let im="";ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript+" ";else im+=e.results[i][0].transcript;}setTranscript((ft+im).trim());};r.onerror=(e)=>{if(e.error==="no-speech")return;setError("Fehler: "+e.error);setRecording(false);};r.onend=()=>{if(recognitionRef.current){setRecording(false);if(ft.trim())analyzeText(ft.trim());}};r.start();recognitionRef.current=r;setRecording(true);setError("");setEintraege([]);}catch(e){setError("Mikrofon konnte nicht gestartet werden.");}};
   const stopRec=()=>{if(recognitionRef.current){const ref=recognitionRef.current;recognitionRef.current=null;ref.stop();setRecording(false);if(transcript.trim())analyzeText(transcript.trim());}};
   const alleBestaetigen=async()=>{const aktive=eintraege.filter(e=>!e._skip&&e.matched_pat);for(let i=0;i<aktive.length;i++){setSavingIdx(i);const v=aktive[i],pat=v.matched_pat,datum=v.datum||todayISO(),rechnung=v.rechnung||"",istAlt=!!v.ist_alt,bez=v.bezahlt===true||v.bezahlt===false?v.bezahlt:null;if(v.typ==="pass"){const typ=v.pass_typ||"INDIVIDUELL";if(typ==="INDIVIDUELL")await onKauf(pat,"individuell",{name:v.custom_name||"Individuell",he:v.he_total||0,bs:v.bs_total||0,datum,rechnung,ist_alt:istAlt,bezahlt:bez},v.preis||0,"");else await onKauf(pat,"pass",typ,v.preis||PASS_TYPES[typ]?.preis||0,rechnung,datum,istAlt,bez);}else{const name=v.einzel_name||"Einzelangebot";const f=EINZELANGEBOTE.find(ea=>ea.name.toLowerCase().includes(name.toLowerCase()));await onKauf(pat,"einzel",{key:f?.key||"CUSTOM",name},v.preis||f?.preis||0,rechnung,datum,false,bez);}}setSavingIdx(-1);onClose();};
@@ -493,13 +490,10 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
 
   return(<div className="content-in" style={{minHeight:"100vh",background:T.oliveDark}}>
     {/* Header */}
-    <div style={{textAlign:"center",padding:"44px 20px 36px",position:"relative"}}>
-      <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 80%,rgba(184,168,138,0.06) 0%,transparent 70%)",pointerEvents:"none"}}/>
-      <div style={{position:"relative",zIndex:1}}>
-        <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:12,letterSpacing:4,textTransform:"uppercase",color:T.goldDim,marginBottom:8}}>Kaiserufer</div>
-        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(24px,5.5vw,34px)",color:T.goldLight,margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
-        <p style={{color:"rgba(184,168,138,0.35)",margin:0,fontSize:14,letterSpacing:0.5}}>Schön, dass du da bist</p>
-      </div>
+    <div style={{textAlign:"center",padding:"44px 20px 36px"}}>
+      <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:12,letterSpacing:4,textTransform:"uppercase",color:T.gold,marginBottom:8}}>Kaiserufer</div>
+      <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(24px,5.5vw,34px)",color:"#F0EDE0",margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
+      <p style={{color:T.goldDim,margin:0,fontSize:14,letterSpacing:0.5}}>Schön, dass du da bist</p>
     </div>
 
     <div className="resp-pad" style={{padding:"0 20px 40px",maxWidth:540,margin:"0 auto"}}>
@@ -510,70 +504,70 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
         const bsPct=ap.bs_total>0?((ap.bs_genutzt||0)/ap.bs_total)*100:0;
         return(<div className="kunde-card kunde-card-1" style={{marginBottom:24}}>
         {/* Pass Label */}
-        <div style={{textAlign:"center",marginBottom:20}}>
-          <div style={{fontSize:11,color:T.goldDim,textTransform:"uppercase",letterSpacing:3,marginBottom:4}}>Dein Flossenpass</div>
-          <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:24,color:T.goldLight,letterSpacing:0.5}}>{getPassLabel(ap)}</div>
-          <div style={{fontSize:13,color:"rgba(184,168,138,0.3)",marginTop:4}}>seit {fmtDate(ap.datum)}</div>
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:3,marginBottom:4}}>Dein Flossenpass</div>
+          <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:26,color:"#F0EDE0",letterSpacing:0.5}}>{getPassLabel(ap)}</div>
+          <div style={{fontSize:13,color:T.goldDim,marginTop:6}}>seit {fmtDate(ap.datum)}</div>
         </div>
 
         {/* Einheiten Cards */}
-        <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
-          {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct,grad:`linear-gradient(145deg,${T.goldLight},${T.gold})`},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct,grad:`linear-gradient(145deg,${T.goldLight},${T.gold})`}].map((u,ui)=>(
-            <div key={ui} className="kunde-unit-box" style={{textAlign:"center",padding:"26px 14px 22px",borderRadius:20,background:"rgba(184,168,138,0.08)",border:"1px solid rgba(184,168,138,0.1)"}}>
-              <div style={{fontSize:46,fontWeight:700,fontFamily:"Georgia,serif",color:u.left>0?T.goldLight:"rgba(184,168,138,0.25)",lineHeight:1,marginBottom:8}}>{u.left}</div>
-              <div style={{fontSize:13,color:"rgba(184,168,138,0.5)",marginBottom:4}}>von {u.total}</div>
-              <div style={{fontSize:13,color:T.goldLight,fontWeight:600,marginBottom:16}}>{u.left===1?u.label:u.labelP}</div>
-              <div style={{height:4,borderRadius:10,background:"rgba(184,168,138,0.1)",overflow:"hidden",margin:"0 6px"}}><div style={{height:"100%",borderRadius:10,background:u.grad,width:`${u.pct}%`,transition:"width 0.8s ease"}}/></div>
+        <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:22}}>
+          {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct}].map((u,ui)=>(
+            <div key={ui} style={{textAlign:"center",padding:"28px 14px 24px",borderRadius:20,background:"rgba(240,237,224,0.08)",border:"1px solid rgba(240,237,224,0.12)"}}>
+              <div style={{fontSize:48,fontWeight:700,fontFamily:"Georgia,serif",color:u.left>0?"#F0EDE0":"rgba(240,237,224,0.2)",lineHeight:1,marginBottom:8}}>{u.left}</div>
+              <div style={{fontSize:13,color:T.goldDim,marginBottom:4}}>von {u.total}</div>
+              <div style={{fontSize:14,color:u.left>0?T.goldLight:"rgba(184,168,138,0.35)",fontWeight:600,marginBottom:16}}>{u.left===1?u.label:u.labelP}</div>
+              <div style={{height:4,borderRadius:10,background:"rgba(240,237,224,0.08)",overflow:"hidden",margin:"0 6px"}}><div style={{height:"100%",borderRadius:10,background:`linear-gradient(135deg,${T.gold},${T.goldLight})`,width:`${u.pct}%`,transition:"width 0.8s ease"}}/></div>
             </div>
           ))}
         </div>
 
         {/* Buchen Buttons */}
         <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" data-disabled={heL===0?"true":"false"} className="kunde-book-btn" style={{padding:"16px 14px",borderRadius:16,background:heL===0?"rgba(184,168,138,0.06)":`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:heL===0?"rgba(184,168,138,0.25)":"#2A2A1A",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.4:1,boxShadow:heL===0?"none":"0 4px 20px rgba(184,168,138,0.25)",letterSpacing:0.3,lineHeight:1.5,display:"block"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></a>
-          <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" data-disabled={bsL===0?"true":"false"} className="kunde-book-btn" style={{padding:"16px 14px",borderRadius:16,background:bsL===0?"rgba(184,168,138,0.06)":"transparent",color:bsL===0?"rgba(184,168,138,0.25)":T.goldLight,fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.4:1,border:`1px solid rgba(184,168,138,${bsL===0?"0.08":"0.25"})`,letterSpacing:0.3,lineHeight:1.5,display:"block"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.6}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></a>
+          <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="kunde-book-btn" style={{padding:"16px 14px",borderRadius:16,background:heL===0?"rgba(240,237,224,0.05)":`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:heL===0?"rgba(240,237,224,0.2)":"#2A2A1A",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.4:1,letterSpacing:0.3,lineHeight:1.5,display:"block"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></a>
+          <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="kunde-book-btn" style={{padding:"16px 14px",borderRadius:16,background:bsL===0?"rgba(240,237,224,0.05)":"rgba(240,237,224,0.12)",color:bsL===0?"rgba(240,237,224,0.2)":"#F0EDE0",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.4:1,border:"1px solid rgba(240,237,224,0.15)",letterSpacing:0.3,lineHeight:1.5,display:"block"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.6}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></a>
         </div>
-        {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:16,padding:"14px 18px",background:"rgba(228,109,115,0.1)",borderRadius:14,fontSize:15,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
+        {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:16,padding:"14px 18px",background:"rgba(228,109,115,0.12)",borderRadius:14,fontSize:15,color:"#f08080",fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
       </div>);})()}
 
       {/* Kein Pass */}
-      {mp.length===0&&me.length===0&&<div className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"52px 28px",borderRadius:22,background:"rgba(184,168,138,0.06)",border:"1px solid rgba(184,168,138,0.1)"}}><div style={{fontSize:36,marginBottom:16,opacity:0.3}}>🐟</div><p style={{color:"rgba(184,168,138,0.45)",lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:"rgba(184,168,138,0.3)"}}>Sprich uns gerne an!</span></p></div>}
+      {mp.length===0&&me.length===0&&<div className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"52px 28px",borderRadius:22,background:"rgba(240,237,224,0.06)",border:"1px solid rgba(240,237,224,0.1)"}}><div style={{fontSize:36,marginBottom:16,opacity:0.4}}>🐟</div><p style={{color:T.goldDim,lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:T.goldDim}}>Sprich uns gerne an!</span></p></div>}
 
       {/* Alte Pässe */}
-      {mp.filter(p=>isPassAlt(p)).map(pk=>(<div key={pk.id} className="kunde-card kunde-card-2" style={{marginBottom:12,padding:"16px 22px",borderRadius:18,background:"rgba(184,168,138,0.04)",border:"1px solid rgba(184,168,138,0.08)",opacity:0.5}}>
+      {mp.filter(p=>isPassAlt(p)).map(pk=>(<div key={pk.id} className="kunde-card kunde-card-2" style={{marginBottom:12,padding:"16px 22px",borderRadius:18,background:"rgba(240,237,224,0.04)",border:"1px solid rgba(240,237,224,0.08)",opacity:0.55}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-          <div><strong style={{fontSize:15,fontFamily:"Georgia,serif",color:T.goldLight}}>Flossenpass {getPassLabel(pk)}</strong><span style={{fontSize:13,color:"rgba(184,168,138,0.3)",marginLeft:10}}>{fmtDate(pk.datum)}</span></div>
-          <span style={{fontSize:11,color:"rgba(184,168,138,0.35)",fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>Aufgebraucht</span>
+          <div><strong style={{fontSize:15,fontFamily:"Georgia,serif",color:T.goldLight}}>Flossenpass {getPassLabel(pk)}</strong><span style={{fontSize:13,color:T.goldDim,marginLeft:10}}>{fmtDate(pk.datum)}</span></div>
+          <span style={{fontSize:11,color:T.goldDim,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>Aufgebraucht</span>
         </div>
       </div>))}
 
       {/* Verlauf */}
-      {ml.length>0&&(<div className="kunde-card kunde-card-3" style={{marginTop:24,padding:24,borderRadius:22,background:"rgba(184,168,138,0.06)",border:"1px solid rgba(184,168,138,0.1)"}}>
+      {ml.length>0&&(<div className="kunde-card kunde-card-3" style={{marginTop:24,padding:24,borderRadius:22,background:"rgba(240,237,224,0.06)",border:"1px solid rgba(240,237,224,0.1)"}}>
         <div style={{fontSize:12,fontWeight:700,color:T.gold,marginBottom:18,textTransform:"uppercase",letterSpacing:2.5,fontFamily:"Georgia,serif"}}>Mein Verlauf</div>
-        {ml.map((l,i)=>{const b=kundenLogBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:"1px solid rgba(184,168,138,0.08)",fontSize:15,animationDelay:`${i*0.04}s`}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><span style={{background:"rgba(184,168,138,0.12)",color:T.goldLight,fontWeight:600,fontSize:11,padding:"3px 10px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:0.4,textTransform:"uppercase"}}>{b.label}</span><span style={{color:"rgba(184,168,138,0.5)",fontSize:14}}>{l.notiz}</span></div>
-          <span style={{color:"rgba(184,168,138,0.3)",fontSize:13,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span>
+        {ml.map((l,i)=>{const b=kundenLogBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:"1px solid rgba(240,237,224,0.06)",fontSize:15,animationDelay:`${i*0.04}s`}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><span style={{background:"rgba(184,168,138,0.15)",color:"#F0EDE0",fontWeight:600,fontSize:11,padding:"4px 12px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:0.4,textTransform:"uppercase"}}>{b.label}</span><span style={{color:T.goldDim,fontSize:14}}>{l.notiz}</span></div>
+          <span style={{color:T.goldDim,fontSize:13,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span>
         </div>);})}
       </div>)}
 
       {/* Rechnungen */}
-      {(mp.length>0||me.length>0)&&(<div className="kunde-card kunde-card-4" style={{marginTop:16,padding:24,borderRadius:22,background:"rgba(184,168,138,0.06)",border:"1px solid rgba(184,168,138,0.1)"}}>
+      {(mp.length>0||me.length>0)&&(<div className="kunde-card kunde-card-4" style={{marginTop:16,padding:24,borderRadius:22,background:"rgba(240,237,224,0.06)",border:"1px solid rgba(240,237,224,0.1)"}}>
         <div style={{fontSize:12,fontWeight:700,color:T.gold,marginBottom:18,textTransform:"uppercase",letterSpacing:2.5,fontFamily:"Georgia,serif"}}>Meine Rechnungen</div>
-        {mp.map(pk=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:"1px solid rgba(184,168,138,0.08)",fontSize:15}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:"rgba(184,168,138,0.1)",padding:"4px 12px",borderRadius:8,fontSize:13,color:"rgba(184,168,138,0.5)"}}>{pk.rechnung||"–"}</code><span style={{color:"rgba(184,168,138,0.45)"}}>Flossenpass {getPassLabel(pk)}</span></div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:"rgba(184,168,138,0.3)",fontSize:13}}>{fmtDate(pk.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.goldLight}}>{pk.preis||0} €</strong></div>
+        {mp.map(pk=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:"1px solid rgba(240,237,224,0.06)",fontSize:15}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:"rgba(184,168,138,0.12)",padding:"4px 12px",borderRadius:8,fontSize:13,color:T.goldDim}}>{pk.rechnung||"–"}</code><span style={{color:T.goldDim}}>Flossenpass {getPassLabel(pk)}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.goldDim,fontSize:13}}>{fmtDate(pk.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:"#F0EDE0"}}>{pk.preis||0} €</strong></div>
         </div>))}
-        {me.map(e=>(<div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:"1px solid rgba(184,168,138,0.08)",fontSize:15}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:"rgba(184,168,138,0.1)",padding:"4px 12px",borderRadius:8,fontSize:13,color:"rgba(184,168,138,0.5)"}}>{e.rechnung||"–"}</code><span style={{color:"rgba(184,168,138,0.45)"}}>{e.name}</span></div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:"rgba(184,168,138,0.3)",fontSize:13}}>{fmtDate(e.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.goldLight}}>{e.preis||0} €</strong></div>
+        {me.map(e=>(<div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:"1px solid rgba(240,237,224,0.06)",fontSize:15}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:"rgba(184,168,138,0.12)",padding:"4px 12px",borderRadius:8,fontSize:13,color:T.goldDim}}>{e.rechnung||"–"}</code><span style={{color:T.goldDim}}>{e.name}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.goldDim,fontSize:13}}>{fmtDate(e.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:"#F0EDE0"}}>{e.preis||0} €</strong></div>
         </div>))}
       </div>)}
 
       {/* Footer */}
       <div style={{textAlign:"center",padding:"44px 0 12px"}}>
-        <div style={{width:40,height:1,background:"rgba(184,168,138,0.12)",margin:"0 auto 16px"}}/>
-        <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:"rgba(184,168,138,0.3)",textDecoration:"none",letterSpacing:2,textTransform:"uppercase",fontWeight:500}}>kaiserufer.com ↗</a>
-        <div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"rgba(184,168,138,0.18)",textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div>
+        <div style={{width:40,height:1,background:"rgba(184,168,138,0.15)",margin:"0 auto 16px"}}/>
+        <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.goldDim,textDecoration:"none",letterSpacing:2,textTransform:"uppercase",fontWeight:500}}>kaiserufer.com ↗</a>
+        <div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"rgba(184,168,138,0.3)",textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div>
       </div>
     </div>
   </div>);
