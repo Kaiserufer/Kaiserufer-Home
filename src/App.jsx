@@ -79,6 +79,8 @@ const css = `
     .toolbar>input{min-width:0!important;width:100%!important}
     .toolbar-btns{display:flex!important;gap:8px!important;width:100%!important;flex-wrap:wrap!important}
     .toolbar-btns>button{flex:1!important;min-width:0!important}
+    .btn-text{display:none!important}
+    .btn-emoji{display:inline!important}
     .stammk-row{flex-direction:column!important;align-items:flex-start!important;gap:8px!important}
     .stammk-inner{flex-wrap:wrap!important}
     .log-row{flex-direction:column!important;align-items:flex-start!important;gap:4px!important}
@@ -775,12 +777,26 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
         <div className="fade-in">
           <div className="toolbar" style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name, E-Mail oder Rechnungsnummer..." style={{...inp,flex:1,minWidth:200}}/>
-            <div className="toolbar-btns" style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              <Btn primary onClick={()=>setScanMode(true)}>📷 QR</Btn>
-              <Btn outline onClick={()=>setShowStats(!showStats)}>{showStats?"✕":"📊"} Statistik</Btn>
-              <Btn outline onClick={downloadCSV}>⬇ CSV</Btn>
-              <Btn primary onClick={()=>setKiModal(true)}>🎤 KI-Eingabe</Btn>
-              <Btn outline disabled={shoreSync} onClick={async()=>{
+            <div className="toolbar-btns" style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              {[
+                {emoji:"📷",label:"QR",primary:true,onClick:()=>setScanMode(true)},
+                {emoji:"📊",label:showStats?"Statistik ✕":"Statistik",primary:false,onClick:()=>setShowStats(!showStats)},
+                {emoji:"⬇",label:"CSV",primary:false,onClick:downloadCSV},
+                {emoji:"🐧",label:"Pingu hilft",primary:true,onClick:()=>setKiModal(true)},
+              ].map(b=>(
+                <button key={b.label} onClick={b.onClick} className="btn-anim" style={{
+                  padding:"9px 14px",borderRadius:14,fontWeight:600,cursor:"pointer",
+                  background:b.primary?T.dark:"transparent",
+                  color:b.primary?T.cream:T.dark,
+                  border:b.primary?"none":`2px solid ${T.dark}40`,
+                  fontSize:14,letterSpacing:0.3,textTransform:"uppercase",
+                  boxShadow:b.primary?`0 4px 16px ${T.dark}20`:"none",
+                }}>
+                  <span className="btn-emoji" style={{display:"none"}}>{b.emoji}</span>
+                  <span className="btn-text">{b.label}</span>
+                </button>
+              ))}
+              <button disabled={shoreSync} className="btn-anim" style={{padding:"9px 14px",borderRadius:14,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:"transparent",color:T.dark,border:`2px solid ${T.dark}40`,fontSize:14,letterSpacing:0.3,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={async()=>{
                 setShoreSync(true);setShoreSyncMsg("");
                 try{
                   const r=await fetch("/api/shore-sync",{method:"POST"});
@@ -791,7 +807,10 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                   setShoreSyncMsg(`✓ ${data.neu||0} neue Kunden · ${data.gesamt||0} gesamt`);
                 }catch(e){setShoreSyncMsg("Fehler: "+e.message);}
                 setShoreSync(false);
-              }}>{shoreSync?"Sync...":"🔄 Shore Sync"}</Btn>
+              }}>
+                <span className="btn-emoji" style={{display:"none"}}>🔄</span>
+                <span className="btn-text">{shoreSync?"Sync...":"Shore Sync"}</span>
+              </button>
             </div>
           </div>
           {shoreSyncMsg&&<div style={{padding:"10px 16px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.red+"12":T.green+"12",color:shoreSyncMsg.startsWith("Fehler")?T.red:T.green,fontSize:13,fontWeight:600,marginBottom:12}}>{shoreSyncMsg}</div>}
