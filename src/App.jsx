@@ -63,7 +63,8 @@ const css=`
   .kunde-card-2{animation-delay:0.2s}
   .kunde-card-3{animation-delay:0.3s}
   .kunde-card-4{animation-delay:0.4s}
-  .kunde-book-btn{transition:opacity 0.2s ease}
+  .kunde-book-btn{transition:all 0.25s cubic-bezier(0.4,0,0.2,1)}
+  .kunde-book-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(74,82,64,0.12)!important}
   *{box-sizing:border-box}
   input,textarea,select,button{font-family:inherit}
   ::selection{background:rgba(184,168,138,0.3)}
@@ -93,6 +94,7 @@ const css=`
     .modal-box{width:calc(100vw - 32px)!important;max-width:none!important;margin:16px!important}
     .nav-bar{padding:0 14px!important}
     .header-row{flex-wrap:wrap!important;gap:8px!important}
+    .k-resp-pad{padding:0 16px 40px!important}
   }
 `;
 
@@ -471,12 +473,13 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
 const kundenLogBadge=(typ)=>{const m={HAUPTEINHEIT:{label:"Therapeutische Haupteinheit",v:"green"},BS:{label:"Sound Bath, Yoga und Co.",v:"gold"},QUICKIE:{label:"Psycho Quickie",v:"purple"},TDCS:{label:"tDCS",v:"blue"},NEUROFEEDBACK:{label:"Neurofeedback",v:"blue"}};return m[typ]||{label:typ||"–",v:"cream"};};
 
 /* ═══════════════════════════════════════════════════════════════
-   KUNDEN-APP – Premium Redesign
+   KUNDEN-APP – Elegant Redesign
    ═══════════════════════════════════════════════════════════════ */
 const KundenApp=({kunde,paesse,log,einzel})=>{
   const [splash,setSplash]=useState(true);const[splashAnim,setSplashAnim]=useState(false);
   const mp=paesse.filter(p=>p.pat_id===kunde.id),ml=log.filter(l=>l.pat_id===kunde.id&&l.typ!=="NOTIZ"&&l.typ!=="KORREKTUR").sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));
   const me=einzel.filter(e=>e.pat_id===kunde.id),ap=mp.find(p=>!isPassAlt(p));
+  const altePaesse=mp.filter(p=>isPassAlt(p));
 
   useEffect(()=>{const t1=setTimeout(()=>setSplashAnim(true),1800);const t2=setTimeout(()=>setSplash(false),2600);return()=>{clearTimeout(t1);clearTimeout(t2);};},[]);
 
@@ -488,87 +491,123 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
     </div>
   );
 
-  return(<div className="content-in" style={{minHeight:"100vh",background:T.oliveDark}}>
-    {/* Header */}
-    <div style={{textAlign:"center",padding:"44px 20px 36px"}}>
-      <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:12,letterSpacing:4,textTransform:"uppercase",color:T.gold,marginBottom:8}}>Kaiserufer</div>
-      <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(24px,5.5vw,34px)",color:"#F0EDE0",margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
-      <p style={{color:T.goldDim,margin:0,fontSize:14,letterSpacing:0.5}}>Willkommen in deinem persönlichen Bereich</p>
+  const heL=ap?(ap.he_total||0)-(ap.he_genutzt||0):0;
+  const bsL=ap?(ap.bs_total||0)-(ap.bs_genutzt||0):0;
+  const hePct=ap&&ap.he_total>0?((ap.he_genutzt||0)/ap.he_total)*100:0;
+  const bsPct=ap&&ap.bs_total>0?((ap.bs_genutzt||0)/ap.bs_total)*100:0;
+  const appBg=`linear-gradient(180deg,${T.bg} 0%,${T.bgLight} 50%,${T.bgLighter} 100%)`;
+
+  return(<div className="content-in" style={{minHeight:"100vh",background:appBg}}>
+    {/* Sticky Nav */}
+    <div style={{background:T.olive+"F0",backdropFilter:"blur(12px)",padding:"0 24px",display:"flex",justifyContent:"center",alignItems:"center",borderBottom:`1px solid ${T.olive}30`,position:"sticky",top:0,zIndex:100,height:52}} className="nav-bar">
+      <div style={{display:"flex",alignItems:"center",gap:8}}>
+        <span style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:15,letterSpacing:2.5,textTransform:"uppercase",color:T.goldLight}}>Kaiserufer</span>
+        <div style={{width:1,height:18,background:T.goldLight+"40",borderRadius:1}}/>
+        <span style={{fontSize:12,color:T.goldLight+"80",fontWeight:500,letterSpacing:1.5,textTransform:"uppercase"}}>Home</span>
+      </div>
     </div>
 
-    <div className="resp-pad" style={{padding:"0 20px 40px",maxWidth:540,margin:"0 auto"}}>
+    <div className="k-resp-pad" style={{padding:"0 20px 48px",maxWidth:540,margin:"0 auto"}}>
+
+      {/* Hero Greeting */}
+      <div className="kunde-hero" style={{textAlign:"center",padding:"36px 0 28px"}}>
+        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(24px,5.5vw,32px)",color:T.oliveDark,margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
+        <p style={{color:T.textLight,margin:0,fontSize:14,letterSpacing:0.5}}>Willkommen in deinem persönlichen Bereich</p>
+      </div>
 
       {/* Aktiver Flossenpass */}
-      {ap&&(()=>{const heL=(ap.he_total||0)-(ap.he_genutzt||0),bsL=(ap.bs_total||0)-(ap.bs_genutzt||0);
-        const hePct=ap.he_total>0?((ap.he_genutzt||0)/ap.he_total)*100:0;
-        const bsPct=ap.bs_total>0?((ap.bs_genutzt||0)/ap.bs_total)*100:0;
-        return(<div className="kunde-card kunde-card-1">
-        {/* Pass Card */}
-        <div style={{background:T.oliveLight,borderRadius:24,padding:"28px 24px 24px",marginBottom:20}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28,flexWrap:"wrap",gap:8}}>
-            <div><div style={{fontSize:11,color:T.oliveDark,textTransform:"uppercase",letterSpacing:3,marginBottom:4,fontWeight:600}}>Dein Flossenpass</div><div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:28,color:T.oliveDark,letterSpacing:0.5}}>{getPassLabel(ap)}</div></div>
-            <div style={{fontSize:13,color:T.olive,marginTop:4}}>seit {fmtDate(ap.datum)}</div>
+      {ap&&(<Card className="kunde-card kunde-card-1" style={{marginBottom:16,padding:0,overflow:"hidden"}}>
+        <div style={{padding:"20px 24px 16px"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:8}}>
+            <div>
+              <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:2.5,marginBottom:4,fontWeight:600}}>Dein Flossenpass</div>
+              <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:26,color:T.oliveDark,letterSpacing:0.5}}>{getPassLabel(ap)}</div>
+            </div>
+            <Badge variant="gold">seit {fmtDate(ap.datum)}</Badge>
           </div>
 
           {/* Einheiten */}
-          <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:24}}>
-            {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct}].map((u,ui)=>(
-              <div key={ui} style={{textAlign:"center",padding:"24px 12px 20px",borderRadius:18,background:"rgba(255,255,255,0.35)",backdropFilter:"blur(4px)"}}>
-                <div style={{fontSize:44,fontWeight:700,fontFamily:"Georgia,serif",color:T.oliveDark,lineHeight:1,marginBottom:6}}>{u.left}</div>
-                <div style={{fontSize:13,color:T.olive,marginBottom:2}}>von {u.total}</div>
-                <div style={{fontSize:13,color:T.oliveDark,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div>
-                <div style={{height:4,borderRadius:10,background:"rgba(92,97,72,0.15)",overflow:"hidden",margin:"12px 8px 0"}}><div style={{height:"100%",borderRadius:10,background:T.oliveDark,width:`${u.pct}%`,transition:"width 0.8s ease"}}/></div>
+          <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
+            {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct,color:T.olive},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct,color:T.gold}].map((u,ui)=>(
+              <div key={ui} style={{textAlign:"center",padding:"20px 12px 16px",borderRadius:16,background:T.bgPale,border:`1px solid ${T.cardBorder}`}}>
+                <div style={{fontSize:40,fontWeight:700,fontFamily:"Georgia,serif",color:T.oliveDark,lineHeight:1,marginBottom:4}}>{u.left}</div>
+                <div style={{fontSize:12,color:T.textLight,marginBottom:2}}>von {u.total}</div>
+                <div style={{fontSize:13,color:T.textMid,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div>
+                <div style={{marginTop:10,padding:"0 8px"}}><Bar used={u.pct} total={100} color={u.color} h={5}/></div>
               </div>
             ))}
           </div>
 
-          {/* Buttons */}
-          <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-            <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="kunde-book-btn" style={{padding:"16px 14px",borderRadius:16,background:heL===0?T.olive+"40":T.oliveDark,color:heL===0?T.olive:"#F0EDE0",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.4:1,letterSpacing:0.3,lineHeight:1.5,display:"block"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></a>
-            <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="kunde-book-btn" style={{padding:"16px 14px",borderRadius:16,background:bsL===0?T.olive+"40":"rgba(255,255,255,0.5)",color:bsL===0?T.olive:T.oliveDark,fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.4:1,letterSpacing:0.3,lineHeight:1.5,display:"block"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.65}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></a>
+          {/* Booking Buttons */}
+          <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"14px 14px",borderRadius:16,background:heL===0?T.bgPale:T.olive,color:heL===0?T.textLight:"#fff",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:"none",boxShadow:heL>0?`0 4px 16px ${T.olive}25`:"none"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.75}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></a>
+            <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"14px 14px",borderRadius:16,background:bsL===0?T.bgPale:`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:bsL===0?T.textLight:"#2A2A1A",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:"none",boxShadow:bsL>0?`0 4px 16px rgba(184,168,138,0.3)`:"none"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.65}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></a>
           </div>
-          {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:14,padding:"14px 18px",background:"rgba(228,109,115,0.15)",borderRadius:14,fontSize:15,color:"#d06060",fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
+
+          {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:14,padding:"12px 16px",background:T.redSoft,borderRadius:12,fontSize:14,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
         </div>
-      </div>);})()}
+      </Card>)}
 
       {/* Kein Pass */}
-      {mp.length===0&&me.length===0&&<div className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"52px 28px",borderRadius:24,background:T.oliveLight}}><div style={{fontSize:36,marginBottom:16,opacity:0.5}}>🐟</div><p style={{color:T.oliveDark,lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:T.olive}}>Sprich uns gerne an!</span></p></div>}
+      {mp.length===0&&me.length===0&&(<Card className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"48px 28px",marginBottom:16}}>
+        <div style={{fontSize:36,marginBottom:16,opacity:0.4}}>🐟</div>
+        <p style={{color:T.textMid,lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:T.textLight}}>Sprich uns gerne an!</span></p>
+      </Card>)}
 
       {/* Alte Pässe */}
-      {mp.filter(p=>isPassAlt(p)).map(pk=>(<div key={pk.id} className="kunde-card kunde-card-2" style={{marginBottom:10,padding:"14px 20px",borderRadius:16,background:T.oliveLight+"60",opacity:0.5}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-          <div><strong style={{fontSize:15,fontFamily:"Georgia,serif",color:T.oliveDark}}>Flossenpass {getPassLabel(pk)}</strong><span style={{fontSize:13,color:T.olive,marginLeft:10}}>{fmtDate(pk.datum)}</span></div>
-          <span style={{fontSize:11,color:T.olive,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>Aufgebraucht</span>
-        </div>
-      </div>))}
+      {altePaesse.length>0&&(<Card className="kunde-card kunde-card-2" style={{marginBottom:16,padding:20}}>
+        <div style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Abgeschlossene Pässe</div>
+        {altePaesse.map(pk=>(<div key={pk.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.cardBorder}`,flexWrap:"wrap",gap:6}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:600,color:T.textMid}}>Flossenpass {getPassLabel(pk)}</span>
+            <Badge variant="cream" small>Aufgebraucht</Badge>
+          </div>
+          <span style={{fontSize:13,color:T.textLight}}>{fmtDate(pk.datum)}</span>
+        </div>))}
+      </Card>)}
 
       {/* Verlauf */}
-      {ml.length>0&&(<div className="kunde-card kunde-card-3" style={{marginTop:20,padding:"22px 24px",borderRadius:24,background:T.oliveLight}}>
-        <div style={{fontSize:12,fontWeight:700,color:T.oliveDark,marginBottom:16,textTransform:"uppercase",letterSpacing:2.5,fontFamily:"Georgia,serif"}}>Mein Verlauf</div>
-        {ml.map((l,i)=>{const b=kundenLogBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.olive}30`,fontSize:15,animationDelay:`${i*0.04}s`}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><span style={{background:T.oliveDark+"20",color:T.oliveDark,fontWeight:600,fontSize:11,padding:"4px 12px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:0.4,textTransform:"uppercase"}}>{b.label}</span><span style={{color:T.olive,fontSize:14}}>{l.notiz}</span></div>
-          <span style={{color:T.olive,fontSize:13,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span>
+      {ml.length>0&&(<Card className="kunde-card kunde-card-3" style={{marginBottom:16,padding:20}}>
+        <SectionLabel>Mein Verlauf</SectionLabel>
+        {ml.map((l,i)=>{const b=kundenLogBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<ml.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15,animationDelay:`${i*0.04}s`}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <Badge variant={b.v} small>{b.label}</Badge>
+            <span style={{color:T.textMid,fontSize:14}}>{l.notiz}</span>
+          </div>
+          <span style={{color:T.textLight,fontSize:13,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span>
         </div>);})}
-      </div>)}
+      </Card>)}
 
       {/* Rechnungen */}
-      {(mp.length>0||me.length>0)&&(<div className="kunde-card kunde-card-4" style={{marginTop:14,padding:"22px 24px",borderRadius:24,background:T.oliveLight}}>
-        <div style={{fontSize:12,fontWeight:700,color:T.oliveDark,marginBottom:16,textTransform:"uppercase",letterSpacing:2.5,fontFamily:"Georgia,serif"}}>Meine Rechnungen</div>
-        {mp.map(pk=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.olive}30`,fontSize:15}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.oliveDark+"15",padding:"4px 12px",borderRadius:8,fontSize:13,color:T.olive}}>{pk.rechnung||"–"}</code><span style={{color:T.olive}}>Flossenpass {getPassLabel(pk)}</span></div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.olive,fontSize:13}}>{fmtDate(pk.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark}}>{pk.preis||0} €</strong></div>
+      {(mp.length>0||me.length>0)&&(<Card className="kunde-card kunde-card-4" style={{marginBottom:16,padding:20}}>
+        <SectionLabel>Meine Rechnungen</SectionLabel>
+        {mp.map((pk,i)=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<mp.length+me.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight}}>{pk.rechnung||"–"}</code>
+            <span style={{color:T.textMid,fontSize:14}}>Flossenpass {getPassLabel(pk)}</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+            <span style={{color:T.textLight,fontSize:13}}>{fmtDate(pk.datum)}</span>
+            <strong style={{fontFamily:"Georgia,serif",color:T.oliveDark,fontSize:15}}>{pk.preis||0} €</strong>
+          </div>
         </div>))}
-        {me.map(e=>(<div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.olive}30`,fontSize:15}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.oliveDark+"15",padding:"4px 12px",borderRadius:8,fontSize:13,color:T.olive}}>{e.rechnung||"–"}</code><span style={{color:T.olive}}>{e.name}</span></div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.olive,fontSize:13}}>{fmtDate(e.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark}}>{e.preis||0} €</strong></div>
+        {me.map((e,i)=>(<div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<me.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight}}>{e.rechnung||"–"}</code>
+            <span style={{color:T.textMid,fontSize:14}}>{e.name}</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+            <span style={{color:T.textLight,fontSize:13}}>{fmtDate(e.datum)}</span>
+            <strong style={{fontFamily:"Georgia,serif",color:T.oliveDark,fontSize:15}}>{e.preis||0} €</strong>
+          </div>
         </div>))}
-      </div>)}
+      </Card>)}
 
       {/* Footer */}
-      <div style={{textAlign:"center",padding:"44px 0 12px"}}>
-        <div style={{width:40,height:1,background:T.olive+"40",margin:"0 auto 16px"}}/>
-        <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.goldDim,textDecoration:"none",letterSpacing:2,textTransform:"uppercase",fontWeight:500}}>kaiserufer.com ↗</a>
-        <div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:T.olive,textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div>
+      <div style={{textAlign:"center",padding:"36px 0 12px"}}>
+        <div style={{width:40,height:1,background:T.olive+"30",margin:"0 auto 16px"}}/>
+        <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.textLight,textDecoration:"none",letterSpacing:2,textTransform:"uppercase",fontWeight:500}}>kaiserufer.com ↗</a>
+        <div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:T.olive+"80",textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div>
       </div>
     </div>
   </div>);
