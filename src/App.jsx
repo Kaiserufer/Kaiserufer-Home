@@ -531,14 +531,8 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
 const kundenLogBadge=(typ)=>{const m={HAUPTEINHEIT:{label:"Therapeutische Haupteinheit",v:"green"},BS:{label:"Sound Bath, Yoga und Co.",v:"gold"},QUICKIE:{label:"Psycho Quickie",v:"purple"},TDCS:{label:"tDCS",v:"blue"},NEUROFEEDBACK:{label:"Neurofeedback",v:"blue"}};return m[typ]||{label:typ||"–",v:"cream"};};
 
 /* ═══════════════════════════════════════════════════════════════
-   KUNDEN-APP – Elegant Redesign mit Fischen
+   KUNDEN-APP – Elegant Redesign
    ═══════════════════════════════════════════════════════════════ */
-const Fish=({size=48,flip,style,color=T.gold})=>(<svg width={size} height={size*0.6} viewBox="0 0 80 48" fill="none" style={{...style,transform:flip?"scaleX(-1)":"none",opacity:0.35}}>
-  <ellipse cx="38" cy="24" rx="26" ry="14" fill={color} opacity="0.5"/>
-  <path d="M60 24C68 16 78 12 80 12C78 14 72 20 72 24C72 28 78 34 80 36C78 36 68 32 60 24Z" fill={color} opacity="0.5"/>
-  <circle cx="28" cy="21" r="2.5" fill={color} opacity="0.7"/>
-</svg>);
-
 const KundenApp=({kunde,paesse,log,einzel})=>{
   const [splash,setSplash]=useState(true);const[splashAnim,setSplashAnim]=useState(false);
   const mp=paesse.filter(p=>p.pat_id===kunde.id),ml=log.filter(l=>l.pat_id===kunde.id&&l.typ!=="NOTIZ"&&l.typ!=="KORREKTUR").sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));
@@ -574,12 +568,11 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
     <div className="k-resp-pad" style={{padding:"0 20px 48px",maxWidth:540,margin:"0 auto"}}>
 
       {/* Hero Greeting */}
-      <div className="kunde-hero" style={{textAlign:"center",padding:"36px 0 28px",position:"relative"}}>
-        <Fish size={52} style={{position:"absolute",top:8,left:10}} color={T.olive}/>
-        <Fish size={36} flip style={{position:"absolute",top:2,right:20}} color={T.gold}/>
+      <div className="kunde-hero" style={{textAlign:"center",padding:"36px 0 28px"}}>
         <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:3,fontWeight:600,marginBottom:8}}>Willkommen zurück</div>
         <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(26px,6vw,34px)",color:T.oliveDark,margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
         <div style={{width:40,height:2,background:`linear-gradient(90deg,transparent,${T.gold},transparent)`,margin:"12px auto 0",borderRadius:2}}/>
+        {kunde.stammkunde&&<div style={{marginTop:16,fontSize:13,color:T.gold,fontWeight:600,letterSpacing:0.5,fontFamily:"Georgia,serif"}}>VIP-Mitglied · Ihr exklusiver Vorteilstarif ist hinterlegt</div>}
       </div>
 
       {/* Aktiver Flossenpass */}
@@ -596,22 +589,21 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
         </div>
 
         {/* Einheiten */}
-        <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
-          {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct,color:T.oliveDark},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct,color:T.gold}].map((u,ui)=>(
-            <div key={ui} style={{textAlign:"center",padding:"22px 12px 18px",borderRadius:16,border:`1px solid ${T.gold}30`,background:"transparent",position:"relative",overflow:"hidden"}}>
-              <Fish size={40} flip={ui===0} style={{position:"absolute",top:-4,right:ui===0?-6:"auto",left:ui===1?-6:"auto"}} color={T.olive}/>
-              <div style={{fontSize:44,fontWeight:700,fontFamily:"Georgia,serif",color:T.oliveDark,lineHeight:1,marginBottom:4,position:"relative"}}>{u.left}</div>
-              <div style={{fontSize:12,color:T.textLight,marginBottom:2,position:"relative"}}>von {u.total}</div>
-              <div style={{fontSize:13,color:T.oliveDark,fontWeight:600,position:"relative"}}>{u.left===1?u.label:u.labelP}</div>
-              <div style={{marginTop:12,padding:"0 10px",position:"relative"}}><Bar used={u.pct} total={100} color={u.color} h={3}/></div>
+        <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
+          {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct}].map((u,ui)=>(
+            <div key={ui} style={{textAlign:"center",padding:"22px 12px 18px",borderRadius:16,border:`1.5px solid ${T.gold}50`,background:`linear-gradient(180deg,${T.gold}08,${T.gold}15)`}}>
+              <div style={{fontSize:44,fontWeight:700,fontFamily:"Georgia,serif",color:T.oliveDark,lineHeight:1,marginBottom:4}}>{u.left}</div>
+              <div style={{fontSize:12,color:T.textLight,marginBottom:2}}>von {u.total}</div>
+              <div style={{fontSize:13,color:T.oliveDark,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div>
+              <div style={{marginTop:12,padding:"0 10px"}}><Bar used={u.pct} total={100} color={T.gold} h={3}/></div>
             </div>
           ))}
         </div>
 
         {/* Booking Buttons */}
-        <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"15px 14px",borderRadius:16,background:heL===0?"transparent":T.oliveDark+"12",color:heL===0?T.textLight:T.oliveDark,fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.3:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:`1.5px solid ${T.gold}${heL===0?"30":"60"}`,boxShadow:"none",position:"relative",overflow:"hidden"}}>{heL>0&&<Fish size={30} style={{position:"absolute",bottom:-2,left:4}} color={T.olive}/>}<span style={{position:"relative"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,color:T.textLight}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></span></a>
-          <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"15px 14px",borderRadius:16,background:bsL===0?"transparent":T.oliveDark+"12",color:bsL===0?T.textLight:T.oliveDark,fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.3:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:`1.5px solid ${T.gold}${bsL===0?"30":"60"}`,boxShadow:"none",position:"relative",overflow:"hidden"}}>{bsL>0&&<Fish size={30} flip style={{position:"absolute",bottom:-2,right:4}} color={T.olive}/>}<span style={{position:"relative"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,color:T.textLight}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></span></a>
+        <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+          <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="btn-a" style={{padding:"10px 22px",borderRadius:12,background:T.bgPale,color:heL===0?T.textLight:T.oliveDark,fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1,letterSpacing:0.3,border:`1px solid ${T.cardBorder}`}}>Therapie buchen</a>
+          <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="btn-a" style={{padding:"10px 22px",borderRadius:12,background:T.bgPale,color:bsL===0?T.textLight:T.oliveDark,fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1,letterSpacing:0.3,border:`1px solid ${T.cardBorder}`}}>Kurs buchen</a>
         </div>
 
         {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:16,fontSize:14,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
@@ -674,7 +666,6 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
 
       {/* Footer */}
       <div style={{textAlign:"center",padding:"40px 0 12px"}}>
-        <Fish size={32} style={{margin:"0 auto 12px",display:"block",opacity:0.18}} color={T.olive}/>
         <div style={{width:48,height:1,background:`linear-gradient(90deg,transparent,${T.gold}60,transparent)`,margin:"0 auto 18px"}}/>
         <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.oliveDark,textDecoration:"none",letterSpacing:2.5,textTransform:"uppercase",fontWeight:600,fontFamily:"Georgia,serif"}}>kaiserufer.com ↗</a>
         <div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:T.textLight,textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div>
