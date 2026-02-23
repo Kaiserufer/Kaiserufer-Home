@@ -556,13 +556,16 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
   const appBg=`linear-gradient(180deg,${T.bg} 0%,${T.bgLight} 50%,${T.bgLighter} 100%)`;
 
   return(<div className="content-in" style={{minHeight:"100vh",background:appBg}}>
-    {/* Sticky Nav */}
-    <div style={{background:T.olive+"F0",backdropFilter:"blur(12px)",padding:"0 24px",display:"flex",justifyContent:"center",alignItems:"center",borderBottom:`1px solid ${T.olive}30`,position:"sticky",top:0,zIndex:100,height:52}} className="nav-bar">
-      <div style={{display:"flex",alignItems:"center",gap:8}}>
-        <span style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:15,letterSpacing:2.5,textTransform:"uppercase",color:T.goldLight}}>Kaiserufer</span>
-        <div style={{width:1,height:18,background:T.goldLight+"40",borderRadius:1}}/>
-        <span style={{fontSize:12,color:T.goldLight+"80",fontWeight:500,letterSpacing:1.5,textTransform:"uppercase"}}>Home</span>
+    {/* Sticky Nav with fade */}
+    <div style={{position:"sticky",top:0,zIndex:100}} className="nav-bar">
+      <div style={{background:T.olive+"F0",backdropFilter:"blur(12px)",padding:"0 24px",display:"flex",justifyContent:"center",alignItems:"center",borderBottom:"none",height:52}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:15,letterSpacing:2.5,textTransform:"uppercase",color:T.goldLight}}>Kaiserufer</span>
+          <div style={{width:1,height:18,background:T.goldLight+"40",borderRadius:1}}/>
+          <span style={{fontSize:12,color:T.goldLight+"80",fontWeight:500,letterSpacing:1.5,textTransform:"uppercase"}}>Home</span>
+        </div>
       </div>
+      <div style={{height:24,background:`linear-gradient(180deg,${T.olive}E0,${T.olive}80,${T.olive}30,transparent)`,pointerEvents:"none"}}/>
     </div>
 
     <div className="k-resp-pad" style={{padding:"0 20px 48px",maxWidth:540,margin:"0 auto"}}>
