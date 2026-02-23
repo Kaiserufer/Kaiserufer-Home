@@ -431,15 +431,15 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
                 <div style={{display:"flex",flexDirection:"column",gap:4}}><span style={{fontSize:15,fontWeight:600,color:T.text}}>{e.name}</span><div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}><code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight}}>{e.rechnung||"–"}</code><span style={{fontSize:14,color:T.textMid}}>{fmtDate(e.datum)}</span><strong style={{fontSize:14,color:T.text}}>{e.preis||0} €</strong></div></div>
                 <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,textTransform:"uppercase",color:e.bezahlt?T.green:T.red,background:e.bezahlt?T.greenSoft:T.redSoft,padding:"6px 14px",borderRadius:10,flexShrink:0}}><input type="checkbox" checked={!!e.bezahlt} onChange={()=>toggleEinzelBez(e.id)} style={{accentColor:T.green,width:15,height:15}}/>{e.bezahlt?"Bezahlt":"Offen"}</label>
               </div>))}</div>)}
-            {altPaesse.length>0&&<div style={{marginTop:18,paddingTop:16,borderTop:`1px solid ${T.cardBorder}`}}><div style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Alte Pässe</div>{altPaesse.map(pk=><PassCard key={pk.id} pk={pk} isAlt={true}/>)}</div>}
+            {altPaesse.length>0&&<div style={{marginTop:18,paddingTop:16,borderTop:`1px solid ${T.cardBorder}`}}><div style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Alte Pässe</div><div style={{fontSize:14,color:T.textLight,textAlign:"center",padding:8}}>→ siehe Verkaufshistorie</div></div>}
           </Card>
 
           <Card>
-            <SectionLabel>Verkaufshistorie</SectionLabel>
+            <SectionLabel>Verkaufshistorie & Alte Pässe</SectionLabel>
             {alleVerkaufe.length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15}}>Noch keine Verkäufe</p>}
-            {alleVerkaufe.map(item=>(<div key={item.id} className="vk-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:T.bgPale+"80",borderRadius:12,fontSize:15,marginBottom:6,flexWrap:"wrap",gap:8}}>
+            {alleVerkaufe.map(item=>(<div key={item.id} className="vk-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:item.isAlt?T.bgPale+"50":T.bgPale+"80",borderRadius:12,fontSize:15,marginBottom:6,flexWrap:"wrap",gap:8,opacity:item.isAlt?0.7:1}}>
               <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><Badge variant={item.art==="pass"?"gold":"blue"} small>{item.art==="pass"?"Flossenpass":"Einzelangebot"}</Badge>{item.isAlt&&<Badge variant="cream" small>Alt</Badge>}<span style={{fontWeight:600,color:T.text}}>{item.name}</span><code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight}}>{item.rechnung||"–"}</code></div>
-              <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0,flexWrap:"wrap"}}><span style={{fontSize:13,color:T.textLight}}>{fmtDate(item.datum)}</span><strong style={{fontFamily:"Georgia,serif",fontSize:15,color:T.oliveDark}}>{item.preis} €</strong><Badge variant={item.bezahlt?"green":"red"} small>{item.bezahlt?"Bezahlt":"Offen"}</Badge></div>
+              <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0,flexWrap:"wrap"}}><span style={{fontSize:13,color:T.textLight}}>{fmtDate(item.datum)}</span><strong style={{fontFamily:"Georgia,serif",fontSize:15,color:T.oliveDark}}>{item.preis} €</strong><Badge variant={item.bezahlt?"green":"red"} small>{item.bezahlt?"Bezahlt":"Offen"}</Badge><button onClick={()=>{if(item.art==="pass")setConfirmDelete(item.id);else{if(confirm("Einzelangebot löschen?")){(async()=>{await supabase.from("einzel").delete().eq("id",item.id);setEinzel(prev=>prev.filter(e=>e.id!==item.id));})();}}}} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${T.red}25`,background:T.redSoft,color:T.red,fontSize:11,fontWeight:700,cursor:"pointer"}}>✕</button></div>
             </div>))}
             {alleVerkaufe.length>0&&<div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.cardBorder}`,display:"flex",justifyContent:"flex-end",gap:18,fontSize:14,flexWrap:"wrap"}}><span style={{color:T.textLight}}>Gesamt: <strong style={{color:T.text}}>{alleVerkaufe.reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span><span style={{color:T.textLight}}>Bezahlt: <strong style={{color:T.green}}>{alleVerkaufe.filter(i=>i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span><span style={{color:T.textLight}}>Offen: <strong style={{color:T.red}}>{alleVerkaufe.filter(i=>!i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span></div>}
           </Card>
@@ -493,7 +493,7 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
     <div style={{textAlign:"center",padding:"44px 20px 36px"}}>
       <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:12,letterSpacing:4,textTransform:"uppercase",color:T.gold,marginBottom:8}}>Kaiserufer</div>
       <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(24px,5.5vw,34px)",color:"#F0EDE0",margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
-      <p style={{color:T.goldDim,margin:0,fontSize:14,letterSpacing:0.5}}>Schön, dass du da bist</p>
+      <p style={{color:T.goldDim,margin:0,fontSize:14,letterSpacing:0.5}}>Willkommen in deinem persönlichen Bereich</p>
     </div>
 
     <div className="resp-pad" style={{padding:"0 20px 40px",maxWidth:540,margin:"0 auto"}}>
@@ -502,72 +502,73 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
       {ap&&(()=>{const heL=(ap.he_total||0)-(ap.he_genutzt||0),bsL=(ap.bs_total||0)-(ap.bs_genutzt||0);
         const hePct=ap.he_total>0?((ap.he_genutzt||0)/ap.he_total)*100:0;
         const bsPct=ap.bs_total>0?((ap.bs_genutzt||0)/ap.bs_total)*100:0;
-        return(<div className="kunde-card kunde-card-1" style={{marginBottom:24}}>
-        {/* Pass Label */}
-        <div style={{textAlign:"center",marginBottom:24}}>
-          <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:3,marginBottom:4}}>Dein Flossenpass</div>
-          <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:26,color:"#F0EDE0",letterSpacing:0.5}}>{getPassLabel(ap)}</div>
-          <div style={{fontSize:13,color:T.goldDim,marginTop:6}}>seit {fmtDate(ap.datum)}</div>
-        </div>
+        return(<div className="kunde-card kunde-card-1">
+        {/* Pass Card */}
+        <div style={{background:T.oliveLight,borderRadius:24,padding:"28px 24px 24px",marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:28,flexWrap:"wrap",gap:8}}>
+            <div><div style={{fontSize:11,color:T.oliveDark,textTransform:"uppercase",letterSpacing:3,marginBottom:4,fontWeight:600}}>Dein Flossenpass</div><div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:28,color:T.oliveDark,letterSpacing:0.5}}>{getPassLabel(ap)}</div></div>
+            <div style={{fontSize:13,color:T.olive,marginTop:4}}>seit {fmtDate(ap.datum)}</div>
+          </div>
 
-        {/* Einheiten Cards */}
-        <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:22}}>
-          {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct}].map((u,ui)=>(
-            <div key={ui} style={{textAlign:"center",padding:"28px 14px 24px",borderRadius:20,background:"rgba(240,237,224,0.08)",border:"1px solid rgba(240,237,224,0.12)"}}>
-              <div style={{fontSize:48,fontWeight:700,fontFamily:"Georgia,serif",color:u.left>0?"#F0EDE0":"rgba(240,237,224,0.2)",lineHeight:1,marginBottom:8}}>{u.left}</div>
-              <div style={{fontSize:13,color:T.goldDim,marginBottom:4}}>von {u.total}</div>
-              <div style={{fontSize:14,color:u.left>0?T.goldLight:"rgba(184,168,138,0.35)",fontWeight:600,marginBottom:16}}>{u.left===1?u.label:u.labelP}</div>
-              <div style={{height:4,borderRadius:10,background:"rgba(240,237,224,0.08)",overflow:"hidden",margin:"0 6px"}}><div style={{height:"100%",borderRadius:10,background:`linear-gradient(135deg,${T.gold},${T.goldLight})`,width:`${u.pct}%`,transition:"width 0.8s ease"}}/></div>
-            </div>
-          ))}
-        </div>
+          {/* Einheiten */}
+          <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:24}}>
+            {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct}].map((u,ui)=>(
+              <div key={ui} style={{textAlign:"center",padding:"24px 12px 20px",borderRadius:18,background:"rgba(255,255,255,0.35)",backdropFilter:"blur(4px)"}}>
+                <div style={{fontSize:44,fontWeight:700,fontFamily:"Georgia,serif",color:T.oliveDark,lineHeight:1,marginBottom:6}}>{u.left}</div>
+                <div style={{fontSize:13,color:T.olive,marginBottom:2}}>von {u.total}</div>
+                <div style={{fontSize:13,color:T.oliveDark,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div>
+                <div style={{height:4,borderRadius:10,background:"rgba(92,97,72,0.15)",overflow:"hidden",margin:"12px 8px 0"}}><div style={{height:"100%",borderRadius:10,background:T.oliveDark,width:`${u.pct}%`,transition:"width 0.8s ease"}}/></div>
+              </div>
+            ))}
+          </div>
 
-        {/* Buchen Buttons */}
-        <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="kunde-book-btn" style={{padding:"16px 14px",borderRadius:16,background:heL===0?"rgba(240,237,224,0.05)":`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:heL===0?"rgba(240,237,224,0.2)":"#2A2A1A",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.4:1,letterSpacing:0.3,lineHeight:1.5,display:"block"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></a>
-          <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="kunde-book-btn" style={{padding:"16px 14px",borderRadius:16,background:bsL===0?"rgba(240,237,224,0.05)":"rgba(240,237,224,0.12)",color:bsL===0?"rgba(240,237,224,0.2)":"#F0EDE0",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.4:1,border:"1px solid rgba(240,237,224,0.15)",letterSpacing:0.3,lineHeight:1.5,display:"block"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.6}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></a>
+          {/* Buttons */}
+          <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="kunde-book-btn" style={{padding:"16px 14px",borderRadius:16,background:heL===0?T.olive+"40":T.oliveDark,color:heL===0?T.olive:"#F0EDE0",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.4:1,letterSpacing:0.3,lineHeight:1.5,display:"block"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></a>
+            <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="kunde-book-btn" style={{padding:"16px 14px",borderRadius:16,background:bsL===0?T.olive+"40":"rgba(255,255,255,0.5)",color:bsL===0?T.olive:T.oliveDark,fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.4:1,letterSpacing:0.3,lineHeight:1.5,display:"block"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.65}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></a>
+          </div>
+          {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:14,padding:"14px 18px",background:"rgba(228,109,115,0.15)",borderRadius:14,fontSize:15,color:"#d06060",fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
         </div>
-        {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:16,padding:"14px 18px",background:"rgba(228,109,115,0.12)",borderRadius:14,fontSize:15,color:"#f08080",fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
       </div>);})()}
 
       {/* Kein Pass */}
-      {mp.length===0&&me.length===0&&<div className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"52px 28px",borderRadius:22,background:"rgba(240,237,224,0.06)",border:"1px solid rgba(240,237,224,0.1)"}}><div style={{fontSize:36,marginBottom:16,opacity:0.4}}>🐟</div><p style={{color:T.goldDim,lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:T.goldDim}}>Sprich uns gerne an!</span></p></div>}
+      {mp.length===0&&me.length===0&&<div className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"52px 28px",borderRadius:24,background:T.oliveLight}}><div style={{fontSize:36,marginBottom:16,opacity:0.5}}>🐟</div><p style={{color:T.oliveDark,lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:T.olive}}>Sprich uns gerne an!</span></p></div>}
 
       {/* Alte Pässe */}
-      {mp.filter(p=>isPassAlt(p)).map(pk=>(<div key={pk.id} className="kunde-card kunde-card-2" style={{marginBottom:12,padding:"16px 22px",borderRadius:18,background:"rgba(240,237,224,0.04)",border:"1px solid rgba(240,237,224,0.08)",opacity:0.55}}>
+      {mp.filter(p=>isPassAlt(p)).map(pk=>(<div key={pk.id} className="kunde-card kunde-card-2" style={{marginBottom:10,padding:"14px 20px",borderRadius:16,background:T.oliveLight+"60",opacity:0.5}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-          <div><strong style={{fontSize:15,fontFamily:"Georgia,serif",color:T.goldLight}}>Flossenpass {getPassLabel(pk)}</strong><span style={{fontSize:13,color:T.goldDim,marginLeft:10}}>{fmtDate(pk.datum)}</span></div>
-          <span style={{fontSize:11,color:T.goldDim,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>Aufgebraucht</span>
+          <div><strong style={{fontSize:15,fontFamily:"Georgia,serif",color:T.oliveDark}}>Flossenpass {getPassLabel(pk)}</strong><span style={{fontSize:13,color:T.olive,marginLeft:10}}>{fmtDate(pk.datum)}</span></div>
+          <span style={{fontSize:11,color:T.olive,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>Aufgebraucht</span>
         </div>
       </div>))}
 
       {/* Verlauf */}
-      {ml.length>0&&(<div className="kunde-card kunde-card-3" style={{marginTop:24,padding:24,borderRadius:22,background:"rgba(240,237,224,0.06)",border:"1px solid rgba(240,237,224,0.1)"}}>
-        <div style={{fontSize:12,fontWeight:700,color:T.gold,marginBottom:18,textTransform:"uppercase",letterSpacing:2.5,fontFamily:"Georgia,serif"}}>Mein Verlauf</div>
-        {ml.map((l,i)=>{const b=kundenLogBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:"1px solid rgba(240,237,224,0.06)",fontSize:15,animationDelay:`${i*0.04}s`}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><span style={{background:"rgba(184,168,138,0.15)",color:"#F0EDE0",fontWeight:600,fontSize:11,padding:"4px 12px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:0.4,textTransform:"uppercase"}}>{b.label}</span><span style={{color:T.goldDim,fontSize:14}}>{l.notiz}</span></div>
-          <span style={{color:T.goldDim,fontSize:13,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span>
+      {ml.length>0&&(<div className="kunde-card kunde-card-3" style={{marginTop:20,padding:"22px 24px",borderRadius:24,background:T.oliveLight}}>
+        <div style={{fontSize:12,fontWeight:700,color:T.oliveDark,marginBottom:16,textTransform:"uppercase",letterSpacing:2.5,fontFamily:"Georgia,serif"}}>Mein Verlauf</div>
+        {ml.map((l,i)=>{const b=kundenLogBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.olive}30`,fontSize:15,animationDelay:`${i*0.04}s`}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><span style={{background:T.oliveDark+"20",color:T.oliveDark,fontWeight:600,fontSize:11,padding:"4px 12px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:0.4,textTransform:"uppercase"}}>{b.label}</span><span style={{color:T.olive,fontSize:14}}>{l.notiz}</span></div>
+          <span style={{color:T.olive,fontSize:13,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span>
         </div>);})}
       </div>)}
 
       {/* Rechnungen */}
-      {(mp.length>0||me.length>0)&&(<div className="kunde-card kunde-card-4" style={{marginTop:16,padding:24,borderRadius:22,background:"rgba(240,237,224,0.06)",border:"1px solid rgba(240,237,224,0.1)"}}>
-        <div style={{fontSize:12,fontWeight:700,color:T.gold,marginBottom:18,textTransform:"uppercase",letterSpacing:2.5,fontFamily:"Georgia,serif"}}>Meine Rechnungen</div>
-        {mp.map(pk=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:"1px solid rgba(240,237,224,0.06)",fontSize:15}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:"rgba(184,168,138,0.12)",padding:"4px 12px",borderRadius:8,fontSize:13,color:T.goldDim}}>{pk.rechnung||"–"}</code><span style={{color:T.goldDim}}>Flossenpass {getPassLabel(pk)}</span></div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.goldDim,fontSize:13}}>{fmtDate(pk.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:"#F0EDE0"}}>{pk.preis||0} €</strong></div>
+      {(mp.length>0||me.length>0)&&(<div className="kunde-card kunde-card-4" style={{marginTop:14,padding:"22px 24px",borderRadius:24,background:T.oliveLight}}>
+        <div style={{fontSize:12,fontWeight:700,color:T.oliveDark,marginBottom:16,textTransform:"uppercase",letterSpacing:2.5,fontFamily:"Georgia,serif"}}>Meine Rechnungen</div>
+        {mp.map(pk=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.olive}30`,fontSize:15}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.oliveDark+"15",padding:"4px 12px",borderRadius:8,fontSize:13,color:T.olive}}>{pk.rechnung||"–"}</code><span style={{color:T.olive}}>Flossenpass {getPassLabel(pk)}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.olive,fontSize:13}}>{fmtDate(pk.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark}}>{pk.preis||0} €</strong></div>
         </div>))}
-        {me.map(e=>(<div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:"1px solid rgba(240,237,224,0.06)",fontSize:15}}>
-          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:"rgba(184,168,138,0.12)",padding:"4px 12px",borderRadius:8,fontSize:13,color:T.goldDim}}>{e.rechnung||"–"}</code><span style={{color:T.goldDim}}>{e.name}</span></div>
-          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.goldDim,fontSize:13}}>{fmtDate(e.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:"#F0EDE0"}}>{e.preis||0} €</strong></div>
+        {me.map(e=>(<div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.olive}30`,fontSize:15}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.oliveDark+"15",padding:"4px 12px",borderRadius:8,fontSize:13,color:T.olive}}>{e.rechnung||"–"}</code><span style={{color:T.olive}}>{e.name}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.olive,fontSize:13}}>{fmtDate(e.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark}}>{e.preis||0} €</strong></div>
         </div>))}
       </div>)}
 
       {/* Footer */}
       <div style={{textAlign:"center",padding:"44px 0 12px"}}>
-        <div style={{width:40,height:1,background:"rgba(184,168,138,0.15)",margin:"0 auto 16px"}}/>
+        <div style={{width:40,height:1,background:T.olive+"40",margin:"0 auto 16px"}}/>
         <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.goldDim,textDecoration:"none",letterSpacing:2,textTransform:"uppercase",fontWeight:500}}>kaiserufer.com ↗</a>
-        <div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"rgba(184,168,138,0.3)",textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div>
+        <div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:T.olive,textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div>
       </div>
     </div>
   </div>);
