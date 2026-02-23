@@ -37,6 +37,7 @@ const getPassLabel = (pk) => {
 };
 
 const LOGIN_PASS = import.meta.env.VITE_LOGIN_PASS;
+const LOGIN_EMAIL = import.meta.env.VITE_LOGIN_EMAIL;
 const genId = () => Math.random().toString(36).substr(2,9);
 const genQR = () => {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*+-?";
@@ -52,6 +53,14 @@ const css = `
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   @keyframes slideIn{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:translateX(0)}}
   @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes goldGlow{0%,100%{text-shadow:0 0 20px rgba(184,168,138,0.3),0 0 60px rgba(184,168,138,0.1)}50%{text-shadow:0 0 30px rgba(184,168,138,0.5),0 0 80px rgba(184,168,138,0.2)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes fadeUp2{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes subtlePulse{0%,100%{opacity:0.6}50%{opacity:1}}
+  .landing-title{animation:fadeUp 1s ease-out,goldGlow 4s ease-in-out infinite}
+  .landing-sub{animation:fadeUp2 1s ease-out 0.3s both}
+  .landing-btn{animation:fadeUp2 1s ease-out 0.6s both}
+  .landing-footer{animation:fadeUp2 1s ease-out 0.9s both}
   .glass{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
   .glass-dark{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
   .card-hover{transition:all 0.3s cubic-bezier(0.4,0,0.2,1)}
@@ -97,7 +106,7 @@ const css = `
 const Badge = ({children,variant="default",small}) => {
   const s={default:{bg:T.dark+"15",color:T.dark},gold:{bg:T.gold+"30",color:"#7A6B50"},green:{bg:T.green+"22",color:T.green},red:{bg:T.red+"15",color:T.red},cream:{bg:T.cream,color:T.textLight},blue:{bg:"#4A7AB520",color:"#3A6A9A"},purple:{bg:"#7A5AB520",color:"#5A3A9A"}};
   const st=s[variant]||s.default;
-  return <span style={{background:st.bg,color:st.color,fontWeight:600,fontSize:small?10:11,padding:small?"2px 8px":"4px 12px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:0.4,textTransform:"uppercase"}}>{children}</span>;
+  return <span style={{background:st.bg,color:st.color,fontWeight:600,fontSize:small?10:12,padding:small?"3px 10px":"5px 14px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:0.4,textTransform:"uppercase"}}>{children}</span>;
 };
 
 const Bar = ({used,total,color=T.dark,h=8}) => (
@@ -110,25 +119,25 @@ const GlassCard = ({children,style,onClick,dark,className=""}) => (
   <div onClick={onClick} className={`glass ${onClick?"card-hover":""} ${className}`} style={{
     background:dark?T.glassDark:T.glassLight,color:dark?T.creamDark:T.text,
     borderRadius:20,border:`1px solid ${dark?"rgba(255,255,255,0.08)":T.gold+"30"}`,
-    padding:22,cursor:onClick?"pointer":"default",
+    padding:24,cursor:onClick?"pointer":"default",
     boxShadow:dark?"0 8px 32px rgba(0,0,0,0.12)":"0 2px 16px rgba(74,82,64,0.05)",...style
   }}>{children}</div>
 );
 
 const Btn = ({children,onClick,primary,small,disabled,outline,danger,style:s,className=""}) => (
   <button disabled={disabled} onClick={onClick} className={`btn-anim ${className}`} style={{
-    padding:small?"7px 16px":"11px 24px",borderRadius:14,fontWeight:600,
-    fontSize:small?12:14,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.35:1,
-    letterSpacing:0.3,textTransform:"uppercase",
-    background:danger?T.red+"15":primary?T.dark:outline?"transparent":T.cream,
-    color:danger?T.red:primary?T.cream:T.dark,
-    border:danger?`1px solid ${T.red}30`:outline?`2px solid ${T.dark}40`:primary?"none":`1px solid ${T.gold}40`,
-    boxShadow:primary?`0 4px 16px ${T.dark}20`:"none",...s
+    padding:small?"8px 18px":"12px 26px",borderRadius:14,fontWeight:600,
+    fontSize:small?13:15,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.35:1,
+    letterSpacing:0.3,textTransform:"uppercase",lineHeight:1.5,
+    background:danger?T.red:T.dark,
+    color:danger?"#fff":T.cream,
+    border:"none",
+    boxShadow:`0 4px 16px ${danger?T.red:T.dark}20`,...s
   }}>{children}</button>
 );
 
 const SectionLabel = ({children}) => (
-  <div style={{fontSize:12,fontWeight:700,color:T.gold,marginBottom:14,textTransform:"uppercase",letterSpacing:2,fontFamily:"Georgia,serif"}}>{children}</div>
+  <div style={{fontSize:13,fontWeight:700,color:T.gold,marginBottom:16,textTransform:"uppercase",letterSpacing:2,fontFamily:"Georgia,serif"}}>{children}</div>
 );
 
 const Heading = ({children,style}) => (
@@ -168,18 +177,24 @@ const Spinner = () => (
 );
 
 const LoginModal = ({onLogin,onClose}) => {
-  const [pw,setPw]=useState("");const [err,setErr]=useState(false);
-  const tryLogin=()=>{if(pw===LOGIN_PASS){onLogin();}else{setErr(true);setPw("");}};
+  const [email,setEmail]=useState("");const [pw,setPw]=useState("");const [err,setErr]=useState("");
+  const tryLogin=()=>{
+    if(!email.trim()||!pw.trim()){setErr("Bitte alle Felder ausfüllen");return;}
+    if(LOGIN_EMAIL&&email.toLowerCase().trim()!==LOGIN_EMAIL.toLowerCase()){setErr("Ungültige Anmeldedaten");setPw("");return;}
+    if(pw===LOGIN_PASS){onLogin();}else{setErr("Ungültige Anmeldedaten");setPw("");}
+  };
+  const inpS={width:"100%",padding:"13px 16px",borderRadius:14,border:`1.5px solid ${err?T.red+"60":T.gold+"50"}`,fontSize:15,background:"#2A2E24",color:T.cream,outline:"none",letterSpacing:0.5};
   return(
     <Modal onClose={onClose}>
-      <div className="modal-box" style={{background:T.white,borderRadius:24,padding:40,width:320,textAlign:"center",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
-        <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:18,letterSpacing:2.5,textTransform:"uppercase",color:T.dark,marginBottom:4}}>Kaiserufer</div>
-        <div style={{fontSize:11,color:T.gold,letterSpacing:1.5,textTransform:"uppercase",marginBottom:28}}>MitarbeiterIn Login</div>
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr(false);}} onKeyDown={e=>e.key==="Enter"&&tryLogin()} placeholder="Passwort" autoFocus style={{width:"100%",padding:"12px 14px",borderRadius:12,border:`1.5px solid ${err?T.red:T.gold}60`,fontSize:14,background:T.cream,color:T.text,outline:"none",textAlign:"center",letterSpacing:3}}/>
-          {err&&<div style={{fontSize:12,color:T.red,fontWeight:600}}>Falsches Passwort</div>}
-          <button onClick={tryLogin} style={{padding:"12px 24px",borderRadius:14,fontWeight:700,fontSize:14,cursor:"pointer",background:T.dark,color:T.cream,border:"none",letterSpacing:0.5,textTransform:"uppercase"}}>Einloggen</button>
-          <button onClick={onClose} style={{padding:"8px",borderRadius:10,fontSize:12,cursor:"pointer",background:"transparent",color:T.textLight,border:"none"}}>Abbrechen</button>
+      <div className="modal-box" style={{background:"linear-gradient(180deg,#1A1E14 0%,#2A2E24 100%)",borderRadius:28,padding:44,width:360,textAlign:"center",boxShadow:"0 32px 80px rgba(0,0,0,0.5)",border:"1px solid rgba(184,168,138,0.12)"}}>
+        <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:22,letterSpacing:3,textTransform:"uppercase",color:T.gold,marginBottom:4}}>Kaiserufer</div>
+        <div style={{fontSize:12,color:"rgba(184,168,138,0.5)",letterSpacing:2,textTransform:"uppercase",marginBottom:32}}>MitarbeiterIn Login</div>
+        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+          <input type="email" value={email} onChange={e=>{setEmail(e.target.value);setErr("");}} placeholder="E-Mail Adresse" autoFocus style={{...inpS,letterSpacing:0.3}}/>
+          <input type="password" value={pw} onChange={e=>{setPw(e.target.value);setErr("");}} onKeyDown={e=>e.key==="Enter"&&tryLogin()} placeholder="Passwort" style={{...inpS,letterSpacing:3}}/>
+          {err&&<div style={{fontSize:13,color:T.red,fontWeight:600,padding:"4px 0"}}>{err}</div>}
+          <button onClick={tryLogin} style={{padding:"14px 24px",borderRadius:16,fontWeight:700,fontSize:15,cursor:"pointer",background:`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:"#1A1E14",border:"none",letterSpacing:1,textTransform:"uppercase",marginTop:4,boxShadow:"0 4px 20px rgba(184,168,138,0.3)"}}>Einloggen</button>
+          <button onClick={onClose} style={{padding:"8px",borderRadius:10,fontSize:13,cursor:"pointer",background:"transparent",color:"rgba(184,168,138,0.35)",border:"none",marginTop:4}}>Abbrechen</button>
         </div>
       </div>
     </Modal>
@@ -200,40 +215,40 @@ const StatistikPanel = ({patienten,paesse,einzelArr}) => {
     <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:16}}>
       <div className="stat-grid-4" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
         {[{val:patienten.length,label:"Kunden"},{val:aktive,label:"Aktive Pässe"},{val:offene,label:"Offen",color:offene>0?T.red:T.dark},{val:`${(umsatz/1000).toFixed(1)}k`,label:"Umsatz (€)"}].map((s,i)=>(
-          <GlassCard key={i} style={{padding:16,textAlign:"center"}}>
+          <GlassCard key={i} style={{padding:18,textAlign:"center"}}>
             <div style={{fontSize:30,fontWeight:700,fontFamily:"Georgia,serif",color:s.color||T.dark}}>{s.val}</div>
-            <div style={{color:T.textLight,fontSize:11,textTransform:"uppercase",letterSpacing:1.5,marginTop:4}}>{s.label}</div>
+            <div style={{color:T.textLight,fontSize:12,textTransform:"uppercase",letterSpacing:1.5,marginTop:6}}>{s.label}</div>
           </GlassCard>
         ))}
       </div>
       <div className="stat-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
-        <GlassCard style={{display:"flex",alignItems:"center",gap:18,padding:18,flexWrap:"wrap"}}>
+        <GlassCard style={{display:"flex",alignItems:"center",gap:18,padding:20,flexWrap:"wrap"}}>
           <Donut value={kv} total={kl} color={T.green}/>
           <div style={{flex:1,minWidth:140}}>
-            <div style={{fontSize:14,fontWeight:600,color:T.dark,marginBottom:6}}>Konversionsrate</div>
-            <div style={{fontSize:13,color:T.text,lineHeight:1.8}}>
+            <div style={{fontSize:15,fontWeight:600,color:T.dark,marginBottom:8}}>Konversionsrate</div>
+            <div style={{fontSize:14,color:T.text,lineHeight:2}}>
               <strong>{kl}</strong> Kennenlerngespräche<br/>
               <strong style={{color:T.green}}>{kv}</strong> → Flossenpass<br/>
               <strong style={{color:T.red}}>{kl-kv}</strong> nicht konvertiert
             </div>
           </div>
         </GlassCard>
-        <GlassCard style={{padding:18}}>
-          <div style={{fontSize:14,fontWeight:600,color:T.dark,marginBottom:14}}>Einheiten-Auslastung</div>
-          <div style={{marginBottom:12}}>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:5}}><span>Haupteinheiten</span><span style={{fontWeight:600}}>{gHE}/{tHE}</span></div>
+        <GlassCard style={{padding:20}}>
+          <div style={{fontSize:15,fontWeight:600,color:T.dark,marginBottom:16}}>Einheiten-Auslastung</div>
+          <div style={{marginBottom:14}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:14,marginBottom:6}}><span>Haupteinheiten</span><span style={{fontWeight:600}}>{gHE}/{tHE}</span></div>
             <Bar used={gHE} total={tHE} color={T.dark}/>
           </div>
           <div>
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:5}}><span>Gruppenangebote</span><span style={{fontWeight:600}}>{gBS}/{tBS}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:14,marginBottom:6}}><span>Gruppenangebote</span><span style={{fontWeight:600}}>{gBS}/{tBS}</span></div>
             <Bar used={gBS} total={tBS} color={T.gold}/>
           </div>
         </GlassCard>
       </div>
-      <GlassCard style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:18,flexWrap:"wrap",gap:12}}>
+      <GlassCard style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:20,flexWrap:"wrap",gap:12}}>
         <div>
-          <div style={{fontSize:14,fontWeight:600,color:T.dark}}>Zahlungsübersicht</div>
-          <div style={{fontSize:13,color:T.text,marginTop:4}}>
+          <div style={{fontSize:15,fontWeight:600,color:T.dark}}>Zahlungsübersicht</div>
+          <div style={{fontSize:14,color:T.text,marginTop:6,lineHeight:1.8}}>
             Gesamt: <strong style={{color:T.dark}}>{umsatz.toLocaleString("de-DE")} €</strong> · Bezahlt: <strong style={{color:T.green}}>{bezahlt.toLocaleString("de-DE")} €</strong> · Offen: <strong style={{color:T.red}}>{(umsatz-bezahlt).toLocaleString("de-DE")} €</strong>
           </div>
         </div>
@@ -257,10 +272,10 @@ const KaufModal = ({selPat,onKauf,onClose}) => {
   const [einzelRechnung,setEinzelRechnung]=useState("");
   const [einzelDatum,setEinzelDatum]=useState(todayISO());
 
-  const inp={width:"100%",padding:"9px 12px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.dark,outline:"none"};
-  const lbl={fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:1.5,marginBottom:5,display:"block"};
-  const row2={display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12};
-  const row3={display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:12};
+  const inp={width:"100%",padding:"10px 14px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:15,background:T.cream,color:T.dark,outline:"none"};
+  const lbl={fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"};
+  const row2={display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14};
+  const row3={display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:14};
 
   const onPassTypChange=(key)=>{
     const opt=PASS_OPTIONS.find(p=>p.key===key);
@@ -294,17 +309,17 @@ const KaufModal = ({selPat,onKauf,onClose}) => {
     <Modal onClose={onClose}>
       <div className="modal-box" style={{background:T.white,borderRadius:24,padding:28,width:500,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
         <Heading style={{marginBottom:4,fontSize:20}}>Angebot hinzufügen</Heading>
-        <p style={{color:T.text,fontSize:14,marginBottom:20}}>für <strong>{selPat?.vorname} {selPat?.nachname}</strong>{selPat?.stammkunde?" · Stammkunde":""}{selPat?.stammkunde&&selPat?.stammpreis?` · Stammpreis: ${selPat.stammpreis} €`:""}</p>
-        <div style={{background:T.cream+"60",borderRadius:16,padding:18,border:`1px solid ${T.gold}30`,marginBottom:16}}>
-          <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:14}}>Flossenpass</div>
-          <div style={{marginBottom:12}}>
+        <p style={{color:T.text,fontSize:15,marginBottom:22,lineHeight:1.6}}>für <strong>{selPat?.vorname} {selPat?.nachname}</strong>{selPat?.stammkunde?" · Stammkunde":""}{selPat?.stammkunde&&selPat?.stammpreis?` · Stammpreis: ${selPat.stammpreis} €`:""}</p>
+        <div style={{background:T.cream+"60",borderRadius:16,padding:20,border:`1px solid ${T.gold}30`,marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:16}}>Flossenpass</div>
+          <div style={{marginBottom:14}}>
             <label style={lbl}>Typ auswählen</label>
             <select value={passTyp} onChange={e=>onPassTypChange(e.target.value)} style={inp}>
               {PASS_OPTIONS.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
           </div>
           {passTyp==="INDIVIDUELL"&&(
-            <div style={{marginBottom:12}}>
+            <div style={{marginBottom:14}}>
               <label style={lbl}>Bezeichnung</label>
               <input value={passName} onChange={e=>setPassName(e.target.value)} placeholder="z.B. Flossenpass Special" style={inp}/>
             </div>
@@ -320,8 +335,8 @@ const KaufModal = ({selPat,onKauf,onClose}) => {
           </div>
           <div style={{display:"flex",justifyContent:"flex-end"}}><Btn primary onClick={submitPass}>Flossenpass hinzufügen</Btn></div>
         </div>
-        <div style={{background:T.cream+"60",borderRadius:16,padding:18,border:`1px solid ${T.gold}30`}}>
-          <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:14}}>Einzelangebot</div>
+        <div style={{background:T.cream+"60",borderRadius:16,padding:20,border:`1px solid ${T.gold}30`}}>
+          <div style={{fontSize:13,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:16}}>Einzelangebot</div>
           <div style={row2}>
             <div>
               <label style={lbl}>Auswählen</label>
@@ -338,7 +353,7 @@ const KaufModal = ({selPat,onKauf,onClose}) => {
           </div>
           <div style={{display:"flex",justifyContent:"flex-end"}}><Btn primary onClick={submitEinzel}>Einzelangebot hinzufügen</Btn></div>
         </div>
-        <div style={{marginTop:16,textAlign:"right"}}><Btn onClick={onClose}>Abbrechen</Btn></div>
+        <div style={{marginTop:16,textAlign:"right"}}><Btn onClick={onClose} style={{background:T.dark+"18",color:T.dark,boxShadow:"none"}}>Abbrechen</Btn></div>
       </div>
     </Modal>
   );
@@ -363,15 +378,26 @@ const KIEingabeModal = ({patienten,onKauf,onClose}) => {
     })||null;
   };
 
-  const buildPrompt=(patNames)=>`Du bist ein Assistent für ein Kundenverwaltungssystem.
+  const buildPrompt=(patNames)=>`Du bist ein Assistent für ein Kundenverwaltungssystem namens "Pingu hilft".
 Extrahiere ALLE genannten Einträge und antworte NUR mit einem JSON-Array ohne Markdown-Backticks oder sonstigen Text.
 Jedes Element:
-{"kundenname":"string oder null","typ":"pass oder einzel","pass_typ":"BASIS, PLUS, DELUXE oder INDIVIDUELL oder null","einzel_name":"string oder null","he_total":Zahl oder null,"bs_total":Zahl oder null,"preis":Zahl oder null,"rechnung":"string oder null","datum":"YYYY-MM-DD oder null","custom_name":"string oder null"}
+{"kundenname":"string oder null","typ":"pass oder einzel","pass_typ":"BASIS, PLUS, DELUXE oder INDIVIDUELL oder null","einzel_name":"string oder null","he_total":Zahl oder null,"bs_total":Zahl oder null,"preis":Zahl oder null,"rechnung":"string oder null","datum":"YYYY-MM-DD oder null","custom_name":"string oder null","ist_alt":true/false,"bezahlt":true/false/null}
 Bekannte Kunden: ${patNames}
 Pass-Typen: BASIS=3HE 1GA 299€, PLUS=5HE 3GA 499€, DELUXE=10HE 5GA 899€
 Einzelangebote: Psycho Quickie 70€, tDCS 55€, Neurofeedback 5er Karte 350€
 Heutiges Datum: ${todayISO()}
-Wichtig: Immer ein Array zurückgeben, auch bei einem Eintrag.`;
+
+WICHTIG zur Unterscheidung alt vs. aktuell:
+- Wenn ein Flossenpass als "alt", "aufgebraucht", "vergangen", "abgelaufen", "alter Pass", "früherer Pass" oder ähnlich beschrieben wird → "ist_alt": true
+- Wenn nichts dazu gesagt wird oder "aktuell", "neu", "aktiv" → "ist_alt": false
+- Bei alten Pässen: setze he_genutzt und bs_genutzt gleich he_total und bs_total (vollständig aufgebraucht)
+
+WICHTIG zum Bezahlt-Status:
+- Wenn "bezahlt", "beglichen", "gezahlt" erwähnt wird → "bezahlt": true
+- Wenn "nicht bezahlt", "offen", "unbezahlt" erwähnt wird → "bezahlt": false
+- Wenn nichts gesagt wird → "bezahlt": null (Standard)
+
+Immer ein Array zurückgeben, auch bei einem Eintrag.`;
 
   const parseResult=(raw)=>{
     const clean=raw.replace(/```json|```/g,"").trim();
@@ -427,17 +453,19 @@ Wichtig: Immer ein Array zurückgeben, auch bei einem Eintrag.`;
       const pat=v.matched_pat;
       const datum=v.datum||todayISO();
       const rechnung=v.rechnung||"";
+      const istAlt=!!v.ist_alt;
+      const bezahlt=v.bezahlt===true||v.bezahlt===false?v.bezahlt:null;
       if(v.typ==="pass"){
         const typ=v.pass_typ||"INDIVIDUELL";
         if(typ==="INDIVIDUELL"){
-          await onKauf(pat,"individuell",{name:v.custom_name||"Individuell",he:v.he_total||0,bs:v.bs_total||0,datum,rechnung},v.preis||0,"");
+          await onKauf(pat,"individuell",{name:v.custom_name||"Individuell",he:v.he_total||0,bs:v.bs_total||0,datum,rechnung,ist_alt:istAlt,bezahlt},v.preis||0,"");
         } else {
-          await onKauf(pat,"pass",typ,v.preis||PASS_TYPES[typ]?.preis||0,rechnung,datum);
+          await onKauf(pat,"pass",typ,v.preis||PASS_TYPES[typ]?.preis||0,rechnung,datum,istAlt,bezahlt);
         }
       } else {
         const name=v.einzel_name||"Einzelangebot";
         const found=EINZELANGEBOTE.find(ea=>ea.name.toLowerCase().includes(name.toLowerCase()));
-        await onKauf(pat,"einzel",{key:found?.key||"CUSTOM",name},v.preis||found?.preis||0,rechnung,datum);
+        await onKauf(pat,"einzel",{key:found?.key||"CUSTOM",name},v.preis||found?.preis||0,rechnung,datum,false,bezahlt);
       }
     }
     setSavingIdx(-1);
@@ -448,72 +476,76 @@ Wichtig: Immer ein Array zurückgeben, auch bei einem Eintrag.`;
   const aktiveCount=eintraege.filter(e=>!e._skip&&e.matched_pat).length;
   const isSaving=savingIdx>=0;
 
-  const inp2={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"};
-  const lbl={fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:1.5,marginBottom:5,display:"block"};
+  const inp2={width:"100%",padding:"11px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:15,background:T.cream,color:T.text,outline:"none"};
 
   return(
     <Modal onClose={onClose}>
-      <div className="modal-box" style={{background:T.white,borderRadius:24,padding:28,width:540,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
-        <Heading style={{fontSize:20,marginBottom:4}}>🎤 KI-Masseneingabe</Heading>
-        <p style={{color:T.text,fontSize:14,marginBottom:20}}>Sprich oder tippe <strong>mehrere Einträge</strong> auf einmal:<br/><em style={{fontSize:12,color:T.textLight}}>"Anna Müller Plus Pass 499 Euro KU-0042... Maria Schmidt Basis Pass... Thomas Bauer tDCS 55 Euro"</em></p>
+      <div className="modal-box" style={{background:T.white,borderRadius:24,padding:28,width:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.2)"}}>
+        <Heading style={{fontSize:22,marginBottom:6}}>🐧 Pingu hilft</Heading>
+        <p style={{color:T.text,fontSize:15,marginBottom:22,lineHeight:1.7}}>Sprich oder tippe <strong>mehrere Einträge</strong> auf einmal.<br/>
+        <span style={{fontSize:13,color:T.textLight}}>Sage auch ob ein Pass <strong>alt/aufgebraucht</strong> oder <strong>aktuell</strong> ist, und ob er <strong>bezahlt</strong> wurde.</span><br/>
+        <em style={{fontSize:13,color:T.textLight}}>"Anna Müller, alter Plus Pass, bezahlt, 499 Euro, KU-0042... Maria Schmidt, neuer Basis Pass..."</em></p>
 
-        <div style={{display:"flex",gap:10,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{display:"flex",gap:10,marginBottom:18,alignItems:"center",flexWrap:"wrap"}}>
           {!recording
-            ?<button onClick={startRec} style={{padding:"14px 24px",borderRadius:16,background:T.red,color:"#fff",border:"none",fontWeight:700,fontSize:15,cursor:"pointer",boxShadow:`0 4px 16px ${T.red}40`}}>🎤 Aufnahme starten</button>
-            :<button onClick={stopRec} style={{padding:"14px 24px",borderRadius:16,background:T.dark,color:T.cream,border:"none",fontWeight:700,fontSize:15,cursor:"pointer"}}>⏹ Aufnahme stoppen</button>
+            ?<button onClick={startRec} style={{padding:"14px 24px",borderRadius:16,background:T.red,color:"#fff",border:"none",fontWeight:700,fontSize:16,cursor:"pointer",boxShadow:`0 4px 16px ${T.red}40`}}>🎤 Aufnahme starten</button>
+            :<button onClick={stopRec} style={{padding:"14px 24px",borderRadius:16,background:T.dark,color:T.cream,border:"none",fontWeight:700,fontSize:16,cursor:"pointer"}}>⏹ Aufnahme stoppen</button>
           }
-          {recording&&<span style={{fontSize:13,color:T.red,fontWeight:600}}>● läuft – einfach alle Einträge durchsprechen</span>}
+          {recording&&<span style={{fontSize:14,color:T.red,fontWeight:600}}>● läuft – einfach alle Einträge durchsprechen</span>}
         </div>
 
-        <div style={{marginBottom:16}}>
-          <label style={lbl}>Oder direkt eintippen</label>
+        <div style={{marginBottom:18}}>
+          <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6}}>Oder direkt eintippen</div>
           <div style={{display:"flex",gap:8}}>
-            <textarea value={transcript} onChange={e=>setTranscript(e.target.value)} rows={3} placeholder="z.B. Anna Müller Plus Pass 499€, Maria Schmidt Basis Pass 299€..." style={{...inp2,flex:1,resize:"vertical"}}/>
+            <textarea value={transcript} onChange={e=>setTranscript(e.target.value)} rows={3} placeholder="z.B. Anna Müller alter Plus Pass bezahlt 499€, Maria Schmidt neuer Basis Pass 299€..." style={{...inp2,flex:1,resize:"vertical"}}/>
             <Btn primary small onClick={()=>analyzeText(transcript,false)} disabled={!transcript.trim()||loading}>KI →</Btn>
           </div>
         </div>
 
-        {loading&&<div style={{textAlign:"center",padding:20}}><Spinner/><p style={{color:T.gold,fontSize:13}}>KI analysiert alle Einträge...</p></div>}
-        {isSaving&&<div style={{padding:"10px 14px",borderRadius:10,background:T.green+"12",color:T.green,fontSize:13,fontWeight:600,marginBottom:12}}>Speichere {savingIdx+1}/{aktiveCount}...</div>}
-        {error&&<div style={{padding:"10px 14px",borderRadius:10,background:T.red+"12",color:T.red,fontSize:13,marginBottom:12}}>{error}</div>}
+        {loading&&<div style={{textAlign:"center",padding:20}}><Spinner/><p style={{color:T.gold,fontSize:14}}>🐧 Pingu analysiert alle Einträge...</p></div>}
+        {isSaving&&<div style={{padding:"12px 16px",borderRadius:10,background:T.green+"12",color:T.green,fontSize:14,fontWeight:600,marginBottom:14}}>Speichere {savingIdx+1}/{aktiveCount}...</div>}
+        {error&&<div style={{padding:"12px 16px",borderRadius:10,background:T.red+"12",color:T.red,fontSize:14,marginBottom:14}}>{error}</div>}
 
         {eintraege.length>0&&!loading&&(
           <div style={{marginBottom:16}}>
-            <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>{eintraege.length} Einträge erkannt – bitte prüfen</div>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            <div style={{fontSize:13,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:14}}>{eintraege.length} Einträge erkannt – bitte prüfen</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
               {eintraege.map(v=>(
-                <div key={v._id} style={{borderRadius:14,border:`1px solid ${v._skip?T.gold+"20":v.matched_pat?T.green+"40":T.red+"40"}`,background:v._skip?T.cream+"30":v.matched_pat?T.green+"08":T.red+"08",padding:"12px 16px",opacity:v._skip?0.45:1}}>
+                <div key={v._id} style={{borderRadius:14,border:`1px solid ${v._skip?T.gold+"20":v.matched_pat?T.green+"40":T.red+"40"}`,background:v._skip?T.cream+"30":v.matched_pat?T.green+"08":T.red+"08",padding:"14px 18px",opacity:v._skip?0.45:1}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
                     <div style={{flex:1}}>
-                      <div style={{fontWeight:700,fontSize:14,color:T.dark,marginBottom:4}}>
+                      <div style={{fontWeight:700,fontSize:15,color:T.dark,marginBottom:6}}>
                         {v.matched_pat?`${v.matched_pat.vorname} ${v.matched_pat.nachname}`:<span style={{color:T.red}}>⚠ "{v.kundenname}" – nicht gefunden</span>}
                       </div>
-                      <div style={{fontSize:12,color:T.text,display:"flex",gap:10,flexWrap:"wrap"}}>
+                      <div style={{fontSize:13,color:T.text,display:"flex",gap:10,flexWrap:"wrap",lineHeight:2}}>
                         <span>{v.typ==="pass"?`Flossenpass ${v.pass_typ||"Individuell"}${v.custom_name?` – ${v.custom_name}`:""}`:v.einzel_name||"Einzelangebot"}</span>
+                        {v.ist_alt&&<Badge variant="cream" small>Alt</Badge>}
+                        {v.bezahlt===true&&<Badge variant="green" small>Bezahlt</Badge>}
+                        {v.bezahlt===false&&<Badge variant="red" small>Offen</Badge>}
                         {v.typ==="pass"&&<span style={{color:T.textLight}}>{v.he_total||"–"} HE · {v.bs_total||"–"} GA</span>}
                         {v.preis&&<span style={{fontWeight:600,color:T.dark}}>{v.preis} €</span>}
-                        {v.rechnung&&<code style={{background:T.bgLight,padding:"1px 6px",borderRadius:6,fontSize:11}}>{v.rechnung}</code>}
+                        {v.rechnung&&<code style={{background:T.bgLight,padding:"2px 8px",borderRadius:6,fontSize:12}}>{v.rechnung}</code>}
                         {v.datum&&<span style={{color:T.textLight}}>{fmtDate(v.datum)}</span>}
                       </div>
                     </div>
-                    <button onClick={()=>toggleSkip(v._id)} style={{padding:"4px 12px",borderRadius:8,border:`1px solid ${v._skip?T.green+"60":T.red+"40"}`,background:"transparent",color:v._skip?T.green:T.red,fontSize:11,fontWeight:700,cursor:"pointer",flexShrink:0,textTransform:"uppercase"}}>
+                    <button onClick={()=>toggleSkip(v._id)} style={{padding:"6px 14px",borderRadius:8,border:`1px solid ${v._skip?T.green+"60":T.red+"40"}`,background:"transparent",color:v._skip?T.green:T.red,fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,textTransform:"uppercase"}}>
                       {v._skip?"↩ Zurück":"✕ Skip"}
                     </button>
                   </div>
                 </div>
               ))}
             </div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:14,flexWrap:"wrap",gap:8}}>
-              <span style={{fontSize:13,color:T.textLight}}>{aktiveCount} von {eintraege.length} werden gespeichert</span>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,flexWrap:"wrap",gap:8}}>
+              <span style={{fontSize:14,color:T.textLight}}>{aktiveCount} von {eintraege.length} werden gespeichert</span>
               <div style={{display:"flex",gap:8}}>
-                <Btn small onClick={()=>{setEintraege([]);setTranscript("");}}>Nochmal</Btn>
+                <Btn small onClick={()=>{setEintraege([]);setTranscript("");}} style={{background:T.dark+"18",color:T.dark,boxShadow:"none"}}>Nochmal</Btn>
                 <Btn small primary disabled={aktiveCount===0||isSaving} onClick={alleBestaetigen}>✓ Alle {aktiveCount} speichern</Btn>
               </div>
             </div>
           </div>
         )}
 
-        <div style={{textAlign:"right",marginTop:8}}><Btn small onClick={onClose}>Abbrechen</Btn></div>
+        <div style={{textAlign:"right",marginTop:10}}><Btn small onClick={onClose} style={{background:T.dark+"18",color:T.dark,boxShadow:"none"}}>Abbrechen</Btn></div>
       </div>
     </Modal>
   );
@@ -538,8 +570,9 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   const [saving,setSaving]=useState(false);
   const [shoreSync,setShoreSync]=useState(false);
   const [shoreSyncMsg,setShoreSyncMsg]=useState("");
+  const [confirmDelete,setConfirmDelete]=useState(null);
 
-  const inp={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"};
+  const inp={width:"100%",padding:"11px 14px",borderRadius:12,border:`1px solid ${T.gold}40`,fontSize:15,background:T.cream,color:T.text,outline:"none"};
 
   const filtered=patienten.slice().sort((a,b)=>{
     const na=`${a.vorname||""} ${a.nachname||""}`.trim().toLowerCase();
@@ -564,8 +597,8 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
   const bsUebrig=aktPaesse.reduce((s,p)=>s+((p.bs_total||0)-(p.bs_genutzt||0)),0);
 
   const alleVerkaufe=[
-    ...patPaesse.map(pk=>({id:pk.id,art:"pass",name:`Flossenpass ${getPassLabel(pk)}`,rechnung:pk.rechnung,datum:pk.datum,preis:pk.preis||0,bezahlt:pk.bezahlt})),
-    ...patEinzel.map(e=>({id:e.id,art:"einzel",name:e.name,rechnung:e.rechnung,datum:e.datum,preis:e.preis||0,bezahlt:e.bezahlt}))
+    ...patPaesse.map(pk=>({id:pk.id,art:"pass",name:`Flossenpass ${getPassLabel(pk)}`,rechnung:pk.rechnung,datum:pk.datum,preis:pk.preis||0,bezahlt:pk.bezahlt,isAlt:isPassAlt(pk)})),
+    ...patEinzel.map(e=>({id:e.id,art:"einzel",name:e.name,rechnung:e.rechnung,datum:e.datum,preis:e.preis||0,bezahlt:e.bezahlt,isAlt:false}))
   ].sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));
 
   const getRechnungsNr=async()=>{
@@ -581,29 +614,41 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     setSaving(false); setKaufModal(false);
   };
 
-  const handleKaufFuerPat=async(pat,typ,info,preis,eigeneRechnung,datum)=>{
+  const handleKaufFuerPat=async(pat,typ,info,preis,eigeneRechnung,datum,istAlt,bezahltStatus)=>{
     const datumStr=datum||todayISO();
     let rechnungStr;
     if(typ==="individuell"){
       rechnungStr=info.rechnung||genRechnung(await getRechnungsNr());
-      const np={id:genId(),pat_id:pat.id,typ:"INDIVIDUELL",he_total:info.he||0,he_genutzt:0,bs_total:info.bs||0,bs_genutzt:0,preis:preis||0,rechnung:rechnungStr,bezahlt:false,datum:info.datum||datumStr,aktiv:true,custom_name:info.name||"Individuell"};
+      const heT=info.he||0, bsT=info.bs||0;
+      const alt=istAlt||info.ist_alt||false;
+      const bez=bezahltStatus!==undefined&&bezahltStatus!==null?bezahltStatus:(info.bezahlt!==undefined&&info.bezahlt!==null?info.bezahlt:false);
+      const np={id:genId(),pat_id:pat.id,typ:"INDIVIDUELL",he_total:heT,he_genutzt:alt?heT:0,bs_total:bsT,bs_genutzt:alt?bsT:0,preis:preis||0,rechnung:rechnungStr,bezahlt:bez,datum:info.datum||datumStr,aktiv:!alt,custom_name:info.name||"Individuell"};
       await supabase.from("paesse").insert(np);
       setPaesse(prev=>[...prev,np]);
     } else if(typ==="pass"){
       rechnungStr=eigeneRechnung||genRechnung(await getRechnungsNr());
       const pt=PASS_TYPES[info];
-      const np={id:genId(),pat_id:pat.id,typ:info,he_total:pt.he,he_genutzt:0,bs_total:pt.bs,bs_genutzt:0,preis:preis||0,rechnung:rechnungStr,bezahlt:false,datum:datumStr,aktiv:true};
+      const alt=!!istAlt;
+      const bez=bezahltStatus!==undefined&&bezahltStatus!==null?bezahltStatus:false;
+      const np={id:genId(),pat_id:pat.id,typ:info,he_total:pt.he,he_genutzt:alt?pt.he:0,bs_total:pt.bs,bs_genutzt:alt?pt.bs:0,preis:preis||0,rechnung:rechnungStr,bezahlt:bez,datum:datumStr,aktiv:!alt};
       await supabase.from("paesse").insert(np);
       setPaesse(prev=>[...prev,np]);
     } else {
       rechnungStr=eigeneRechnung||genRechnung(await getRechnungsNr());
-      const ne={id:genId(),pat_id:pat.id,key:info.key,name:info.name,preis:preis||0,rechnung:rechnungStr,bezahlt:false,datum:datumStr};
+      const bez=bezahltStatus!==undefined&&bezahltStatus!==null?bezahltStatus:false;
+      const ne={id:genId(),pat_id:pat.id,key:info.key,name:info.name,preis:preis||0,rechnung:rechnungStr,bezahlt:bez,datum:datumStr};
       const nl={id:genId(),pat_id:pat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};
       await supabase.from("einzel").insert(ne);
       await supabase.from("log").insert(nl);
       setEinzel(prev=>[...prev,ne]);
       setLog(prev=>[...prev,nl]);
     }
+  };
+
+  const deletePass=async(pid)=>{
+    await supabase.from("paesse").delete().eq("id",pid);
+    setPaesse(prev=>prev.filter(p=>p.id!==pid));
+    setConfirmDelete(null);
   };
 
   const downloadCSV=()=>{
@@ -696,7 +741,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     return{he:(ap.he_total||0)-(ap.he_genutzt||0),bs:(ap.bs_total||0)-(ap.bs_genutzt||0),typ:ap.typ};
   };
 
-  const editInp=(w)=>({fontSize:13,fontWeight:600,background:"transparent",border:`1px solid ${T.gold}40`,borderRadius:8,padding:"3px 8px",color:T.dark,outline:"none",width:w});
+  const editInp=(w)=>({fontSize:14,fontWeight:600,background:"transparent",border:`1px solid ${T.gold}40`,borderRadius:8,padding:"4px 8px",color:T.dark,outline:"none",width:w});
 
   const handleScan=()=>{
     const pat=patienten.find(p=>p.qr===scanInput.trim().toUpperCase());
@@ -704,16 +749,82 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
     else alert("QR-Code nicht gefunden: "+scanInput);
   };
 
+  /* ── Editable Pass Card (reusable for both aktiv and alt) ── */
+  const PassCard=({pk,isAlt})=>{
+    const heL=(pk.he_total||0)-(pk.he_genutzt||0);
+    const bsL=(pk.bs_total||0)-(pk.bs_genutzt||0);
+    const ni={width:50,padding:"4px 6px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:15,fontWeight:700,background:"transparent",color:T.dark,outline:"none",textAlign:"center"};
+    return(
+      <div style={{borderRadius:16,border:`1px solid ${T.gold}25`,background:isAlt?T.cream+"60":T.white+"80",overflow:"hidden",marginBottom:12,opacity:isAlt?0.85:1}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${T.gold}18`,background:T.cream+"60",flexWrap:"wrap",gap:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <strong style={{fontFamily:"Georgia,serif",fontSize:17,color:T.dark}}>Flossenpass {getPassLabel(pk)}</strong>
+            {isAlt&&<Badge variant="default" small>Aufgebraucht</Badge>}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+            <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,textTransform:"uppercase",color:pk.bezahlt?T.green:T.red,background:pk.bezahlt?T.green+"15":T.red+"10",padding:"6px 14px",borderRadius:10}}>
+              <input type="checkbox" checked={!!pk.bezahlt} onChange={()=>toggleBezahlt(pk.id)} style={{accentColor:T.green,width:15,height:15}}/>
+              {pk.bezahlt?"Bezahlt":"Offen"}
+            </label>
+            <button onClick={()=>setConfirmDelete(pk.id)} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${T.red}30`,background:T.red+"08",color:T.red,fontSize:12,fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>✕</button>
+          </div>
+        </div>
+        <div className="pass-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
+          {[
+            {label:"Rechnungs-Nr.",content:<input value={pk.rechnung||""} onChange={e=>updatePassField(pk.id,"rechnung",e.target.value)} style={{...editInp(140),width:"100%"}}/>},
+            {label:"Datum",content:<input type="date" value={pk.datum||""} onChange={e=>updatePassField(pk.id,"datum",e.target.value)} style={{...editInp(140),width:"100%"}}/>},
+            {label:"Preis",content:<div style={{display:"flex",alignItems:"center",gap:4}}><input type="number" min={0} value={pk.preis||0} onChange={e=>updatePassField(pk.id,"preis",Number(e.target.value))} style={{...editInp(80),textAlign:"right"}}/><span style={{fontSize:14,color:T.text}}>€</span></div>},
+          ].map((f,fi)=>(
+            <div key={f.label} style={{padding:"12px 16px",borderLeft:fi>0?`1px solid ${T.gold}18`:"none"}}>
+              <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>{f.label}</div>
+              {f.content}
+            </div>
+          ))}
+        </div>
+        <div className="pass-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
+          {[
+            {label:"Haupteinheiten",genutzt:"he_genutzt",total:"he_total",used:pk.he_genutzt||0,tot:pk.he_total||0,left:heL,color:T.dark},
+            {label:"Gruppenangebote",genutzt:"bs_genutzt",total:"bs_total",used:pk.bs_genutzt||0,tot:pk.bs_total||0,left:bsL,color:T.gold}
+          ].map((e,ei)=>(
+            <div key={e.label} style={{padding:"14px 16px",borderLeft:ei>0?`1px solid ${T.gold}18`:"none"}}>
+              <div style={{fontSize:12,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:10}}>{e.label}</div>
+              <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10,flexWrap:"wrap"}}>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                  <span style={{fontSize:11,color:T.textLight}}>Genutzt</span>
+                  <input type="number" min={0} max={e.tot} value={e.used} onChange={ev=>updatePassEinheiten(pk.id,e.genutzt,ev.target.value)} style={ni}/>
+                </div>
+                <span style={{fontSize:16,color:T.textLight,marginTop:16}}>/</span>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                  <span style={{fontSize:11,color:T.textLight}}>Gesamt</span>
+                  <input type="number" min={0} value={e.tot} onChange={ev=>updatePassEinheiten(pk.id,e.total,ev.target.value)} style={ni}/>
+                </div>
+                <span style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:T.red,marginTop:16,marginLeft:4}}>{e.left}<span style={{fontSize:12,fontWeight:400,color:T.textLight}}> übrig</span></span>
+              </div>
+              <Bar used={e.used} total={e.tot} color={e.color} h={6}/>
+            </div>
+          ))}
+        </div>
+        {!isAlt&&(
+          <div style={{padding:"10px 20px"}}>
+            <button onClick={()=>{setKorrekturModal(pk);setKorrekturTyp("HE");setKorrekturAnzahl(1);setKorrekturGrund("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:T.red+"80",padding:"4px 0",letterSpacing:0.3}}>
+              ✎ Korrektur / Einheit zurückbuchen
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if(scanMode) return(
     <div className="fade-in resp-pad" style={{padding:28}}>
       <div className="header-row" style={{display:"flex",alignItems:"center",gap:14,marginBottom:28}}>
-        <Btn onClick={()=>setScanMode(false)}>← Zurück</Btn>
+        <Btn onClick={()=>setScanMode(false)} style={{background:T.dark+"18",color:T.dark,boxShadow:"none"}}>← Zurück</Btn>
         <Heading style={{fontSize:22}}>QR-Code Scanner</Heading>
       </div>
       <GlassCard>
         <div style={{textAlign:"center",padding:"24px 8px"}}>
           <div style={{fontSize:40,marginBottom:16}}>📷</div>
-          <p style={{color:T.text,marginBottom:20,lineHeight:1.7,fontSize:15}}>QR-Token eingeben:</p>
+          <p style={{color:T.text,marginBottom:20,lineHeight:1.8,fontSize:16}}>QR-Token eingeben:</p>
           <div style={{display:"flex",gap:8,justifyContent:"center",maxWidth:420,margin:"0 auto",flexWrap:"wrap"}}>
             <input value={scanInput} onChange={e=>setScanInput(e.target.value)} placeholder="z.B. KU-A7F3B2C9" onKeyDown={e=>e.key==="Enter"&&handleScan()} style={{...inp,flex:1,fontFamily:"monospace",minWidth:180}}/>
             <Btn primary onClick={handleScan}>Scannen</Btn>
@@ -728,15 +839,29 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
       {kaufModal&&<KaufModal selPat={selPat} onKauf={handleKauf} onClose={()=>setKaufModal(false)}/>}
       {kiModal&&<KIEingabeModal patienten={patienten} onKauf={handleKaufFuerPat} onClose={()=>setKiModal(false)}/>}
 
+      {confirmDelete&&(
+        <Modal onClose={()=>setConfirmDelete(null)}>
+          <GlassCard className="modal-box" style={{width:380,background:T.white,textAlign:"center"}}>
+            <div style={{fontSize:36,marginBottom:12}}>⚠️</div>
+            <Heading style={{fontSize:20,marginBottom:8}}>Pass löschen?</Heading>
+            <p style={{color:T.text,fontSize:15,marginBottom:20,lineHeight:1.7}}>Dieser Flossenpass wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.</p>
+            <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+              <Btn onClick={()=>setConfirmDelete(null)} style={{background:T.dark+"18",color:T.dark,boxShadow:"none"}}>Abbrechen</Btn>
+              <Btn danger onClick={()=>deletePass(confirmDelete)}>Endgültig löschen</Btn>
+            </div>
+          </GlassCard>
+        </Modal>
+      )}
+
       {bsModal&&(
         <Modal onClose={()=>{setBsModal(null);setBsNotiz("");}}>
           <GlassCard className="modal-box" style={{width:400,background:T.white}}>
             <Heading style={{fontSize:20,marginBottom:4}}>Gruppenangebot abhaken</Heading>
-            <p style={{color:T.text,fontSize:14,marginBottom:16}}>Noch {(bsModal.bs_total||0)-(bsModal.bs_genutzt||0)} von {bsModal.bs_total||0} übrig</p>
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <p style={{color:T.text,fontSize:15,marginBottom:18,lineHeight:1.6}}>Noch {(bsModal.bs_total||0)-(bsModal.bs_genutzt||0)} von {bsModal.bs_total||0} übrig</p>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
               <input value={bsNotiz} onChange={e=>setBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." style={inp} autoFocus/>
               <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                <Btn onClick={()=>{setBsModal(null);setBsNotiz("");}}>Abbrechen</Btn>
+                <Btn onClick={()=>{setBsModal(null);setBsNotiz("");}} style={{background:T.dark+"18",color:T.dark,boxShadow:"none"}}>Abbrechen</Btn>
                 <Btn primary disabled={!bsNotiz.trim()} onClick={()=>bsAbziehen(bsModal)}>Abhaken</Btn>
               </div>
             </div>
@@ -747,25 +872,25 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
       {korrekturModal&&(
         <Modal onClose={()=>setKorrekturModal(null)}>
           <GlassCard className="modal-box" style={{width:400,background:T.white}}>
-            <Heading style={{fontSize:20,marginBottom:16}}>Korrektur</Heading>
-            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            <Heading style={{fontSize:20,marginBottom:18}}>Korrektur</Heading>
+            <div style={{display:"flex",flexDirection:"column",gap:14}}>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <label style={{fontSize:13,fontWeight:600,color:T.text,textTransform:"uppercase",letterSpacing:1}}>Einheitentyp</label>
+                <label style={{fontSize:14,fontWeight:600,color:T.text,textTransform:"uppercase",letterSpacing:1}}>Einheitentyp</label>
                 <select value={korrekturTyp} onChange={e=>setKorrekturTyp(e.target.value)} style={inp}>
                   <option value="HE">Haupteinheit (HE)</option>
                   <option value="BS">Gruppenangebot (GA)</option>
                 </select>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <label style={{fontSize:13,fontWeight:600,color:T.text,textTransform:"uppercase",letterSpacing:1}}>Anzahl zurückbuchen</label>
+                <label style={{fontSize:14,fontWeight:600,color:T.text,textTransform:"uppercase",letterSpacing:1}}>Anzahl zurückbuchen</label>
                 <input type="number" min={1} max={10} value={korrekturAnzahl} onChange={e=>setKorrekturAnzahl(e.target.value)} style={inp}/>
               </div>
               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                <label style={{fontSize:13,fontWeight:600,color:T.text,textTransform:"uppercase",letterSpacing:1}}>Grund (optional)</label>
+                <label style={{fontSize:14,fontWeight:600,color:T.text,textTransform:"uppercase",letterSpacing:1}}>Grund (optional)</label>
                 <input value={korrekturGrund} onChange={e=>setKorrekturGrund(e.target.value)} placeholder="z.B. Buchungsfehler..." style={inp}/>
               </div>
               <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}>
-                <Btn onClick={()=>setKorrekturModal(null)}>Abbrechen</Btn>
+                <Btn onClick={()=>setKorrekturModal(null)} style={{background:T.dark+"18",color:T.dark,boxShadow:"none"}}>Abbrechen</Btn>
                 <Btn danger onClick={korrekturSpeichern}>Speichern</Btn>
               </div>
             </div>
@@ -779,24 +904,22 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name, E-Mail oder Rechnungsnummer..." style={{...inp,flex:1,minWidth:200}}/>
             <div className="toolbar-btns" style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
               {[
-                {emoji:"📷",label:"QR",primary:true,onClick:()=>setScanMode(true)},
-                {emoji:"📊",label:showStats?"Statistik ✕":"Statistik",primary:false,onClick:()=>setShowStats(!showStats)},
-                {emoji:"⬇",label:"CSV",primary:false,onClick:downloadCSV},
-                {emoji:"🐧",label:"Pingu hilft",primary:true,onClick:()=>setKiModal(true)},
+                {emoji:"📷",label:"QR",onClick:()=>setScanMode(true)},
+                {emoji:"📊",label:showStats?"Statistik ✕":"Statistik",onClick:()=>setShowStats(!showStats)},
+                {emoji:"⬇",label:"CSV",onClick:downloadCSV},
+                {emoji:"🐧",label:"Pingu hilft",onClick:()=>setKiModal(true)},
               ].map(b=>(
                 <button key={b.label} onClick={b.onClick} className="btn-anim" style={{
-                  padding:"9px 14px",borderRadius:14,fontWeight:600,cursor:"pointer",
-                  background:b.primary?T.dark:"transparent",
-                  color:b.primary?T.cream:T.dark,
-                  border:b.primary?"none":`2px solid ${T.dark}40`,
+                  padding:"10px 16px",borderRadius:14,fontWeight:600,cursor:"pointer",
+                  background:T.dark,color:T.cream,border:"none",
                   fontSize:14,letterSpacing:0.3,textTransform:"uppercase",
-                  boxShadow:b.primary?`0 4px 16px ${T.dark}20`:"none",
+                  boxShadow:`0 4px 16px ${T.dark}20`,
                 }}>
                   <span className="btn-emoji" style={{display:"none"}}>{b.emoji}</span>
                   <span className="btn-text">{b.label}</span>
                 </button>
               ))}
-              <button disabled={shoreSync} className="btn-anim" style={{padding:"9px 14px",borderRadius:14,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:"transparent",color:T.dark,border:`2px solid ${T.dark}40`,fontSize:14,letterSpacing:0.3,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={async()=>{
+              <button disabled={shoreSync} className="btn-anim" style={{padding:"10px 16px",borderRadius:14,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.dark,color:T.cream,border:"none",fontSize:14,letterSpacing:0.3,textTransform:"uppercase",opacity:shoreSync?0.5:1,boxShadow:`0 4px 16px ${T.dark}20`}} onClick={async()=>{
                 setShoreSync(true);setShoreSyncMsg("");
                 try{
                   const r=await fetch("/api/shore-sync",{method:"POST"});
@@ -813,41 +936,41 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
               </button>
             </div>
           </div>
-          {shoreSyncMsg&&<div style={{padding:"10px 16px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.red+"12":T.green+"12",color:shoreSyncMsg.startsWith("Fehler")?T.red:T.green,fontSize:13,fontWeight:600,marginBottom:12}}>{shoreSyncMsg}</div>}
+          {shoreSyncMsg&&<div style={{padding:"12px 18px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.red+"12":T.green+"12",color:shoreSyncMsg.startsWith("Fehler")?T.red:T.green,fontSize:14,fontWeight:600,marginBottom:14}}>{shoreSyncMsg}</div>}
           {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
 
-          <div style={{marginBottom:16}}>
+          <div style={{marginBottom:18}}>
             <Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading>
-            <p style={{color:T.textLight,fontSize:13,marginTop:4}}>{filtered.length} Kunden</p>
+            <p style={{color:T.textLight,fontSize:14,marginTop:6}}>{filtered.length} Kunden</p>
           </div>
 
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {filtered.map((p,i)=>{
               const u=getUnits(p.id);
               const ub=paesse.filter(pk=>pk.pat_id===p.id).some(pk=>!pk.bezahlt)||einzel.filter(e=>e.pat_id===p.id).some(e=>!e.bezahlt);
               return(
-                <div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-hover slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"14px 22px",background:T.glassLight,borderRadius:20,border:`1px solid ${T.gold}30`,cursor:"pointer",boxShadow:"0 2px 8px rgba(74,82,64,0.05)"}}>
+                <div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-hover slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"16px 24px",background:T.glassLight,borderRadius:20,border:`1px solid ${T.gold}30`,cursor:"pointer",boxShadow:"0 2px 8px rgba(74,82,64,0.05)"}}>
                   <div className="liste-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <div style={{minWidth:0}}>
-                      <div style={{fontWeight:600,color:T.dark,fontSize:16}}>{p.vorname} {p.nachname}</div>
-                      <div style={{display:"flex",alignItems:"center",gap:6,marginTop:2,flexWrap:"wrap"}}>
-                        <span style={{fontSize:13,color:T.text}}>{p.email}</span>
+                      <div style={{fontWeight:600,color:T.dark,fontSize:17,lineHeight:1.4}}>{p.vorname} {p.nachname}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}>
+                        <span style={{fontSize:14,color:T.text}}>{p.email}</span>
                         {p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}
                       </div>
                     </div>
                     <div className="liste-right" style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
                       <div style={{display:"flex",border:`1px solid ${T.gold}30`,borderRadius:10,overflow:"hidden"}}>
                         {[{label:"HE",val:u?u.he:null},{label:"GA",val:u?u.bs:null}].map((col,ci)=>(
-                          <div key={col.label} style={{width:44,padding:"5px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.gold}30`:"none",background:T.white+"60"}}>
-                            <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8,marginBottom:2}}>{col.label}</div>
-                            <div style={{fontSize:16,fontWeight:700,fontFamily:"Georgia,serif",color:col.val===null?T.textLight+"60":T.red,lineHeight:1}}>{col.val!==null?col.val:"–"}</div>
+                          <div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.gold}30`:"none",background:T.white+"60"}}>
+                            <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div>
+                            <div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.val===null?T.textLight+"60":T.red,lineHeight:1}}>{col.val!==null?col.val:"–"}</div>
                           </div>
                         ))}
                       </div>
-                      <div className="badge-w" style={{width:64,textAlign:"center"}}>
+                      <div className="badge-w" style={{width:68,textAlign:"center"}}>
                         {u?<Badge variant="green">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:T.textLight+"60"}}>–</span>}
                       </div>
-                      <div className="badge-w" style={{width:44,textAlign:"center"}}>
+                      <div className="badge-w" style={{width:48,textAlign:"center"}}>
                         {ub?<Badge variant="red">Offen</Badge>:null}
                       </div>
                       <span className="chevron" style={{color:T.gold,fontSize:20,fontWeight:300}}>›</span>
@@ -856,7 +979,7 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                 </div>
               );
             })}
-            {filtered.length===0&&<p style={{textAlign:"center",color:T.textLight,padding:40,fontSize:15}}>Keine Kunden gefunden</p>}
+            {filtered.length===0&&<p style={{textAlign:"center",color:T.textLight,padding:40,fontSize:16}}>Keine Kunden gefunden</p>}
           </div>
         </div>
       )}
@@ -864,64 +987,64 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
       {view==="akte"&&selPat&&(
         <div className="fade-in">
           <div className="header-row" style={{display:"flex",alignItems:"center",gap:14,marginBottom:28}}>
-            <Btn onClick={()=>setView("liste")}>← Zurück</Btn>
+            <Btn onClick={()=>setView("liste")} style={{background:T.dark+"18",color:T.dark,boxShadow:"none"}}>← Zurück</Btn>
             <Heading style={{fontSize:22}}>{selPat.vorname} {selPat.nachname}</Heading>
-            {saving&&<span style={{fontSize:12,color:T.gold}}>Speichern...</span>}
+            {saving&&<span style={{fontSize:13,color:T.gold}}>Speichern...</span>}
           </div>
           <div className="akte-grid" style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:20,alignItems:"start"}}>
-            <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            <div style={{display:"flex",flexDirection:"column",gap:18}}>
               <GlassCard>
                 <SectionLabel>Stammdaten</SectionLabel>
-                <div style={{display:"flex",flexDirection:"column",gap:8,fontSize:14}}>
+                <div style={{display:"flex",flexDirection:"column",gap:10,fontSize:15,lineHeight:1.6}}>
                   {[["E-Mail",selPat.email||"–"],["Telefon",selPat.telefon||"–"],["Adresse",selPat.adresse||"–"],
-                    ["QR-Code",<code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:12,wordBreak:"break-all"}}>{selPat.qr}</code>],
+                    ["QR-Code",<code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:13,wordBreak:"break-all"}}>{selPat.qr}</code>],
                     ["Kunde seit",fmtDate(selPat.erstellt)]].map(([label,val])=>(
                     <div key={label} style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
-                      <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:13}}>{label}:</span>
-                      <span style={{wordBreak:"break-word",color:T.dark,fontSize:14}}>{val}</span>
+                      <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:14}}>{label}:</span>
+                      <span style={{wordBreak:"break-word",color:T.dark,fontSize:15}}>{val}</span>
                     </div>
                   ))}
-                  <div style={{marginTop:8,paddingTop:10,borderTop:`1px solid ${T.gold}18`}}>
-                    <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:12}}>
-                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.red+"10",borderRadius:12,padding:"8px 18px",border:`1px solid ${T.red}20`}}>
-                        <span style={{fontSize:26,fontWeight:700,color:T.red,fontFamily:"Georgia,serif"}}>{heUebrig}</span>
-                        <span style={{fontSize:11,color:T.red,textTransform:"uppercase",letterSpacing:1,marginTop:2}}>HE übrig</span>
+                  <div style={{marginTop:10,paddingTop:12,borderTop:`1px solid ${T.gold}18`}}>
+                    <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:14}}>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.red+"10",borderRadius:12,padding:"10px 20px",border:`1px solid ${T.red}20`}}>
+                        <span style={{fontSize:28,fontWeight:700,color:T.red,fontFamily:"Georgia,serif"}}>{heUebrig}</span>
+                        <span style={{fontSize:12,color:T.red,textTransform:"uppercase",letterSpacing:1,marginTop:3}}>HE übrig</span>
                       </div>
-                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.red+"10",borderRadius:12,padding:"8px 18px",border:`1px solid ${T.red}20`}}>
-                        <span style={{fontSize:26,fontWeight:700,color:T.red,fontFamily:"Georgia,serif"}}>{bsUebrig}</span>
-                        <span style={{fontSize:11,color:T.red,textTransform:"uppercase",letterSpacing:1,marginTop:2}}>GA übrig</span>
+                      <div style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.red+"10",borderRadius:12,padding:"10px 20px",border:`1px solid ${T.red}20`}}>
+                        <span style={{fontSize:28,fontWeight:700,color:T.red,fontFamily:"Georgia,serif"}}>{bsUebrig}</span>
+                        <span style={{fontSize:12,color:T.red,textTransform:"uppercase",letterSpacing:1,marginTop:3}}>GA übrig</span>
                       </div>
                     </div>
                     {aktiverPass&&(
                       <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
                         <button disabled={heUebrig===0} onClick={()=>heAbziehen(aktiverPass)} className="btn-anim"
-                          style={{flex:1,minWidth:160,padding:"14px 16px",borderRadius:18,border:"none",background:heUebrig===0?T.dark+"20":T.dark,color:heUebrig===0?T.textLight:T.cream,cursor:heUebrig===0?"not-allowed":"pointer",opacity:heUebrig===0?0.4:1,fontWeight:700,fontSize:14,boxShadow:heUebrig===0?"none":`0 4px 16px ${T.dark}25`,lineHeight:1.4}}>
-                          ✓ Termin war heute<br/><span style={{fontSize:11,fontWeight:400,opacity:0.75}}>Haupteinheit −1</span>
+                          style={{flex:1,minWidth:160,padding:"16px 18px",borderRadius:18,border:"none",background:heUebrig===0?T.dark+"20":T.dark,color:heUebrig===0?T.textLight:T.cream,cursor:heUebrig===0?"not-allowed":"pointer",opacity:heUebrig===0?0.4:1,fontWeight:700,fontSize:15,boxShadow:heUebrig===0?"none":`0 4px 16px ${T.dark}25`,lineHeight:1.5}}>
+                          ✓ Termin war heute<br/><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>Haupteinheit −1</span>
                         </button>
                         <button disabled={bsUebrig===0} onClick={()=>setBsModal(aktiverPass)} className="btn-anim"
-                          style={{flex:1,minWidth:160,padding:"14px 16px",borderRadius:18,border:`2px solid ${T.gold}`,background:"transparent",color:bsUebrig===0?T.textLight:T.dark,cursor:bsUebrig===0?"not-allowed":"pointer",opacity:bsUebrig===0?0.4:1,fontWeight:700,fontSize:14,lineHeight:1.4}}>
-                          ✓ Termin war heute<br/><span style={{fontSize:11,fontWeight:400,opacity:0.75}}>Gruppenangebot −1</span>
+                          style={{flex:1,minWidth:160,padding:"16px 18px",borderRadius:18,border:"none",background:bsUebrig===0?T.dark+"20":T.dark,color:bsUebrig===0?T.textLight:T.cream,cursor:bsUebrig===0?"not-allowed":"pointer",opacity:bsUebrig===0?0.4:1,fontWeight:700,fontSize:15,boxShadow:bsUebrig===0?"none":`0 4px 16px ${T.dark}25`,lineHeight:1.5}}>
+                          ✓ Termin war heute<br/><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>Gruppenangebot −1</span>
                         </button>
                       </div>
                     )}
                   </div>
-                  <div className="stammk-row" style={{display:"flex",gap:12,alignItems:"center",paddingTop:10,marginTop:4,borderTop:`1px solid ${T.gold}18`}}>
-                    <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:13}}>Stammkunde:</span>
+                  <div className="stammk-row" style={{display:"flex",gap:12,alignItems:"center",paddingTop:12,marginTop:6,borderTop:`1px solid ${T.gold}18`}}>
+                    <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:14}}>Stammkunde:</span>
                     <div className="stammk-inner" style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                       {["Ja","Nein"].map(opt=>{
                         const aktiv=opt==="Ja"?!!selPat.stammkunde:!selPat.stammkunde;
                         return(
                           <button key={opt} onClick={()=>updatePatient(selPat.id,{stammkunde:opt==="Ja"})}
-                            style={{padding:"5px 18px",borderRadius:10,fontSize:13,fontWeight:600,cursor:"pointer",border:`1px solid ${aktiv?(opt==="Ja"?T.green:T.dark)+"60":T.gold+"30"}`,background:aktiv?(opt==="Ja"?T.green+"18":T.dark+"10"):"transparent",color:aktiv?(opt==="Ja"?T.green:T.dark):T.textLight,transition:"all 0.15s"}}>
+                            style={{padding:"6px 20px",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",border:`1px solid ${aktiv?(opt==="Ja"?T.green:T.dark)+"60":T.gold+"30"}`,background:aktiv?(opt==="Ja"?T.green+"18":T.dark+"10"):"transparent",color:aktiv?(opt==="Ja"?T.green:T.dark):T.textLight,transition:"all 0.15s"}}>
                             {opt}
                           </button>
                         );
                       })}
                       {selPat.stammkunde&&(
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontSize:13,color:T.text}}>Preis:</span>
-                          <input type="number" min={0} value={selPat.stammpreis||""} onChange={e=>updatePatient(selPat.id,{stammpreis:e.target.value})} placeholder="z.B. 420" style={{width:90,padding:"5px 10px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:13,background:T.cream,color:T.text,outline:"none"}}/>
-                          <span style={{fontSize:13,color:T.text}}>€</span>
+                          <span style={{fontSize:14,color:T.text}}>Preis:</span>
+                          <input type="number" min={0} value={selPat.stammpreis||""} onChange={e=>updatePatient(selPat.id,{stammpreis:e.target.value})} placeholder="z.B. 420" style={{width:90,padding:"6px 10px",borderRadius:10,border:`1px solid ${T.gold}40`,fontSize:14,background:T.cream,color:T.text,outline:"none"}}/>
+                          <span style={{fontSize:14,color:T.text}}>€</span>
                         </div>
                       )}
                     </div>
@@ -930,82 +1053,27 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
               </GlassCard>
 
               <GlassCard>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}}>
                   <SectionLabel>Angebote & Pässe</SectionLabel>
                   <Btn small primary onClick={()=>setKaufModal(true)}>+ Hinzufügen</Btn>
                 </div>
-                {aktPaesse.length===0&&patEinzel.length===0&&<p style={{color:T.textLight,textAlign:"center",padding:"8px 0",fontSize:14}}>Noch keine Angebote</p>}
-                {aktPaesse.map(pk=>{
-                  const heL=(pk.he_total||0)-(pk.he_genutzt||0);
-                  const bsL=(pk.bs_total||0)-(pk.bs_genutzt||0);
-                  const ni={width:46,padding:"3px 6px",borderRadius:8,border:`1px solid ${T.gold}40`,fontSize:14,fontWeight:700,background:"transparent",color:T.dark,outline:"none",textAlign:"center"};
-                  return(
-                    <div key={pk.id} style={{borderRadius:16,border:`1px solid ${T.gold}25`,background:T.white+"80",overflow:"hidden",marginBottom:12}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 18px",borderBottom:`1px solid ${T.gold}18`,background:T.cream+"60",flexWrap:"wrap",gap:8}}>
-                        <strong style={{fontFamily:"Georgia,serif",fontSize:16,color:T.dark}}>Flossenpass {getPassLabel(pk)}</strong>
-                        <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,textTransform:"uppercase",color:pk.bezahlt?T.green:T.red,background:pk.bezahlt?T.green+"15":T.red+"10",padding:"5px 12px",borderRadius:10}}>
-                          <input type="checkbox" checked={!!pk.bezahlt} onChange={()=>toggleBezahlt(pk.id)} style={{accentColor:T.green,width:14,height:14}}/>
-                          {pk.bezahlt?"Bezahlt":"Offen"}
-                        </label>
-                      </div>
-                      <div className="pass-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
-                        {[
-                          {label:"Rechnungs-Nr.",content:<input value={pk.rechnung||""} onChange={e=>updatePassField(pk.id,"rechnung",e.target.value)} style={{...editInp(140),width:"100%"}}/>},
-                          {label:"Datum",content:<input type="date" value={pk.datum||""} onChange={e=>updatePassField(pk.id,"datum",e.target.value)} style={{...editInp(140),width:"100%"}}/>},
-                          {label:"Preis",content:<div style={{display:"flex",alignItems:"center",gap:4}}><input type="number" min={0} value={pk.preis||0} onChange={e=>updatePassField(pk.id,"preis",Number(e.target.value))} style={{...editInp(80),textAlign:"right"}}/><span style={{fontSize:13,color:T.text}}>€</span></div>},
-                        ].map((f,fi)=>(
-                          <div key={f.label} style={{padding:"10px 14px",borderLeft:fi>0?`1px solid ${T.gold}18`:"none"}}>
-                            <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:5}}>{f.label}</div>
-                            {f.content}
-                          </div>
-                        ))}
-                      </div>
-                      <div className="pass-2col" style={{display:"grid",gridTemplateColumns:"1fr 1fr",borderBottom:`1px solid ${T.gold}18`}}>
-                        {[
-                          {label:"Haupteinheiten",genutzt:"he_genutzt",total:"he_total",used:pk.he_genutzt||0,tot:pk.he_total||0,left:heL,color:T.dark},
-                          {label:"Gruppenangebote",genutzt:"bs_genutzt",total:"bs_total",used:pk.bs_genutzt||0,tot:pk.bs_total||0,left:bsL,color:T.gold}
-                        ].map((e,ei)=>(
-                          <div key={e.label} style={{padding:"12px 14px",borderLeft:ei>0?`1px solid ${T.gold}18`:"none"}}>
-                            <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>{e.label}</div>
-                            <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
-                              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                                <span style={{fontSize:10,color:T.textLight}}>Genutzt</span>
-                                <input type="number" min={0} max={e.tot} value={e.used} onChange={ev=>updatePassEinheiten(pk.id,e.genutzt,ev.target.value)} style={ni}/>
-                              </div>
-                              <span style={{fontSize:16,color:T.textLight,marginTop:14}}>/</span>
-                              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                                <span style={{fontSize:10,color:T.textLight}}>Gesamt</span>
-                                <input type="number" min={0} value={e.tot} onChange={ev=>updatePassEinheiten(pk.id,e.total,ev.target.value)} style={ni}/>
-                              </div>
-                              <span style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:T.red,marginTop:14,marginLeft:4}}>{e.left}<span style={{fontSize:11,fontWeight:400,color:T.textLight}}> übrig</span></span>
-                            </div>
-                            <Bar used={e.used} total={e.tot} color={e.color} h={6}/>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{padding:"8px 18px"}}>
-                        <button onClick={()=>{setKorrekturModal(pk);setKorrekturTyp("HE");setKorrekturAnzahl(1);setKorrekturGrund("");}} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:T.red+"80",padding:"4px 0",letterSpacing:0.3}}>
-                          ✎ Korrektur / Einheit zurückbuchen
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                {aktPaesse.length===0&&patEinzel.length===0&&altPaesse.length===0&&<p style={{color:T.textLight,textAlign:"center",padding:"8px 0",fontSize:15}}>Noch keine Angebote</p>}
+                {aktPaesse.map(pk=><PassCard key={pk.id} pk={pk} isAlt={false}/>)}
                 {patEinzel.length>0&&(
-                  <div style={{marginTop:aktPaesse.length>0?12:0}}>
-                    <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Einzelangebote</div>
+                  <div style={{marginTop:aktPaesse.length>0?14:0}}>
+                    <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Einzelangebote</div>
                     {patEinzel.map(e=>(
-                      <div key={e.id} className="einzel-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 16px",borderRadius:12,border:`1px solid ${T.gold}25`,background:T.white+"80",marginBottom:6}}>
-                        <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                          <span style={{fontSize:14,fontWeight:600,color:T.dark}}>{e.name}</span>
+                      <div key={e.id} className="einzel-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 18px",borderRadius:12,border:`1px solid ${T.gold}25`,background:T.white+"80",marginBottom:8}}>
+                        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                          <span style={{fontSize:15,fontWeight:600,color:T.dark}}>{e.name}</span>
                           <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-                            <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.text}}>{e.rechnung||"–"}</code>
-                            <span style={{fontSize:13,color:T.text}}>{fmtDate(e.datum)}</span>
-                            <strong style={{fontSize:13,color:T.dark}}>{e.preis||0} €</strong>
+                            <code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.text}}>{e.rechnung||"–"}</code>
+                            <span style={{fontSize:14,color:T.text}}>{fmtDate(e.datum)}</span>
+                            <strong style={{fontSize:14,color:T.dark}}>{e.preis||0} €</strong>
                           </div>
                         </div>
-                        <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:11,fontWeight:700,textTransform:"uppercase",color:e.bezahlt?T.green:T.red,background:e.bezahlt?T.green+"15":T.red+"10",padding:"5px 12px",borderRadius:10,flexShrink:0}}>
-                          <input type="checkbox" checked={!!e.bezahlt} onChange={()=>toggleEinzelBez(e.id)} style={{accentColor:T.green,width:14,height:14}}/>
+                        <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,textTransform:"uppercase",color:e.bezahlt?T.green:T.red,background:e.bezahlt?T.green+"15":T.red+"10",padding:"6px 14px",borderRadius:10,flexShrink:0}}>
+                          <input type="checkbox" checked={!!e.bezahlt} onChange={()=>toggleEinzelBez(e.id)} style={{accentColor:T.green,width:15,height:15}}/>
                           {e.bezahlt?"Bezahlt":"Offen"}
                         </label>
                       </div>
@@ -1013,54 +1081,33 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
                   </div>
                 )}
                 {altPaesse.length>0&&(
-                  <div style={{marginTop:16,paddingTop:14,borderTop:`1px solid ${T.gold}18`}}>
-                    <div style={{fontSize:11,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>Alte Pässe</div>
-                    {altPaesse.map(pk=>(
-                      <div key={pk.id} style={{borderRadius:14,border:`1px solid ${T.gold}20`,background:T.cream+"50",marginBottom:8,overflow:"hidden",opacity:0.8}}>
-                        <div style={{padding:"10px 16px",borderBottom:`1px solid ${T.gold}15`,background:T.cream+"80",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                          <span style={{fontSize:14,fontWeight:600,color:T.dark,fontFamily:"Georgia,serif"}}>Flossenpass {getPassLabel(pk)}</span>
-                          <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                            <Badge variant={pk.bezahlt?"cream":"red"} small>{pk.bezahlt?"Bezahlt":"Offen"}</Badge>
-                            <Badge variant="default" small>Aufgebraucht</Badge>
-                          </div>
-                        </div>
-                        <div className="pass-3col" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr"}}>
-                          {[
-                            {label:"Rechnungs-Nr.",val:<code style={{fontSize:12,color:T.text}}>{pk.rechnung||"–"}</code>},
-                            {label:"Datum",val:<span style={{fontSize:13,color:T.dark}}>{fmtDate(pk.datum)}</span>},
-                            {label:"Preis",val:<strong style={{fontSize:13,fontFamily:"Georgia,serif"}}>{pk.preis||0} €</strong>},
-                          ].map((f,fi)=>(
-                            <div key={f.label} style={{padding:"8px 14px",borderLeft:fi>0?`1px solid ${T.gold}15`:"none"}}>
-                              <div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{f.label}</div>
-                              {f.val}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                  <div style={{marginTop:18,paddingTop:16,borderTop:`1px solid ${T.gold}18`}}>
+                    <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Alte Pässe (aufgebraucht)</div>
+                    {altPaesse.map(pk=><PassCard key={pk.id} pk={pk} isAlt={true}/>)}
                   </div>
                 )}
               </GlassCard>
 
               <GlassCard>
                 <SectionLabel>Verkaufshistorie</SectionLabel>
-                {alleVerkaufe.length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch keine Verkäufe</p>}
+                {alleVerkaufe.length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15}}>Noch keine Verkäufe</p>}
                 {alleVerkaufe.map(item=>(
-                  <div key={item.id} className="vk-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.cream+"80",borderRadius:12,fontSize:14,marginBottom:4,flexWrap:"wrap",gap:8}}>
+                  <div key={item.id} className="vk-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:T.cream+"80",borderRadius:12,fontSize:15,marginBottom:6,flexWrap:"wrap",gap:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                       <Badge variant={item.art==="pass"?"green":"gold"} small>{item.art==="pass"?"Flossenpass":"Einzelangebot"}</Badge>
+                      {item.isAlt&&<Badge variant="cream" small>Alt</Badge>}
                       <span style={{fontWeight:600,color:T.dark}}>{item.name}</span>
-                      <code style={{background:T.bgLight,padding:"2px 8px",borderRadius:8,fontSize:11,color:T.text}}>{item.rechnung||"–"}</code>
+                      <code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.text}}>{item.rechnung||"–"}</code>
                     </div>
                     <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0,flexWrap:"wrap"}}>
-                      <span style={{fontSize:12,color:T.textLight}}>{fmtDate(item.datum)}</span>
-                      <strong style={{fontFamily:"Georgia,serif",fontSize:14}}>{item.preis} €</strong>
+                      <span style={{fontSize:13,color:T.textLight}}>{fmtDate(item.datum)}</span>
+                      <strong style={{fontFamily:"Georgia,serif",fontSize:15}}>{item.preis} €</strong>
                       <Badge variant={item.bezahlt?"green":"red"} small>{item.bezahlt?"Bezahlt":"Offen"}</Badge>
                     </div>
                   </div>
                 ))}
                 {alleVerkaufe.length>0&&(
-                  <div style={{marginTop:12,paddingTop:10,borderTop:`1px solid ${T.gold}18`,display:"flex",justifyContent:"flex-end",gap:16,fontSize:13,flexWrap:"wrap"}}>
+                  <div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.gold}18`,display:"flex",justifyContent:"flex-end",gap:18,fontSize:14,flexWrap:"wrap"}}>
                     <span style={{color:T.textLight}}>Gesamt: <strong style={{color:T.dark}}>{alleVerkaufe.reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span>
                     <span style={{color:T.textLight}}>Bezahlt: <strong style={{color:T.green}}>{alleVerkaufe.filter(i=>i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span>
                     <span style={{color:T.textLight}}>Offen: <strong style={{color:T.red}}>{alleVerkaufe.filter(i=>!i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span>
@@ -1070,16 +1117,16 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
 
               <GlassCard>
                 <SectionLabel>Einheiten-Verlauf</SectionLabel>
-                {patLog.filter(l=>l.typ!=="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch kein Verlauf</p>}
+                {patLog.filter(l=>l.typ!=="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15}}>Noch kein Verlauf</p>}
                 {patLog.filter(l=>l.typ!=="NOTIZ").map((l,i)=>{
                   const b=logBadge(l.typ);
                   return(
-                    <div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.cream+"80",borderRadius:12,fontSize:14,marginBottom:4,animationDelay:`${i*0.03}s`}}>
+                    <div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:T.cream+"80",borderRadius:12,fontSize:15,marginBottom:6,animationDelay:`${i*0.03}s`}}>
                       <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                         <Badge variant={b.v} small>{b.label}</Badge>
                         <span style={{color:T.dark}}>{l.notiz}</span>
                       </div>
-                      <span style={{fontSize:12,color:T.textLight,flexShrink:0,marginLeft:8}}>{fmtDateTime(l.datum)}</span>
+                      <span style={{fontSize:13,color:T.textLight,flexShrink:0,marginLeft:8}}>{fmtDateTime(l.datum)}</span>
                     </div>
                   );
                 })}
@@ -1087,17 +1134,17 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
 
               <GlassCard>
                 <SectionLabel>Notizen</SectionLabel>
-                <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-                  <textarea value={notizText} onChange={e=>setNotizText(e.target.value)} placeholder="Notiz eingeben..." rows={3} style={{...inp,resize:"vertical",lineHeight:1.5}}/>
+                <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:18}}>
+                  <textarea value={notizText} onChange={e=>setNotizText(e.target.value)} placeholder="Notiz eingeben..." rows={3} style={{...inp,resize:"vertical",lineHeight:1.7}}/>
                   <div style={{display:"flex",justifyContent:"flex-end"}}>
                     <Btn small primary disabled={!notizText.trim()} onClick={notizSpeichern}>Notiz speichern</Btn>
                   </div>
                 </div>
-                {patLog.filter(l=>l.typ==="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:14}}>Noch keine Notizen</p>}
+                {patLog.filter(l=>l.typ==="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15}}>Noch keine Notizen</p>}
                 {patLog.filter(l=>l.typ==="NOTIZ").map(l=>(
-                  <div key={l.id} style={{padding:"10px 14px",background:T.gold+"12",borderRadius:12,fontSize:14,marginBottom:4,borderLeft:`3px solid ${T.gold}`}}>
-                    <div style={{fontSize:12,color:T.textLight,marginBottom:4}}>{fmtDateTime(l.datum)}</div>
-                    <div style={{color:T.dark,lineHeight:1.6,wordBreak:"break-word"}}>{l.notiz}</div>
+                  <div key={l.id} style={{padding:"12px 16px",background:T.gold+"12",borderRadius:12,fontSize:15,marginBottom:6,borderLeft:`3px solid ${T.gold}`}}>
+                    <div style={{fontSize:13,color:T.textLight,marginBottom:5}}>{fmtDateTime(l.datum)}</div>
+                    <div style={{color:T.dark,lineHeight:1.7,wordBreak:"break-word"}}>{l.notiz}</div>
                   </div>
                 ))}
               </GlassCard>
@@ -1106,17 +1153,17 @@ const MitarbeiterApp = ({patienten,setPatienten,paesse,setPaesse,log,setLog,rech
             <div className="qr-sidebar" style={{position:"sticky",top:78}}>
               <GlassCard style={{textAlign:"center"}}>
                 <SectionLabel>QR-Code</SectionLabel>
-                <div style={{background:T.cream,borderRadius:16,padding:18,display:"inline-block",marginBottom:12}}>
+                <div style={{background:T.cream,borderRadius:16,padding:18,display:"inline-block",marginBottom:14}}>
                   <QRCode value={selPat.qr} size={140}/>
                 </div>
-                <div style={{display:"flex",flexDirection:"column",gap:6,textAlign:"left"}}>
-                  {[["Token",<code style={{fontFamily:"monospace",fontSize:11,color:T.textLight,wordBreak:"break-all"}}>{selPat.qr}</code>],
+                <div style={{display:"flex",flexDirection:"column",gap:8,textAlign:"left"}}>
+                  {[["Token",<code style={{fontFamily:"monospace",fontSize:12,color:T.textLight,wordBreak:"break-all"}}>{selPat.qr}</code>],
                     ["Name",`${selPat.vorname||""} ${selPat.nachname||""}`],
                     ["Seit",fmtDate(selPat.erstellt)],
                     ["Pass",aktiverPass?`Flossenpass ${getPassLabel(aktiverPass)}`:"–"]].map(([label,val])=>(
                     <div key={label} style={{display:"flex",gap:8,alignItems:"flex-start"}}>
-                      <span style={{fontSize:11,color:T.textLight,minWidth:36,flexShrink:0}}>{label}</span>
-                      <span style={{fontSize:13,color:T.dark,fontWeight:500}}>{val}</span>
+                      <span style={{fontSize:12,color:T.textLight,minWidth:36,flexShrink:0}}>{label}</span>
+                      <span style={{fontSize:14,color:T.dark,fontWeight:500}}>{val}</span>
                     </div>
                   ))}
                 </div>
@@ -1138,94 +1185,94 @@ const KundenApp = ({kunde,paesse,log,einzel}) => {
     <div className="fade-in resp-pad" style={{padding:28,maxWidth:580,margin:"0 auto"}}>
       <div style={{textAlign:"center",marginBottom:32}}>
         <Heading style={{marginTop:12,fontSize:24}}>Hallo {kunde.vorname}!</Heading>
-        <p style={{color:T.textLight,margin:"6px 0 0",fontSize:15}}>Willkommen bei Kaiserufer Home</p>
-        <a href="https://kaiserufer.de" target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:10,fontSize:11,color:T.gold,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}40`,paddingBottom:1,opacity:0.8}}>kaiserufer.de ↗</a>
+        <p style={{color:T.textLight,margin:"8px 0 0",fontSize:16,lineHeight:1.6}}>Willkommen bei Kaiserufer Home</p>
+        <a href="https://kaiserufer.de" target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:10,fontSize:12,color:T.gold,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}40`,paddingBottom:1,opacity:0.8}}>kaiserufer.de ↗</a>
       </div>
       {ap&&(()=>{
         const heL=(ap.he_total||0)-(ap.he_genutzt||0),bsL=(ap.bs_total||0)-(ap.bs_genutzt||0);
         return(
-          <GlassCard style={{marginBottom:16}}>
-            <div style={{marginBottom:18}}>
-              <strong style={{fontSize:18,fontFamily:"Georgia,serif"}}>Flossenpass {getPassLabel(ap)}</strong>
-              <span style={{fontSize:13,color:T.textLight,marginLeft:10}}>seit {fmtDate(ap.datum)}</span>
+          <GlassCard style={{marginBottom:18}}>
+            <div style={{marginBottom:20}}>
+              <strong style={{fontSize:19,fontFamily:"Georgia,serif"}}>Flossenpass {getPassLabel(ap)}</strong>
+              <span style={{fontSize:14,color:T.textLight,marginLeft:10}}>seit {fmtDate(ap.datum)}</span>
             </div>
-            <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
-              <GlassCard dark style={{textAlign:"center",padding:20,borderRadius:16}}>
+            <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:22}}>
+              <GlassCard dark style={{textAlign:"center",padding:22,borderRadius:16}}>
                 <div style={{fontSize:44,fontWeight:700,color:T.cream,fontFamily:"Georgia,serif"}}>{heL}</div>
-                <div style={{fontSize:10,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginTop:4}}>von {ap.he_total||0} Haupteinheiten</div>
-                <div style={{marginTop:10}}><Bar used={ap.he_genutzt||0} total={ap.he_total||0} color={T.greenLight}/></div>
+                <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginTop:5}}>von {ap.he_total||0} Haupteinheiten</div>
+                <div style={{marginTop:12}}><Bar used={ap.he_genutzt||0} total={ap.he_total||0} color={T.greenLight}/></div>
               </GlassCard>
-              <GlassCard dark style={{textAlign:"center",padding:20,borderRadius:16}}>
+              <GlassCard dark style={{textAlign:"center",padding:22,borderRadius:16}}>
                 <div style={{fontSize:44,fontWeight:700,color:T.cream,fontFamily:"Georgia,serif"}}>{bsL}</div>
-                <div style={{fontSize:10,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginTop:4}}>von {ap.bs_total||0} Gruppenangeboten</div>
-                <div style={{marginTop:10}}><Bar used={ap.bs_genutzt||0} total={ap.bs_total||0} color={T.gold}/></div>
+                <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginTop:5}}>von {ap.bs_total||0} Gruppenangeboten</div>
+                <div style={{marginTop:12}}><Bar used={ap.bs_genutzt||0} total={ap.bs_total||0} color={T.gold}/></div>
               </GlassCard>
             </div>
             <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-              <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" style={{padding:"11px 16px",borderRadius:12,border:`1px solid ${T.dark}30`,background:"transparent",color:heL===0?T.textLight:T.dark,fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1}}>Therapie buchen →</a>
-              <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" style={{padding:"11px 16px",borderRadius:12,border:`1px solid ${T.dark}30`,background:"transparent",color:bsL===0?T.textLight:T.dark,fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1}}>Gruppenangebot buchen →</a>
+              <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" style={{padding:"12px 18px",borderRadius:12,border:"none",background:heL===0?T.dark+"20":T.dark,color:heL===0?T.textLight:T.cream,fontWeight:600,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1}}>Therapie buchen →</a>
+              <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" style={{padding:"12px 18px",borderRadius:12,border:"none",background:bsL===0?T.dark+"20":T.dark,color:bsL===0?T.textLight:T.cream,fontWeight:600,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1}}>Gruppenangebot buchen →</a>
             </div>
-            {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:14,padding:"12px 16px",background:T.red+"10",borderRadius:12,fontSize:14,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
+            {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:16,padding:"14px 18px",background:T.red+"10",borderRadius:12,fontSize:15,color:T.red,fontWeight:600,lineHeight:1.6}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
           </GlassCard>
         );
       })()}
       {mp.filter(p=>isPassAlt(p)).map(pk=>(
-        <GlassCard key={pk.id} style={{marginBottom:12,opacity:0.5,padding:16}}>
+        <GlassCard key={pk.id} style={{marginBottom:14,opacity:0.5,padding:18}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
             <div>
-              <strong style={{fontSize:15,fontFamily:"Georgia,serif"}}>Flossenpass {getPassLabel(pk)}</strong>
-              <span style={{fontSize:12,color:T.textLight,marginLeft:8}}>{fmtDate(pk.datum)}</span>
+              <strong style={{fontSize:16,fontFamily:"Georgia,serif"}}>Flossenpass {getPassLabel(pk)}</strong>
+              <span style={{fontSize:13,color:T.textLight,marginLeft:8}}>{fmtDate(pk.datum)}</span>
             </div>
             <Badge variant="cream">Aufgebraucht</Badge>
           </div>
         </GlassCard>
       ))}
-      {mp.length===0&&me.length===0&&<GlassCard style={{textAlign:"center",padding:48}}><p style={{color:T.textLight,lineHeight:1.7,fontSize:15}}>Du hast noch keine Angebote.<br/>Sprich uns gerne an!</p></GlassCard>}
+      {mp.length===0&&me.length===0&&<GlassCard style={{textAlign:"center",padding:48}}><p style={{color:T.textLight,lineHeight:1.8,fontSize:16}}>Du hast noch keine Angebote.<br/>Sprich uns gerne an!</p></GlassCard>}
       {ml.length>0&&(
-        <GlassCard style={{marginTop:16}}>
+        <GlassCard style={{marginTop:18}}>
           <SectionLabel>Mein Verlauf</SectionLabel>
           {ml.map((l,i)=>{const b=logBadge(l.typ);return(
-            <div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14,animationDelay:`${i*0.04}s`}}>
+            <div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:15,animationDelay:`${i*0.04}s`}}>
               <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
                 <Badge variant={b.v} small>{b.label}</Badge>
                 <span>{l.notiz}</span>
               </div>
-              <span style={{color:T.textLight,fontSize:12,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span>
+              <span style={{color:T.textLight,fontSize:13,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span>
             </div>
           );})}
         </GlassCard>
       )}
       {(mp.length>0||me.length>0)&&(
-        <GlassCard style={{marginTop:16}}>
+        <GlassCard style={{marginTop:18}}>
           <SectionLabel>Meine Rechnungen</SectionLabel>
           {mp.map(pk=>(
-            <div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14}}>
+            <div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:15}}>
               <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                <code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:12}}>{pk.rechnung||"–"}</code>
+                <code style={{background:T.bgLight,padding:"4px 12px",borderRadius:8,fontSize:13}}>{pk.rechnung||"–"}</code>
                 <span style={{color:T.textLight}}>Flossenpass {getPassLabel(pk)}</span>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <span style={{color:T.textLight,fontSize:12}}>{fmtDate(pk.datum)}</span>
+                <span style={{color:T.textLight,fontSize:13}}>{fmtDate(pk.datum)}</span>
                 <strong style={{fontFamily:"Georgia,serif"}}>{pk.preis||0} €</strong>
               </div>
             </div>
           ))}
           {me.map(e=>(
-            <div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:14}}>
+            <div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.gold}12`,fontSize:15}}>
               <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                <code style={{background:T.bgLight,padding:"3px 10px",borderRadius:8,fontSize:12}}>{e.rechnung||"–"}</code>
+                <code style={{background:T.bgLight,padding:"4px 12px",borderRadius:8,fontSize:13}}>{e.rechnung||"–"}</code>
                 <span style={{color:T.textLight}}>{e.name}</span>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <span style={{color:T.textLight,fontSize:12}}>{fmtDate(e.datum)}</span>
+                <span style={{color:T.textLight,fontSize:13}}>{fmtDate(e.datum)}</span>
                 <strong style={{fontFamily:"Georgia,serif"}}>{e.preis||0} €</strong>
               </div>
             </div>
           ))}
         </GlassCard>
       )}
-      <div style={{textAlign:"center",padding:"32px 0 8px"}}>
-        <a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:T.textLight,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}20`,paddingBottom:1,opacity:0.6}}>Datenschutz ↗</a>
+      <div style={{textAlign:"center",padding:"36px 0 8px"}}>
+        <a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.textLight,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}20`,paddingBottom:1,opacity:0.6}}>Datenschutz ↗</a>
       </div>
     </div>
   );
@@ -1285,8 +1332,8 @@ export default function App() {
         </div>
         <div>
           {mode==="staff"
-            ?<button onClick={()=>setMode("kunde")} style={{padding:"7px 18px",borderRadius:12,border:"1px solid rgba(255,255,255,0.15)",background:"transparent",color:"rgba(255,255,255,0.6)",fontWeight:600,fontSize:11,cursor:"pointer",textTransform:"uppercase",letterSpacing:0.8,fontFamily:"inherit"}}>Abmelden</button>
-            :!loginPat&&<button onClick={()=>setShowLogin(true)} style={{padding:"6px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.05)",color:"rgba(255,255,255,0.3)",fontWeight:500,fontSize:11,cursor:"pointer",letterSpacing:0.5,fontFamily:"inherit"}}>MitarbeiterIn</button>
+            ?<button onClick={()=>setMode("kunde")} style={{padding:"7px 18px",borderRadius:12,border:"none",background:T.dark,color:T.cream,fontWeight:600,fontSize:12,cursor:"pointer",textTransform:"uppercase",letterSpacing:0.8,fontFamily:"inherit"}}>Abmelden</button>
+            :!loginPat&&<button onClick={()=>setShowLogin(true)} style={{padding:"6px 14px",borderRadius:10,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.05)",color:"rgba(255,255,255,0.3)",fontWeight:500,fontSize:12,cursor:"pointer",letterSpacing:0.5,fontFamily:"inherit"}}>MitarbeiterIn</button>
           }
         </div>
       </div>
@@ -1294,14 +1341,37 @@ export default function App() {
         ?<MitarbeiterApp patienten={patienten} setPatienten={setPatienten} paesse={paesse} setPaesse={setPaesse} log={log} setLog={setLog} rechnungsNr={rechnungsNr} setRechnungsNr={setRechnungsNr} einzel={einzel} setEinzel={setEinzel}/>
         :loginPat
           ?<KundenApp kunde={loginPat} paesse={paesse} log={log} einzel={einzel}/>
-          :<div className="fade-in resp-pad" style={{padding:28,maxWidth:480,margin:"0 auto",textAlign:"center",paddingTop:80}}>
-            <div style={{fontSize:64,marginBottom:20}}>🐧</div>
-            <Heading style={{marginBottom:12}}>Kaiserufer Home</Heading>
-            <p style={{color:T.textLight,fontSize:15,lineHeight:1.7,marginBottom:24}}>Bitte scanne deinen persönlichen QR-Code,<br/>um deine Kundenseite zu öffnen.</p>
-            <GlassCard style={{padding:24}}>
-              <p style={{color:T.textLight,fontSize:13,margin:0}}>Noch keinen QR-Code? Sprich uns gerne an!</p>
-              <a href="https://kaiserufer.de" target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:12,fontSize:12,color:T.gold,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}40`,paddingBottom:1}}>kaiserufer.de ↗</a>
-            </GlassCard>
+          :<div style={{minHeight:"calc(100vh - 58px)",background:"linear-gradient(180deg,#0A0E06 0%,#1A2214 40%,#2A3424 70%,#3A4434 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"28px 20px",position:"relative",overflow:"hidden"}}>
+            <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 30%,rgba(184,168,138,0.06) 0%,transparent 70%)",pointerEvents:"none"}}/>
+            <div style={{position:"absolute",top:"15%",left:"50%",transform:"translateX(-50%)",width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,rgba(184,168,138,0.04) 0%,transparent 70%)",filter:"blur(60px)",pointerEvents:"none"}}/>
+            <div style={{position:"relative",zIndex:1,textAlign:"center",maxWidth:480}}>
+              <div className="landing-title" style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(36px,8vw,56px)",letterSpacing:4,textTransform:"uppercase",color:T.gold,marginBottom:8,lineHeight:1.1}}>
+                Kaiserufer
+              </div>
+              <div className="landing-sub" style={{fontSize:"clamp(14px,3vw,18px)",color:"rgba(184,168,138,0.4)",letterSpacing:6,textTransform:"uppercase",fontWeight:300,marginBottom:48}}>
+                Home
+              </div>
+              <p className="landing-sub" style={{color:"rgba(240,237,224,0.45)",fontSize:16,lineHeight:2,marginBottom:48,fontWeight:300,letterSpacing:0.3}}>
+                Bitte scanne deinen persönlichen QR-Code,<br/>um deine Kundenseite zu öffnen.
+              </p>
+              <div className="landing-btn">
+                <button onClick={()=>setShowLogin(true)} style={{
+                  padding:"16px 48px",borderRadius:50,fontWeight:600,fontSize:14,cursor:"pointer",
+                  background:"transparent",color:T.gold,
+                  border:`1px solid rgba(184,168,138,0.25)`,
+                  letterSpacing:2,textTransform:"uppercase",fontFamily:"inherit",
+                  backdropFilter:"blur(8px)",
+                  transition:"all 0.4s cubic-bezier(0.4,0,0.2,1)",
+                  boxShadow:"0 0 30px rgba(184,168,138,0.05)",
+                }}>
+                  MitarbeiterIn
+                </button>
+              </div>
+              <div className="landing-footer" style={{marginTop:64}}>
+                <div style={{width:40,height:1,background:"rgba(184,168,138,0.15)",margin:"0 auto 20px"}}/>
+                <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"rgba(184,168,138,0.25)",textDecoration:"none",letterSpacing:2,textTransform:"uppercase"}}>kaiserufer.com</a>
+              </div>
+            </div>
           </div>}
     </div>
   );
