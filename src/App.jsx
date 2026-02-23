@@ -241,18 +241,15 @@ const KIEingabeModal=({patienten,onKauf,onClose})=>{
   const [fotos,setFotos]=useState([]);const[fotoPreview,setFotoPreview]=useState([]);
   const recognitionRef=useRef(null);const fileRef=useRef(null);
   const matchPat=(name)=>{if(!name)return null;const nl=name.toLowerCase().trim();const parts=nl.split(/\s+/);
-    // 1. Exact full name match
     const exact=patienten.find(p=>`${p.vorname||""} ${p.nachname||""}`.toLowerCase().trim()===nl);
     if(exact)return exact;
-    // 2. Any part >2 chars matches in full name
     const partial=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.some(part=>part.length>2&&full.includes(part));});
     if(partial)return partial;
-    // 3. First name only match (for AI hallucinating wrong last names)
     const firstName=parts[0];
     if(firstName&&firstName.length>2){const fnMatch=patienten.filter(p=>(p.vorname||"").toLowerCase()===firstName);if(fnMatch.length===1)return fnMatch[0];}
     return null;};
   const buildPrompt=(patNames)=>`Du bist "Pingu hilft". Extrahiere ALLE Einträge aus dem Text oder Foto, antworte NUR mit JSON-Array ohne Backticks.
-Jedes Element: {"kundenname":"string","typ":"pass/einzel","pass_typ":"BASIS/PLUS/DELUXE/INDIVIDUELL","einzel_name":"string","he_total":n,"bs_total":n,"preis":n,"rechnung":"string","datum":"YYYY-MM-DD","custom_name":"string","ist_alt":bool,"bezahlt":bool/null,"he_genutzt":n,"bs_genutzt":n}
+Jedes Element: {"kundenname":"string","typ":"pass/einzel","pass_typ":"BASIS/PLUS/DELUXE/INDIVIDUELL","einzel_name":"string","he_total":n,"bs_total":n,"preis":n,"rechnung":"string","datum":"YYYY-MM-DD","custom_name":"string","ist_alt":bool,"bezahlt":bool/null,"he_uebrig":n,"bs_uebrig":n}
 Kunden: ${patNames} | BASIS=3HE 1GA 299€, PLUS=5HE 3GA 499€, DELUXE=10HE 5GA 899€ | Quickie 70€, tDCS 55€, Neurofeedback 350€ | Heute: ${todayISO()}
 
 WICHTIG – Rechnungsnummern-Format: Die Codes-Spalte sieht so aus: "RN435-399€-02.02.2026 - Sarah Kruse". Das bedeutet:
@@ -332,10 +329,10 @@ Wenn ein Foto einer Liste/Tabelle vorliegt, lies ALLE Zeilen sorgfältig ab. Imm
           <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>Preis (€)</div><input type="number" min={0} value={v.preis||""} onChange={e=>updateEintrag(v._id,"preis",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
         </div>}
         {!v._skip&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>HE ges.</div><input type="number" min={0} value={v.he_total||""} onChange={e=>updateEintrag(v._id,"he_total",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>HE gen.</div><input type="number" min={0} value={v.he_genutzt||""} onChange={e=>updateEintrag(v._id,"he_genutzt",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>GA ges.</div><input type="number" min={0} value={v.bs_total||""} onChange={e=>updateEintrag(v._id,"bs_total",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>GA gen.</div><input type="number" min={0} value={v.bs_genutzt||""} onChange={e=>updateEintrag(v._id,"bs_genutzt",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>HE gesamt</div><input type="number" min={0} value={v.he_total||""} onChange={e=>updateEintrag(v._id,"he_total",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>HE genutzt</div><input type="number" min={0} value={v.he_genutzt||""} onChange={e=>updateEintrag(v._id,"he_genutzt",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>GA gesamt</div><input type="number" min={0} value={v.bs_total||""} onChange={e=>updateEintrag(v._id,"bs_total",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>GA genutzt</div><input type="number" min={0} value={v.bs_genutzt||""} onChange={e=>updateEintrag(v._id,"bs_genutzt",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
         </div>}
         {!v._skip&&<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           <div style={{display:"flex",alignItems:"center",gap:6}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Datum</div><input type="date" value={v.datum||""} onChange={e=>updateEintrag(v._id,"datum",e.target.value)} style={{...eInp}}/></div>
@@ -621,7 +618,7 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
         <p style={{color:T.textMid,lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:T.textLight}}>Sprich uns gerne an!</span></p>
       </Card>)}
 
-      {/* Verlauf – UPDATED background */}
+      {/* Verlauf */}
       {ml.length>0&&(<Card className="kunde-card kunde-card-3" style={{marginBottom:16,padding:20,background:"#c7d1ac"}}>
         <SectionLabel>Mein Verlauf</SectionLabel>
         {ml.map((l,i)=>{const b=kundenLogBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<ml.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15,animationDelay:`${i*0.04}s`}}>
@@ -633,7 +630,7 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
         </div>);})}
       </Card>)}
 
-      {/* Rechnungen – UPDATED background */}
+      {/* Rechnungen */}
       {(mp.length>0||me.length>0)&&(<Card className="kunde-card kunde-card-4" style={{marginBottom:16,padding:20,background:"#c7d1ac"}}>
         <SectionLabel>Meine Rechnungen</SectionLabel>
         {mp.map((pk,i)=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<mp.length+me.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15}}>
