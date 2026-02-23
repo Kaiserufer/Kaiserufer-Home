@@ -555,7 +555,7 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
   const bsPct=ap&&ap.bs_total>0?((ap.bs_genutzt||0)/ap.bs_total)*100:0;
   const appBg=`linear-gradient(180deg,${T.bg} 0%,${T.bgLight} 50%,${T.bgLighter} 100%)`;
 
-  return(<div className="content-in" style={{minHeight:"100vh",background:`linear-gradient(180deg,${T.olive} 0%,${T.oliveLight} 8%,${T.bg} 25%,${T.bgLight} 50%,${T.bgLighter} 100%)`}}>
+  return(<div className="content-in" style={{minHeight:"100vh",background:T.olive}}>
     {/* Sticky Nav */}
     <div style={{background:T.olive+"F0",backdropFilter:"blur(12px)",padding:"0 24px",display:"flex",justifyContent:"center",alignItems:"center",position:"sticky",top:0,zIndex:100,height:52}} className="nav-bar">
       <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -570,7 +570,7 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
       {/* Hero Greeting */}
       <div className="kunde-hero" style={{textAlign:"center",padding:"36px 0 28px"}}>
         <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:3,fontWeight:600,marginBottom:8}}>Willkommen zurück</div>
-        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(26px,6vw,34px)",color:T.oliveDark,margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
+        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(26px,6vw,34px)",color:"#F0EDE0",margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
         <div style={{width:40,height:2,background:`linear-gradient(90deg,transparent,${T.gold},transparent)`,margin:"12px auto 0",borderRadius:2}}/>
         {kunde.stammkunde&&<div style={{marginTop:16,fontSize:13,color:T.gold,fontWeight:600,letterSpacing:0.5,fontFamily:"Georgia,serif"}}>VIP-Mitglied · Ihr exklusiver Vorteilstarif ist hinterlegt</div>}
       </div>
@@ -583,18 +583,18 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:8,padding:"0 4px"}}>
           <div>
             <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:2.5,marginBottom:4,fontWeight:700,fontFamily:"Georgia,serif"}}>Dein Flossenpass</div>
-            <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:28,color:T.oliveDark,letterSpacing:0.5}}>{getPassLabel(ap)}</div>
+            <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:28,color:"#F0EDE0",letterSpacing:0.5}}>{getPassLabel(ap)}</div>
           </div>
-          <span style={{fontSize:12,color:T.textLight,fontWeight:500,marginTop:4}}>seit {fmtDate(ap.datum)}</span>
+          <span style={{fontSize:12,color:T.goldDim,fontWeight:500,marginTop:4}}>seit {fmtDate(ap.datum)}</span>
         </div>
 
         {/* Einheiten */}
         <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
           {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct}].map((u,ui)=>(
-            <div key={ui} style={{textAlign:"center",padding:"22px 12px 18px",borderRadius:16,border:`1.5px solid ${T.gold}50`,background:`linear-gradient(180deg,${T.gold}08,${T.gold}15)`}}>
-              <div style={{fontSize:44,fontWeight:700,fontFamily:"Georgia,serif",color:T.oliveDark,lineHeight:1,marginBottom:4}}>{u.left}</div>
-              <div style={{fontSize:12,color:T.textLight,marginBottom:2}}>von {u.total}</div>
-              <div style={{fontSize:13,color:T.oliveDark,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div>
+            <div key={ui} style={{textAlign:"center",padding:"22px 12px 18px",borderRadius:16,border:`1.5px solid ${T.gold}50`,background:`${T.gold}15`}}>
+              <div style={{fontSize:44,fontWeight:700,fontFamily:"Georgia,serif",color:"#F0EDE0",lineHeight:1,marginBottom:4}}>{u.left}</div>
+              <div style={{fontSize:12,color:T.goldDim,marginBottom:2}}>von {u.total}</div>
+              <div style={{fontSize:13,color:T.goldLight,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div>
               <div style={{marginTop:12,padding:"0 10px"}}><Bar used={u.pct} total={100} color={T.gold} h={3}/></div>
             </div>
           ))}
@@ -602,11 +602,11 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
 
         {/* Booking Buttons */}
         <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-          <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="btn-a" style={{padding:"10px 22px",borderRadius:12,background:T.bgPale,color:heL===0?T.textLight:T.oliveDark,fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1,letterSpacing:0.3,border:`1px solid ${T.cardBorder}`}}>Therapie buchen</a>
-          <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="btn-a" style={{padding:"10px 22px",borderRadius:12,background:T.bgPale,color:bsL===0?T.textLight:T.oliveDark,fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1,letterSpacing:0.3,border:`1px solid ${T.cardBorder}`}}>Kurs buchen</a>
+          <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="btn-a" style={{padding:"10px 22px",borderRadius:12,background:T.goldDim+"30",color:heL===0?T.goldDim:"#F0EDE0",fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1,letterSpacing:0.3,border:`1px solid ${T.gold}30`}}>Therapie buchen</a>
+          <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="btn-a" style={{padding:"10px 22px",borderRadius:12,background:T.goldDim+"30",color:bsL===0?T.goldDim:"#F0EDE0",fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1,letterSpacing:0.3,border:`1px solid ${T.gold}30`}}>Kurs buchen</a>
         </div>
 
-        {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:16,fontSize:14,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
+        {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:16,fontSize:14,color:T.goldLight,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
       </div>)}
 
       {/* Kein Pass */}
