@@ -238,14 +238,20 @@ const KIEingabeModal=({patienten,onKauf,onClose})=>{
   const [recording,setRecording]=useState(false);const[transcript,setTranscript]=useState("");
   const [loading,setLoading]=useState(false);const[eintraege,setEintraege]=useState([]);
   const [savingIdx,setSavingIdx]=useState(-1);const[error,setError]=useState("");
-  const recognitionRef=useRef(null);
+  const [fotos,setFotos]=useState([]);const[fotoPreview,setFotoPreview]=useState([]);
+  const recognitionRef=useRef(null);const fileRef=useRef(null);
   const matchPat=(name)=>{if(!name)return null;return patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();const parts=name.toLowerCase().split(" ");return parts.some(part=>part.length>2&&full.includes(part));})||null;};
-  const buildPrompt=(patNames)=>`Du bist "Pingu hilft". Extrahiere ALLE Einträge, antworte NUR mit JSON-Array ohne Backticks.
+  const buildPrompt=(patNames)=>`Du bist "Pingu hilft". Extrahiere ALLE Einträge aus dem Text oder Foto, antworte NUR mit JSON-Array ohne Backticks.
 Jedes Element: {"kundenname":"string","typ":"pass/einzel","pass_typ":"BASIS/PLUS/DELUXE/INDIVIDUELL","einzel_name":"string","he_total":n,"bs_total":n,"preis":n,"rechnung":"string","datum":"YYYY-MM-DD","custom_name":"string","ist_alt":bool,"bezahlt":bool/null}
 Kunden: ${patNames} | BASIS=3HE 1GA 299€, PLUS=5HE 3GA 499€, DELUXE=10HE 5GA 899€ | Quickie 70€, tDCS 55€, Neurofeedback 350€ | Heute: ${todayISO()}
-alt/aufgebraucht→ist_alt:true. bezahlt→bezahlt:true. offen→bezahlt:false. Immer Array.`;
+alt/aufgebraucht→ist_alt:true. bezahlt→bezahlt:true. offen→bezahlt:false. Wenn ein Foto einer Liste/Tabelle vorliegt, lies ALLE Zeilen sorgfältig ab. Immer Array.`;
   const parseResult=(raw)=>{const c=raw.replace(/```json|```/g,"").trim();const arr=JSON.parse(c);return(Array.isArray(arr)?arr:[arr]).map((item,i)=>({...item,_id:i,_skip:false,matched_pat:matchPat(item.kundenname)}));};
-  const analyzeText=async(text)=>{if(!text.trim())return;if(!ANTHROPIC_KEY){setError("API-Key fehlt. Bitte VITE_ANTHROPIC_KEY in Vercel setzen und neu deployen.");return;}setLoading(true);setError("");setEintraege([]);try{const pn=patienten.map(p=>`${p.vorname} ${p.nachname}`).join(", ");const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:`${buildPrompt(pn)}\n\nText: "${text}"`}]})});if(!resp.ok){const errData=await resp.json().catch(()=>({}));setError(`API-Fehler ${resp.status}: ${errData.error?.message||resp.statusText}`);setLoading(false);return;}const data=await resp.json();const txt=data.content?.map(c=>c.text||"").join("")||"";if(!txt){setError("Leere Antwort von der KI.");setLoading(false);return;}setEintraege(parseResult(txt));}catch(e){setError("Fehler: "+e.message);console.error(e);}setLoading(false);};
+  const fileToBase64=(file)=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=()=>rej(new Error("Datei konnte nicht gelesen werden"));r.readAsDataURL(file);});
+  const handleFotos=async(e)=>{const files=Array.from(e.target.files||[]);if(!files.length)return;const valid=files.filter(f=>f.type.startsWith("image/"));if(!valid.length){setError("Bitte nur Bilder hochladen (JPG, PNG, etc.)");return;}setFotos(prev=>[...prev,...valid]);const previews=await Promise.all(valid.map(f=>new Promise((res)=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(f);})));setFotoPreview(prev=>[...prev,...previews]);setError("");};
+  const removeFoto=(idx)=>{setFotos(prev=>prev.filter((_,i)=>i!==idx));setFotoPreview(prev=>prev.filter((_,i)=>i!==idx));};
+  const analyzeContent=async(text,images)=>{if(!text?.trim()&&(!images||images.length===0))return;if(!ANTHROPIC_KEY){setError("API-Key fehlt. Bitte VITE_ANTHROPIC_KEY in Vercel setzen und neu deployen.");return;}setLoading(true);setError("");setEintraege([]);try{const pn=patienten.map(p=>`${p.vorname} ${p.nachname}`).join(", ");const prompt=buildPrompt(pn);const content=[];if(images&&images.length>0){for(const img of images){const b64=await fileToBase64(img);const mt=img.type||"image/jpeg";content.push({type:"image",source:{type:"base64",media_type:mt,data:b64}});}content.push({type:"text",text:text?.trim()?`${prompt}\n\nZusätzlicher Text: "${text.trim()}"\n\nAnalysiere das Foto/die Fotos und den Text.`:`${prompt}\n\nAnalysiere das Foto/die Fotos sorgfältig. Lies alle Namen, Passtypen, Preise und Status ab.`});}else{content.push({type:"text",text:`${prompt}\n\nText: "${text}"`});}const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:4000,messages:[{role:"user",content}]})});if(!resp.ok){const errData=await resp.json().catch(()=>({}));setError(`API-Fehler ${resp.status}: ${errData.error?.message||resp.statusText}`);setLoading(false);return;}const data=await resp.json();const txt=data.content?.map(c=>c.text||"").join("")||"";if(!txt){setError("Leere Antwort von der KI.");setLoading(false);return;}setEintraege(parseResult(txt));}catch(e){setError("Fehler: "+e.message);console.error(e);}setLoading(false);};
+  const analyzeText=async(text)=>analyzeContent(text,null);
+  const analyzeFotos=async()=>analyzeContent(transcript,fotos);
   const startRec=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setError("Spracherkennung nicht unterstützt. Bitte Chrome/Edge.");return;}try{const r=new SR();r.lang="de-DE";r.continuous=true;r.interimResults=true;let ft="";r.onresult=(e)=>{let im="";ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript+" ";else im+=e.results[i][0].transcript;}setTranscript((ft+im).trim());};r.onerror=(e)=>{if(e.error==="no-speech")return;setError("Fehler: "+e.error);setRecording(false);};r.onend=()=>{if(recognitionRef.current){setRecording(false);if(ft.trim())analyzeText(ft.trim());}};r.start();recognitionRef.current=r;setRecording(true);setError("");setEintraege([]);}catch(e){setError("Mikrofon konnte nicht gestartet werden.");}};
   const stopRec=()=>{if(recognitionRef.current){const ref=recognitionRef.current;recognitionRef.current=null;ref.stop();setRecording(false);if(transcript.trim())analyzeText(transcript.trim());}};
   const alleBestaetigen=async()=>{const aktive=eintraege.filter(e=>!e._skip&&e.matched_pat);for(let i=0;i<aktive.length;i++){setSavingIdx(i);const v=aktive[i],pat=v.matched_pat,datum=v.datum||todayISO(),rechnung=v.rechnung||"",istAlt=!!v.ist_alt,bez=v.bezahlt===true||v.bezahlt===false?v.bezahlt:null;if(v.typ==="pass"){const typ=v.pass_typ||"INDIVIDUELL";if(typ==="INDIVIDUELL")await onKauf(pat,"individuell",{name:v.custom_name||"Individuell",he:v.he_total||0,bs:v.bs_total||0,datum,rechnung,ist_alt:istAlt,bezahlt:bez},v.preis||0,"");else await onKauf(pat,"pass",typ,v.preis||PASS_TYPES[typ]?.preis||0,rechnung,datum,istAlt,bez);}else{const name=v.einzel_name||"Einzelangebot";const f=EINZELANGEBOTE.find(ea=>ea.name.toLowerCase().includes(name.toLowerCase()));await onKauf(pat,"einzel",{key:f?.key||"CUSTOM",name},v.preis||f?.preis||0,rechnung,datum,false,bez);}}setSavingIdx(-1);onClose();};
@@ -254,12 +260,31 @@ alt/aufgebraucht→ist_alt:true. bezahlt→bezahlt:true. offen→bezahlt:false. 
   const inp2={width:"100%",padding:"11px 14px",borderRadius:12,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:T.text,outline:"none"};
   return(<Modal onClose={onClose}><div className="modal-box" style={{background:T.cardSolid,borderRadius:24,padding:28,width:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.15)",border:`1px solid ${T.cardBorder}`}}>
     <Heading style={{fontSize:22,marginBottom:6}}>🐧 Pingu hilft</Heading>
-    <p style={{color:T.textMid,fontSize:15,marginBottom:22,lineHeight:1.7}}>Sprich oder tippe <strong style={{color:T.text}}>mehrere Einträge</strong> auf einmal.<br/><span style={{fontSize:13,color:T.textLight}}>Sage ob ein Pass <strong>alt</strong> oder <strong>aktuell</strong> ist, und ob er <strong>bezahlt</strong> wurde.</span></p>
+    <p style={{color:T.textMid,fontSize:15,marginBottom:22,lineHeight:1.7}}>Sprich, tippe oder <strong style={{color:T.text}}>fotografiere</strong> deine alten Flossenpässe.<br/><span style={{fontSize:13,color:T.textLight}}>Sage ob ein Pass <strong>alt</strong> oder <strong>aktuell</strong> ist, und ob er <strong>bezahlt</strong> wurde.</span></p>
+
+    {/* Foto Upload */}
+    <div style={{marginBottom:18}}>
+      <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10,fontFamily:"Georgia,serif"}}>Foto hochladen</div>
+      <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}} capture="environment"/>
+      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-start"}}>
+        <button onClick={()=>fileRef.current?.click()} style={{padding:"14px 24px",borderRadius:16,background:`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:"#2A2A1A",border:"none",fontWeight:700,fontSize:14,cursor:"pointer",boxShadow:`0 4px 16px rgba(184,168,138,0.3)`,letterSpacing:0.3}}>📸 Foto auswählen</button>
+        {fotos.length>0&&<button onClick={analyzeFotos} disabled={loading} className="btn-a" style={{padding:"14px 24px",borderRadius:16,background:T.oliveDark,color:"#F0EDE0",border:"none",fontWeight:700,fontSize:14,cursor:loading?"not-allowed":"pointer",opacity:loading?0.5:1,letterSpacing:0.3}}>🐧 {fotos.length} Foto{fotos.length>1?"s":""} analysieren</button>}
+      </div>
+      {fotoPreview.length>0&&<div style={{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}}>{fotoPreview.map((src,i)=>(<div key={i} style={{position:"relative",borderRadius:12,overflow:"hidden",border:`2px solid ${T.gold}40`,boxShadow:"0 2px 12px rgba(0,0,0,0.08)"}}>
+        <img src={src} style={{width:80,height:80,objectFit:"cover",display:"block"}} alt={`Foto ${i+1}`}/>
+        <button onClick={()=>removeFoto(i)} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>✕</button>
+      </div>))}</div>}
+    </div>
+
+    <div style={{height:1,background:T.cardBorder,margin:"0 0 18px"}}/>
+
+    {/* Sprache */}
+    <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10,fontFamily:"Georgia,serif"}}>Oder per Sprache / Text</div>
     <div style={{display:"flex",gap:10,marginBottom:18,alignItems:"center",flexWrap:"wrap"}}>
       {!recording?<button onClick={startRec} style={{padding:"14px 24px",borderRadius:16,background:T.red,color:"#fff",border:"none",fontWeight:700,fontSize:16,cursor:"pointer",boxShadow:`0 4px 16px ${T.red}40`}}>🎤 Aufnahme starten</button>:<button onClick={stopRec} style={{padding:"14px 24px",borderRadius:16,background:T.olive,color:"#fff",border:"none",fontWeight:700,fontSize:16,cursor:"pointer"}}>⏹ Aufnahme stoppen</button>}
       {recording&&<span style={{fontSize:14,color:T.red,fontWeight:600}}>● läuft</span>}
     </div>
-    <div style={{marginBottom:18}}><div style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6}}>Oder eintippen</div><div style={{display:"flex",gap:8}}><textarea value={transcript} onChange={e=>setTranscript(e.target.value)} rows={3} placeholder="z.B. Anna Müller alter Plus Pass bezahlt 499€..." style={{...inp2,flex:1,resize:"vertical"}}/><Btn gold small onClick={()=>analyzeText(transcript)} disabled={!transcript.trim()||loading}>KI →</Btn></div></div>
+    <div style={{marginBottom:18}}><div style={{display:"flex",gap:8}}><textarea value={transcript} onChange={e=>setTranscript(e.target.value)} rows={3} placeholder="z.B. Anna Müller alter Plus Pass bezahlt 499€..." style={{...inp2,flex:1,resize:"vertical"}}/><Btn gold small onClick={()=>analyzeText(transcript)} disabled={!transcript.trim()||loading}>KI →</Btn></div></div>
     {loading&&<div style={{textAlign:"center",padding:20}}><Spinner/><p style={{color:T.gold,fontSize:14}}>🐧 Pingu analysiert...</p></div>}
     {isSaving&&<div style={{padding:"12px 16px",borderRadius:12,background:T.greenSoft,color:T.green,fontSize:14,fontWeight:600,marginBottom:14}}>Speichere {savingIdx+1}/{aktiveCount}...</div>}
     {error&&<div style={{padding:"12px 16px",borderRadius:12,background:T.redSoft,color:T.red,fontSize:14,marginBottom:14}}>{error}</div>}
@@ -272,7 +297,7 @@ alt/aufgebraucht→ist_alt:true. bezahlt→bezahlt:true. offen→bezahlt:false. 
           </div>
           <button onClick={()=>toggleSkip(v._id)} style={{padding:"6px 14px",borderRadius:8,border:`1px solid ${v._skip?T.green+"40":T.red+"30"}`,background:"transparent",color:v._skip?T.green:T.red,fontSize:12,fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{v._skip?"↩":"✕ Skip"}</button>
         </div></div>))}</div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,flexWrap:"wrap",gap:8}}><span style={{fontSize:14,color:T.textLight}}>{aktiveCount}/{eintraege.length} werden gespeichert</span><div style={{display:"flex",gap:8}}><Btn small ghost onClick={()=>{setEintraege([]);setTranscript("");}}>Nochmal</Btn><Btn small gold disabled={aktiveCount===0||isSaving} onClick={alleBestaetigen}>✓ Alle {aktiveCount} speichern</Btn></div></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,flexWrap:"wrap",gap:8}}><span style={{fontSize:14,color:T.textLight}}>{aktiveCount}/{eintraege.length} werden gespeichert</span><div style={{display:"flex",gap:8}}><Btn small ghost onClick={()=>{setEintraege([]);setTranscript("");setFotos([]);setFotoPreview([]);}}>Nochmal</Btn><Btn small gold disabled={aktiveCount===0||isSaving} onClick={alleBestaetigen}>✓ Alle {aktiveCount} speichern</Btn></div></div>
     </div>)}
     <div style={{textAlign:"right",marginTop:10}}><Btn small ghost onClick={onClose}>Abbrechen</Btn></div>
   </div></Modal>);
@@ -511,37 +536,40 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
 
       {/* Hero Greeting */}
       <div className="kunde-hero" style={{textAlign:"center",padding:"36px 0 28px"}}>
-        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(24px,5.5vw,32px)",color:T.oliveDark,margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
-        <p style={{color:T.textLight,margin:0,fontSize:14,letterSpacing:0.5}}>Willkommen in deinem persönlichen Bereich</p>
+        <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:3,fontWeight:600,marginBottom:8}}>Willkommen zurück</div>
+        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(26px,6vw,34px)",color:T.oliveDark,margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
+        <div style={{width:40,height:2,background:`linear-gradient(90deg,transparent,${T.gold},transparent)`,margin:"12px auto 0",borderRadius:2}}/>
       </div>
 
       {/* Aktiver Flossenpass */}
-      {ap&&(<Card className="kunde-card kunde-card-1" style={{marginBottom:16,padding:0,overflow:"hidden"}}>
+      {ap&&(<Card className="kunde-card kunde-card-1" style={{marginBottom:16,padding:0,overflow:"hidden",border:`1px solid ${T.gold}20`}}>
+        {/* Gold accent line */}
+        <div style={{height:3,background:`linear-gradient(90deg,${T.gold}40,${T.gold},${T.gold}40)`}}/>
         <div style={{padding:"20px 24px 16px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:8}}>
             <div>
-              <div style={{fontSize:11,color:T.textLight,textTransform:"uppercase",letterSpacing:2.5,marginBottom:4,fontWeight:600}}>Dein Flossenpass</div>
+              <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:2.5,marginBottom:4,fontWeight:700,fontFamily:"Georgia,serif"}}>Dein Flossenpass</div>
               <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:26,color:T.oliveDark,letterSpacing:0.5}}>{getPassLabel(ap)}</div>
             </div>
-            <Badge variant="gold">seit {fmtDate(ap.datum)}</Badge>
+            <span style={{fontSize:12,color:T.textLight,fontWeight:500}}>seit {fmtDate(ap.datum)}</span>
           </div>
 
           {/* Einheiten */}
           <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
-            {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct,color:T.olive},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct,color:T.gold}].map((u,ui)=>(
+            {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct,color:T.oliveDark},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct,color:T.gold}].map((u,ui)=>(
               <div key={ui} style={{textAlign:"center",padding:"20px 12px 16px",borderRadius:16,background:T.bgPale,border:`1px solid ${T.cardBorder}`}}>
-                <div style={{fontSize:40,fontWeight:700,fontFamily:"Georgia,serif",color:T.oliveDark,lineHeight:1,marginBottom:4}}>{u.left}</div>
+                <div style={{fontSize:42,fontWeight:700,fontFamily:"Georgia,serif",color:T.oliveDark,lineHeight:1,marginBottom:4}}>{u.left}</div>
                 <div style={{fontSize:12,color:T.textLight,marginBottom:2}}>von {u.total}</div>
-                <div style={{fontSize:13,color:T.textMid,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div>
-                <div style={{marginTop:10,padding:"0 8px"}}><Bar used={u.pct} total={100} color={u.color} h={5}/></div>
+                <div style={{fontSize:13,color:T.oliveDark,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div>
+                <div style={{marginTop:10,padding:"0 8px"}}><Bar used={u.pct} total={100} color={u.color} h={4}/></div>
               </div>
             ))}
           </div>
 
           {/* Booking Buttons */}
           <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"14px 14px",borderRadius:16,background:heL===0?T.bgPale:T.olive,color:heL===0?T.textLight:"#fff",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:"none",boxShadow:heL>0?`0 4px 16px ${T.olive}25`:"none"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.75}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></a>
-            <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"14px 14px",borderRadius:16,background:bsL===0?T.bgPale:`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:bsL===0?T.textLight:"#2A2A1A",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:"none",boxShadow:bsL>0?`0 4px 16px rgba(184,168,138,0.3)`:"none"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.65}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></a>
+            <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"14px 14px",borderRadius:16,background:heL===0?T.bgPale:T.oliveDark,color:heL===0?T.textLight:"#F0EDE0",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:"none",boxShadow:heL>0?`0 4px 16px ${T.oliveDark}30`:"none"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></a>
+            <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"14px 14px",borderRadius:16,background:bsL===0?T.bgPale:T.oliveDark,color:bsL===0?T.textLight:"#F0EDE0",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:"none",boxShadow:bsL>0?`0 4px 16px ${T.oliveDark}30`:"none"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></a>
           </div>
 
           {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:14,padding:"12px 16px",background:T.redSoft,borderRadius:12,fontSize:14,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
@@ -604,10 +632,10 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
       </Card>)}
 
       {/* Footer */}
-      <div style={{textAlign:"center",padding:"36px 0 12px"}}>
-        <div style={{width:40,height:1,background:T.olive+"30",margin:"0 auto 16px"}}/>
-        <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.textLight,textDecoration:"none",letterSpacing:2,textTransform:"uppercase",fontWeight:500}}>kaiserufer.com ↗</a>
-        <div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:T.olive+"80",textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div>
+      <div style={{textAlign:"center",padding:"40px 0 12px"}}>
+        <div style={{width:48,height:1,background:`linear-gradient(90deg,transparent,${T.gold}60,transparent)`,margin:"0 auto 18px"}}/>
+        <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.oliveDark,textDecoration:"none",letterSpacing:2.5,textTransform:"uppercase",fontWeight:600,fontFamily:"Georgia,serif"}}>kaiserufer.com ↗</a>
+        <div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:T.textLight,textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div>
       </div>
     </div>
   </div>);
