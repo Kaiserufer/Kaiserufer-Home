@@ -240,7 +240,17 @@ const KIEingabeModal=({patienten,onKauf,onClose})=>{
   const [savingIdx,setSavingIdx]=useState(-1);const[error,setError]=useState("");
   const [fotos,setFotos]=useState([]);const[fotoPreview,setFotoPreview]=useState([]);
   const recognitionRef=useRef(null);const fileRef=useRef(null);
-  const matchPat=(name)=>{if(!name)return null;return patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();const parts=name.toLowerCase().split(" ");return parts.some(part=>part.length>2&&full.includes(part));})||null;};
+  const matchPat=(name)=>{if(!name)return null;const nl=name.toLowerCase().trim();const parts=nl.split(/\s+/);
+    // 1. Exact full name match
+    const exact=patienten.find(p=>`${p.vorname||""} ${p.nachname||""}`.toLowerCase().trim()===nl);
+    if(exact)return exact;
+    // 2. Any part >2 chars matches in full name
+    const partial=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.some(part=>part.length>2&&full.includes(part));});
+    if(partial)return partial;
+    // 3. First name only match (for AI hallucinating wrong last names)
+    const firstName=parts[0];
+    if(firstName&&firstName.length>2){const fnMatch=patienten.filter(p=>(p.vorname||"").toLowerCase()===firstName);if(fnMatch.length===1)return fnMatch[0];}
+    return null;};
   const buildPrompt=(patNames)=>`Du bist "Pingu hilft". Extrahiere ALLE Einträge aus dem Text oder Foto, antworte NUR mit JSON-Array ohne Backticks.
 Jedes Element: {"kundenname":"string","typ":"pass/einzel","pass_typ":"BASIS/PLUS/DELUXE/INDIVIDUELL","einzel_name":"string","he_total":n,"bs_total":n,"preis":n,"rechnung":"string","datum":"YYYY-MM-DD","custom_name":"string","ist_alt":bool,"bezahlt":bool/null,"he_genutzt":n,"bs_genutzt":n}
 Kunden: ${patNames} | BASIS=3HE 1GA 299€, PLUS=5HE 3GA 499€, DELUXE=10HE 5GA 899€ | Quickie 70€, tDCS 55€, Neurofeedback 350€ | Heute: ${todayISO()}
