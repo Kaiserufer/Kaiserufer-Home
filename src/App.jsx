@@ -242,9 +242,22 @@ const KIEingabeModal=({patienten,onKauf,onClose})=>{
   const recognitionRef=useRef(null);const fileRef=useRef(null);
   const matchPat=(name)=>{if(!name)return null;return patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();const parts=name.toLowerCase().split(" ");return parts.some(part=>part.length>2&&full.includes(part));})||null;};
   const buildPrompt=(patNames)=>`Du bist "Pingu hilft". Extrahiere ALLE Einträge aus dem Text oder Foto, antworte NUR mit JSON-Array ohne Backticks.
-Jedes Element: {"kundenname":"string","typ":"pass/einzel","pass_typ":"BASIS/PLUS/DELUXE/INDIVIDUELL","einzel_name":"string","he_total":n,"bs_total":n,"preis":n,"rechnung":"string","datum":"YYYY-MM-DD","custom_name":"string","ist_alt":bool,"bezahlt":bool/null}
+Jedes Element: {"kundenname":"string","typ":"pass/einzel","pass_typ":"BASIS/PLUS/DELUXE/INDIVIDUELL","einzel_name":"string","he_total":n,"bs_total":n,"preis":n,"rechnung":"string","datum":"YYYY-MM-DD","custom_name":"string","ist_alt":bool,"bezahlt":bool/null,"he_genutzt":n,"bs_genutzt":n}
 Kunden: ${patNames} | BASIS=3HE 1GA 299€, PLUS=5HE 3GA 499€, DELUXE=10HE 5GA 899€ | Quickie 70€, tDCS 55€, Neurofeedback 350€ | Heute: ${todayISO()}
-alt/aufgebraucht→ist_alt:true. bezahlt→bezahlt:true. offen→bezahlt:false. Wenn ein Foto einer Liste/Tabelle vorliegt, lies ALLE Zeilen sorgfältig ab. Immer Array.`;
+
+WICHTIG – Rechnungsnummern-Format: Unsere Codes sehen so aus: "RN412-350€-20.01.2026". Das bedeutet:
+- Rechnungsnummer = "RN412" (nur der RN-Teil mit Zahl!)
+- Preis = 350 (die Zahl nach dem Bindestrich vor dem €-Zeichen)
+- Datum = 20.01.2026 (das Datum am Ende, umwandeln zu YYYY-MM-DD)
+TRENNE diese drei Teile sauber! Die Rechnungsnummer ist IMMER nur "RN" + Zahl (z.B. RN412, RN263, RN353). Der Preis steht NACH dem ersten Bindestrich VOR dem €. Das Datum steht am Ende.
+
+Spalte "Haupteinheit" = he_genutzt (bereits genutzte HE). Spalte "Zusatzangebot" = bs_genutzt (bereits genutzte GA/BS).
+Wenn Haupteinheit=0 und Zusatzangebot=0 → der Pass ist alt/aufgebraucht → ist_alt:true.
+Wenn Haupteinheit>0 oder Zusatzangebot>0 → der Pass ist aktiv → ist_alt:false. Setze he_genutzt und bs_genutzt auf die Werte aus der Tabelle.
+
+Alte Flossenpässe (ist_alt:true) IMMER als typ:"pass", pass_typ:"INDIVIDUELL" mit custom_name:"Individuell" anlegen.
+Bezahlt-Checkbox angehakt → bezahlt:true. Nicht angehakt → bezahlt:false.
+Wenn ein Foto einer Liste/Tabelle vorliegt, lies ALLE Zeilen sorgfältig ab. Immer Array.`;
   const parseResult=(raw)=>{const c=raw.replace(/```json|```/g,"").trim();const arr=JSON.parse(c);return(Array.isArray(arr)?arr:[arr]).map((item,i)=>({...item,_id:i,_skip:false,matched_pat:matchPat(item.kundenname)}));};
   const fileToBase64=(file)=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=()=>rej(new Error("Datei konnte nicht gelesen werden"));r.readAsDataURL(file);});
   const handleFotos=async(e)=>{const files=Array.from(e.target.files||[]);if(!files.length)return;const valid=files.filter(f=>f.type.startsWith("image/"));if(!valid.length){setError("Bitte nur Bilder hochladen (JPG, PNG, etc.)");return;}setFotos(prev=>[...prev,...valid]);const previews=await Promise.all(valid.map(f=>new Promise((res)=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(f);})));setFotoPreview(prev=>[...prev,...previews]);setError("");};
@@ -254,11 +267,14 @@ alt/aufgebraucht→ist_alt:true. bezahlt→bezahlt:true. offen→bezahlt:false. 
   const analyzeFotos=async()=>analyzeContent(transcript,fotos);
   const startRec=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setError("Spracherkennung nicht unterstützt. Bitte Chrome/Edge.");return;}try{const r=new SR();r.lang="de-DE";r.continuous=true;r.interimResults=true;let ft="";r.onresult=(e)=>{let im="";ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript+" ";else im+=e.results[i][0].transcript;}setTranscript((ft+im).trim());};r.onerror=(e)=>{if(e.error==="no-speech")return;setError("Fehler: "+e.error);setRecording(false);};r.onend=()=>{if(recognitionRef.current){setRecording(false);if(ft.trim())analyzeText(ft.trim());}};r.start();recognitionRef.current=r;setRecording(true);setError("");setEintraege([]);}catch(e){setError("Mikrofon konnte nicht gestartet werden.");}};
   const stopRec=()=>{if(recognitionRef.current){const ref=recognitionRef.current;recognitionRef.current=null;ref.stop();setRecording(false);if(transcript.trim())analyzeText(transcript.trim());}};
-  const alleBestaetigen=async()=>{const aktive=eintraege.filter(e=>!e._skip&&e.matched_pat);for(let i=0;i<aktive.length;i++){setSavingIdx(i);const v=aktive[i],pat=v.matched_pat,datum=v.datum||todayISO(),rechnung=v.rechnung||"",istAlt=!!v.ist_alt,bez=v.bezahlt===true||v.bezahlt===false?v.bezahlt:null;if(v.typ==="pass"){const typ=v.pass_typ||"INDIVIDUELL";if(typ==="INDIVIDUELL")await onKauf(pat,"individuell",{name:v.custom_name||"Individuell",he:v.he_total||0,bs:v.bs_total||0,datum,rechnung,ist_alt:istAlt,bezahlt:bez},v.preis||0,"");else await onKauf(pat,"pass",typ,v.preis||PASS_TYPES[typ]?.preis||0,rechnung,datum,istAlt,bez);}else{const name=v.einzel_name||"Einzelangebot";const f=EINZELANGEBOTE.find(ea=>ea.name.toLowerCase().includes(name.toLowerCase()));await onKauf(pat,"einzel",{key:f?.key||"CUSTOM",name},v.preis||f?.preis||0,rechnung,datum,false,bez);}}setSavingIdx(-1);onClose();};
+  const alleBestaetigen=async()=>{const aktive=eintraege.filter(e=>!e._skip&&e.matched_pat);for(let i=0;i<aktive.length;i++){setSavingIdx(i);const v=aktive[i],pat=v.matched_pat,datum=v.datum||todayISO(),rechnung=v.rechnung||"",istAlt=!!v.ist_alt,bez=v.bezahlt===true||v.bezahlt===false?v.bezahlt:null;if(v.typ==="pass"||v.pass_typ){const typ=v.pass_typ||"INDIVIDUELL";const heT=v.he_total||0,bsT=v.bs_total||0,heG=v.he_genutzt||0,bsG=v.bs_genutzt||0;const alt=istAlt||(heT>0&&heG>=heT&&bsT>0&&bsG>=bsT);if(typ==="INDIVIDUELL"||alt){await onKauf(pat,"individuell",{name:v.custom_name||"Individuell",he:heT,bs:bsT,datum,rechnung,ist_alt:alt,bezahlt:bez,he_genutzt:alt?heT:heG,bs_genutzt:alt?bsT:bsG},v.preis||0,"");}else{await onKauf(pat,"pass",typ,v.preis||PASS_TYPES[typ]?.preis||0,rechnung,datum,alt,bez);}}else{const name=v.einzel_name||"Einzelangebot";const f=EINZELANGEBOTE.find(ea=>ea.name.toLowerCase().includes(name.toLowerCase()));await onKauf(pat,"einzel",{key:f?.key||"CUSTOM",name},v.preis||f?.preis||0,rechnung,datum,false,bez);}}setSavingIdx(-1);onClose();};
   const toggleSkip=(id)=>setEintraege(prev=>prev.map(e=>e._id===id?{...e,_skip:!e._skip}:e));
+  const updateEintrag=(id,field,val)=>setEintraege(prev=>prev.map(e=>e._id===id?{...e,[field]:val}:e));
+  const reMatchPat=(id,name)=>{const pat=matchPat(name);setEintraege(prev=>prev.map(e=>e._id===id?{...e,kundenname:name,matched_pat:pat}:e));};
   const aktiveCount=eintraege.filter(e=>!e._skip&&e.matched_pat).length;const isSaving=savingIdx>=0;
   const inp2={width:"100%",padding:"11px 14px",borderRadius:12,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:T.text,outline:"none"};
-  return(<Modal onClose={onClose}><div className="modal-box" style={{background:T.cardSolid,borderRadius:24,padding:28,width:560,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.15)",border:`1px solid ${T.cardBorder}`}}>
+  const eInp={padding:"5px 8px",borderRadius:8,border:`1px solid ${T.cardBorder}`,fontSize:13,background:T.inp,color:T.text,outline:"none",fontFamily:"inherit"};
+  return(<Modal onClose={onClose}><div className="modal-box" style={{background:T.cardSolid,borderRadius:24,padding:28,width:600,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.15)",border:`1px solid ${T.cardBorder}`}}>
     <Heading style={{fontSize:22,marginBottom:6}}>🐧 Pingu hilft</Heading>
     <p style={{color:T.textMid,fontSize:15,marginBottom:22,lineHeight:1.7}}>Sprich, tippe oder <strong style={{color:T.text}}>fotografiere</strong> deine alten Flossenpässe.<br/><span style={{fontSize:13,color:T.textLight}}>Sage ob ein Pass <strong>alt</strong> oder <strong>aktuell</strong> ist, und ob er <strong>bezahlt</strong> wurde.</span></p>
 
@@ -291,12 +307,29 @@ alt/aufgebraucht→ist_alt:true. bezahlt→bezahlt:true. offen→bezahlt:false. 
     {eintraege.length>0&&!loading&&(<div style={{marginBottom:16}}>
       <div style={{fontSize:13,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:14}}>{eintraege.length} Einträge erkannt</div>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>{eintraege.map(v=>(<div key={v._id} style={{borderRadius:14,border:`1px solid ${v._skip?T.cardBorder:v.matched_pat?T.green+"30":T.red+"30"}`,background:v._skip?T.bgPale+"60":v.matched_pat?T.greenSoft:T.redSoft,padding:"14px 18px",opacity:v._skip?0.45:1}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:15,color:T.text,marginBottom:6}}>{v.matched_pat?`${v.matched_pat.vorname} ${v.matched_pat.nachname}`:<span style={{color:T.red}}>⚠ "{v.kundenname}" – nicht gefunden</span>}</div>
-            <div style={{fontSize:13,color:T.textMid,display:"flex",gap:10,flexWrap:"wrap",lineHeight:2}}><span>{v.typ==="pass"?`Flossenpass ${v.pass_typ||"Individuell"}`:v.einzel_name||"Einzelangebot"}</span>{v.ist_alt&&<Badge variant="cream" small>Alt</Badge>}{v.bezahlt===true&&<Badge variant="green" small>Bezahlt</Badge>}{v.bezahlt===false&&<Badge variant="red" small>Offen</Badge>}{v.preis&&<span style={{fontWeight:600,color:T.text}}>{v.preis} €</span>}{v.rechnung&&<code style={{background:T.bgPale,padding:"2px 8px",borderRadius:6,fontSize:12}}>{v.rechnung}</code>}{v.datum&&<span style={{color:T.textLight}}>{fmtDate(v.datum)}</span>}</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:10}}>
+          <div style={{flex:1}}>
+            {v.matched_pat?<div style={{fontWeight:700,fontSize:15,color:T.text}}>{v.matched_pat.vorname} {v.matched_pat.nachname}</div>:<div style={{display:"flex",alignItems:"center",gap:6}}><span style={{color:T.red,fontWeight:700,fontSize:14}}>⚠ nicht gefunden:</span><input value={v.kundenname||""} onChange={e=>reMatchPat(v._id,e.target.value)} style={{...eInp,flex:1,fontWeight:600}} placeholder="Name eingeben..."/></div>}
           </div>
-          <button onClick={()=>toggleSkip(v._id)} style={{padding:"6px 14px",borderRadius:8,border:`1px solid ${v._skip?T.green+"40":T.red+"30"}`,background:"transparent",color:v._skip?T.green:T.red,fontSize:12,fontWeight:700,cursor:"pointer",textTransform:"uppercase"}}>{v._skip?"↩":"✕ Skip"}</button>
-        </div></div>))}</div>
+          <button onClick={()=>toggleSkip(v._id)} style={{padding:"6px 14px",borderRadius:8,border:`1px solid ${v._skip?T.green+"40":T.red+"30"}`,background:"transparent",color:v._skip?T.green:T.red,fontSize:12,fontWeight:700,cursor:"pointer",textTransform:"uppercase",flexShrink:0}}>{v._skip?"↩":"✕ Skip"}</button>
+        </div>
+        {!v._skip&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>Typ</div><select value={v.pass_typ||"INDIVIDUELL"} onChange={e=>{const t=e.target.value;updateEintrag(v._id,"pass_typ",t);if(t!=="INDIVIDUELL"&&PASS_TYPES[t]){updateEintrag(v._id,"he_total",PASS_TYPES[t].he);updateEintrag(v._id,"bs_total",PASS_TYPES[t].bs);if(!v.preis)updateEintrag(v._id,"preis",PASS_TYPES[t].preis);}}} style={{...eInp,width:"100%"}}><option value="INDIVIDUELL">Individuell</option><option value="BASIS">Basis</option><option value="PLUS">Plus</option><option value="DELUXE">Deluxe</option></select></div>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>Rechnungs-Nr.</div><input value={v.rechnung||""} onChange={e=>updateEintrag(v._id,"rechnung",e.target.value)} style={{...eInp,width:"100%",fontFamily:"monospace"}} placeholder="RN412"/></div>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>Preis (€)</div><input type="number" min={0} value={v.preis||""} onChange={e=>updateEintrag(v._id,"preis",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+        </div>}
+        {!v._skip&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>HE ges.</div><input type="number" min={0} value={v.he_total||""} onChange={e=>updateEintrag(v._id,"he_total",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>HE gen.</div><input type="number" min={0} value={v.he_genutzt||""} onChange={e=>updateEintrag(v._id,"he_genutzt",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>GA ges.</div><input type="number" min={0} value={v.bs_total||""} onChange={e=>updateEintrag(v._id,"bs_total",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>GA gen.</div><input type="number" min={0} value={v.bs_genutzt||""} onChange={e=>updateEintrag(v._id,"bs_genutzt",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+        </div>}
+        {!v._skip&&<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Datum</div><input type="date" value={v.datum||""} onChange={e=>updateEintrag(v._id,"datum",e.target.value)} style={{...eInp}}/></div>
+          <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,color:v.ist_alt?T.textMid:T.textLight}}><input type="checkbox" checked={!!v.ist_alt} onChange={e=>updateEintrag(v._id,"ist_alt",e.target.checked)} style={{accentColor:T.olive}}/>Alt</label>
+          <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,color:v.bezahlt?T.green:T.textLight}}><input type="checkbox" checked={!!v.bezahlt} onChange={e=>updateEintrag(v._id,"bezahlt",e.target.checked)} style={{accentColor:T.green}}/>Bezahlt</label>
+        </div>}
+      </div>))}</div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,flexWrap:"wrap",gap:8}}><span style={{fontSize:14,color:T.textLight}}>{aktiveCount}/{eintraege.length} werden gespeichert</span><div style={{display:"flex",gap:8}}><Btn small ghost onClick={()=>{setEintraege([]);setTranscript("");setFotos([]);setFotoPreview([]);}}>Nochmal</Btn><Btn small gold disabled={aktiveCount===0||isSaving} onClick={alleBestaetigen}>✓ Alle {aktiveCount} speichern</Btn></div></div>
     </div>)}
     <div style={{textAlign:"right",marginTop:10}}><Btn small ghost onClick={onClose}>Abbrechen</Btn></div>
@@ -330,7 +363,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const handleKauf=async(typ,info,preis,eigeneRechnung,datum)=>{setSaving(true);await handleKaufFuerPat(selPat,typ,info,preis,eigeneRechnung,datum);setSaving(false);setKaufModal(false);};
   const handleKaufFuerPat=async(pat,typ,info,preis,eigeneRechnung,datum,istAlt,bezahltStatus)=>{
     const ds=datum||todayISO();let rs;
-    if(typ==="individuell"){rs=info.rechnung||genRechnung(await getRechnungsNr());const h=info.he||0,b=info.bs||0,alt=istAlt||info.ist_alt||false,bez=bezahltStatus!=null?bezahltStatus:(info.bezahlt!=null?info.bezahlt:false);const np={id:genId(),pat_id:pat.id,typ:"INDIVIDUELL",he_total:h,he_genutzt:alt?h:0,bs_total:b,bs_genutzt:alt?b:0,preis:preis||0,rechnung:rs,bezahlt:bez,datum:info.datum||ds,aktiv:!alt,custom_name:info.name||"Individuell"};await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);}
+    if(typ==="individuell"){rs=info.rechnung||genRechnung(await getRechnungsNr());const h=info.he||0,b=info.bs||0,alt=istAlt||info.ist_alt||false,bez=bezahltStatus!=null?bezahltStatus:(info.bezahlt!=null?info.bezahlt:false);const heG=info.he_genutzt!=null?info.he_genutzt:(alt?h:0);const bsG=info.bs_genutzt!=null?info.bs_genutzt:(alt?b:0);const np={id:genId(),pat_id:pat.id,typ:"INDIVIDUELL",he_total:h,he_genutzt:heG,bs_total:b,bs_genutzt:bsG,preis:preis||0,rechnung:rs,bezahlt:bez,datum:info.datum||ds,aktiv:!alt,custom_name:info.name||"Individuell"};await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);}
     else if(typ==="pass"){rs=eigeneRechnung||genRechnung(await getRechnungsNr());const pt=PASS_TYPES[info],alt=!!istAlt,bez=bezahltStatus!=null?bezahltStatus:false;const np={id:genId(),pat_id:pat.id,typ:info,he_total:pt.he,he_genutzt:alt?pt.he:0,bs_total:pt.bs,bs_genutzt:alt?pt.bs:0,preis:preis||0,rechnung:rs,bezahlt:bez,datum:ds,aktiv:!alt};await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);}
     else{rs=eigeneRechnung||genRechnung(await getRechnungsNr());const bez=bezahltStatus!=null?bezahltStatus:false;const ne={id:genId(),pat_id:pat.id,key:info.key,name:info.name,preis:preis||0,rechnung:rs,bezahlt:bez,datum:ds};const nl={id:genId(),pat_id:pat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};await supabase.from("einzel").insert(ne);await supabase.from("log").insert(nl);setEinzel(prev=>[...prev,ne]);setLog(prev=>[...prev,nl]);}
   };
@@ -542,39 +575,38 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
       </div>
 
       {/* Aktiver Flossenpass */}
-      {ap&&(<Card className="kunde-card kunde-card-1" style={{marginBottom:16,padding:0,overflow:"hidden",border:`1px solid ${T.gold}20`}}>
+      {ap&&(<div className="kunde-card kunde-card-1" style={{marginBottom:24}}>
         {/* Gold accent line */}
-        <div style={{height:3,background:`linear-gradient(90deg,${T.gold}40,${T.gold},${T.gold}40)`}}/>
-        <div style={{padding:"20px 24px 16px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,flexWrap:"wrap",gap:8}}>
-            <div>
-              <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:2.5,marginBottom:4,fontWeight:700,fontFamily:"Georgia,serif"}}>Dein Flossenpass</div>
-              <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:26,color:T.oliveDark,letterSpacing:0.5}}>{getPassLabel(ap)}</div>
-            </div>
-            <span style={{fontSize:12,color:T.textLight,fontWeight:500}}>seit {fmtDate(ap.datum)}</span>
-          </div>
+        <div style={{height:2,background:`linear-gradient(90deg,transparent,${T.gold},transparent)`,marginBottom:24,borderRadius:2}}/>
 
-          {/* Einheiten */}
-          <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:20}}>
-            {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct,color:T.oliveDark},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct,color:T.gold}].map((u,ui)=>(
-              <div key={ui} style={{textAlign:"center",padding:"20px 12px 16px",borderRadius:16,background:T.bgPale,border:`1px solid ${T.cardBorder}`}}>
-                <div style={{fontSize:42,fontWeight:700,fontFamily:"Georgia,serif",color:T.oliveDark,lineHeight:1,marginBottom:4}}>{u.left}</div>
-                <div style={{fontSize:12,color:T.textLight,marginBottom:2}}>von {u.total}</div>
-                <div style={{fontSize:13,color:T.oliveDark,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div>
-                <div style={{marginTop:10,padding:"0 8px"}}><Bar used={u.pct} total={100} color={u.color} h={4}/></div>
-              </div>
-            ))}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:8,padding:"0 4px"}}>
+          <div>
+            <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:2.5,marginBottom:4,fontWeight:700,fontFamily:"Georgia,serif"}}>Dein Flossenpass</div>
+            <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:28,color:T.oliveDark,letterSpacing:0.5}}>{getPassLabel(ap)}</div>
           </div>
-
-          {/* Booking Buttons */}
-          <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"14px 14px",borderRadius:16,background:heL===0?T.bgPale:T.oliveDark,color:heL===0?T.textLight:"#F0EDE0",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:"none",boxShadow:heL>0?`0 4px 16px ${T.oliveDark}30`:"none"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></a>
-            <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"14px 14px",borderRadius:16,background:bsL===0?T.bgPale:T.oliveDark,color:bsL===0?T.textLight:"#F0EDE0",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:"none",boxShadow:bsL>0?`0 4px 16px ${T.oliveDark}30`:"none"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></a>
-          </div>
-
-          {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:14,padding:"12px 16px",background:T.redSoft,borderRadius:12,fontSize:14,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
+          <span style={{fontSize:12,color:T.textLight,fontWeight:500,marginTop:4}}>seit {fmtDate(ap.datum)}</span>
         </div>
-      </Card>)}
+
+        {/* Einheiten */}
+        <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:24}}>
+          {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct,color:T.oliveDark},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct,color:T.gold}].map((u,ui)=>(
+            <div key={ui} style={{textAlign:"center",padding:"22px 12px 18px",borderRadius:16,border:`1px solid ${T.gold}30`,background:"transparent"}}>
+              <div style={{fontSize:44,fontWeight:700,fontFamily:"Georgia,serif",color:T.oliveDark,lineHeight:1,marginBottom:4}}>{u.left}</div>
+              <div style={{fontSize:12,color:T.textLight,marginBottom:2}}>von {u.total}</div>
+              <div style={{fontSize:13,color:T.oliveDark,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div>
+              <div style={{marginTop:12,padding:"0 10px"}}><Bar used={u.pct} total={100} color={u.color} h={3}/></div>
+            </div>
+          ))}
+        </div>
+
+        {/* Booking Buttons */}
+        <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"15px 14px",borderRadius:16,background:"transparent",color:heL===0?T.textLight:T.oliveDark,fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.3:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:`1.5px solid ${T.gold}${heL===0?"30":"60"}`,boxShadow:"none"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,color:T.textLight}}>{heL===1?"Haupteinheit":"Haupteinheiten"}</span></a>
+          <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="kunde-book-btn btn-a" style={{padding:"15px 14px",borderRadius:16,background:"transparent",color:bsL===0?T.textLight:T.oliveDark,fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.3:1,letterSpacing:0.3,lineHeight:1.5,display:"block",border:`1.5px solid ${T.gold}${bsL===0?"30":"60"}`,boxShadow:"none"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,color:T.textLight}}>{bsL===1?"Gruppenangebot":"Gruppenangebote"}</span></a>
+        </div>
+
+        {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:16,fontSize:14,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
+      </div>)}
 
       {/* Kein Pass */}
       {mp.length===0&&me.length===0&&(<Card className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"48px 28px",marginBottom:16}}>
