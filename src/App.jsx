@@ -245,11 +245,14 @@ const KIEingabeModal=({patienten,onKauf,onClose})=>{
 Jedes Element: {"kundenname":"string","typ":"pass/einzel","pass_typ":"BASIS/PLUS/DELUXE/INDIVIDUELL","einzel_name":"string","he_total":n,"bs_total":n,"preis":n,"rechnung":"string","datum":"YYYY-MM-DD","custom_name":"string","ist_alt":bool,"bezahlt":bool/null,"he_genutzt":n,"bs_genutzt":n}
 Kunden: ${patNames} | BASIS=3HE 1GA 299€, PLUS=5HE 3GA 499€, DELUXE=10HE 5GA 899€ | Quickie 70€, tDCS 55€, Neurofeedback 350€ | Heute: ${todayISO()}
 
-WICHTIG – Rechnungsnummern-Format: Unsere Codes sehen so aus: "RN412-350€-20.01.2026". Das bedeutet:
-- Rechnungsnummer = "RN412" (nur der RN-Teil mit Zahl!)
-- Preis = 350 (die Zahl nach dem Bindestrich vor dem €-Zeichen)
-- Datum = 20.01.2026 (das Datum am Ende, umwandeln zu YYYY-MM-DD)
-TRENNE diese drei Teile sauber! Die Rechnungsnummer ist IMMER nur "RN" + Zahl (z.B. RN412, RN263, RN353). Der Preis steht NACH dem ersten Bindestrich VOR dem €. Das Datum steht am Ende.
+WICHTIG – Rechnungsnummern-Format: Die Codes-Spalte sieht so aus: "RN435-399€-02.02.2026 - Sarah Kruse". Das bedeutet:
+- Rechnungsnummer = "RN435" (nur der RN-Teil mit Zahl!)
+- Preis = 399 (die Zahl nach dem ersten Bindestrich vor dem €-Zeichen)
+- Datum = 02.02.2026 (das Datum nach dem €, umwandeln zu YYYY-MM-DD)
+- Der Name NACH dem Datum (" - Sarah Kruse") ist nur eine Wiederholung – IGNORIERE ihn!
+TRENNE diese Teile sauber! Die Rechnungsnummer ist IMMER nur "RN" + Zahl (z.B. RN412, RN263, RN353). Der Preis steht NACH dem ersten Bindestrich VOR dem €. Das Datum steht nach dem €.
+
+KUNDENNAME: Lies den Namen IMMER aus der Spalte "Kunde", NIEMALS aus der Codes-Spalte. Der Name in der Codes-Spalte nach dem Datum ist nur eine Kopie und kann abgeschnitten oder über zwei Zeilen gehen – ignoriere ihn komplett.
 
 Spalte "Haupteinheit" = he_genutzt (bereits genutzte HE). Spalte "Zusatzangebot" = bs_genutzt (bereits genutzte GA/BS).
 Wenn Haupteinheit=0 und Zusatzangebot=0 → der Pass ist alt/aufgebraucht → ist_alt:true.
