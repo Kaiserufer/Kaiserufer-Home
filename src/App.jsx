@@ -2,16 +2,16 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "./supabase";
 
 const T = {
-  bg0:"#0A0E06",bg1:"#141A10",bg2:"#1E2618",bg3:"#2A3424",bg4:"#3A4434",
-  gold:"#B8A88A",goldLight:"#D4C9AD",goldDim:"rgba(184,168,138,0.4)",goldFaint:"rgba(184,168,138,0.12)",
-  cream:"#F0EDE0",creamDim:"rgba(240,237,224,0.7)",creamFaint:"rgba(240,237,224,0.4)",
-  red:"#E05555",redDim:"rgba(224,85,85,0.15)",
-  green:"#7EBF6A",greenDim:"rgba(126,191,106,0.15)",
-  blue:"#6AA8D0",blueDim:"rgba(106,168,208,0.15)",
-  purple:"#A07ED0",purpleDim:"rgba(160,126,208,0.15)",
-  card:"rgba(26,34,20,0.7)",cardBorder:"rgba(184,168,138,0.1)",
-  cardHover:"rgba(34,44,28,0.8)",
-  inp:"#1A2214",
+  bg0:"#2A3424",bg1:"#344030",bg2:"#3E4A38",bg3:"#4A5644",bg4:"#566250",
+  gold:"#C4B48E",goldLight:"#D4C9AD",goldDim:"rgba(196,180,142,0.5)",goldFaint:"rgba(196,180,142,0.15)",
+  cream:"#F2EFDF",creamDim:"rgba(242,239,223,0.75)",creamFaint:"rgba(242,239,223,0.45)",
+  red:"#D95050",redDim:"rgba(217,80,80,0.18)",
+  green:"#7EBF6A",greenDim:"rgba(126,191,106,0.18)",
+  blue:"#6AA8D0",blueDim:"rgba(106,168,208,0.18)",
+  purple:"#A07ED0",purpleDim:"rgba(160,126,208,0.18)",
+  card:"rgba(58,68,52,0.55)",cardBorder:"rgba(196,180,142,0.18)",
+  cardHover:"rgba(66,78,58,0.65)",
+  inp:"#3A4434",
 };
 
 const PASS_TYPES = {
@@ -609,16 +609,16 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
             {filtered.map((p,i)=>{
               const u=getUnits(p.id);const ub=paesse.filter(pk=>pk.pat_id===p.id).some(pk=>!pk.bezahlt)||einzel.filter(e=>e.pat_id===p.id).some(e=>!e.bezahlt);
               return(
-                <div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-h slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"16px 24px",background:"linear-gradient(135deg,rgba(240,237,224,0.92),rgba(226,227,200,0.88))",borderRadius:20,border:`1px solid ${T.goldFaint}`,cursor:"pointer",boxShadow:"0 2px 12px rgba(0,0,0,0.15)"}}>
+                <div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-h slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"16px 24px",background:"rgba(242,239,223,0.12)",borderRadius:20,border:`1px solid rgba(196,180,142,0.14)`,cursor:"pointer",backdropFilter:"blur(12px)",boxShadow:"0 2px 12px rgba(0,0,0,0.08)"}}>
                   <div className="liste-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <div><div style={{fontWeight:600,color:"#3D4435",fontSize:17,lineHeight:1.4}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:14,color:"#6B7055"}}>{p.email}</span>{p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}</div></div>
+                    <div><div style={{fontWeight:600,color:T.cream,fontSize:17,lineHeight:1.4}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:14,color:T.creamFaint}}>{p.email}</span>{p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}</div></div>
                     <div className="liste-right" style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-                      <div style={{display:"flex",border:"1px solid rgba(184,168,138,0.25)",borderRadius:10,overflow:"hidden"}}>
+                      <div style={{display:"flex",border:`1px solid ${T.cardBorder}`,borderRadius:10,overflow:"hidden"}}>
                         {[{label:"HE",val:u?u.he:null},{label:"GA",val:u?u.bs:null}].map((col,ci)=>(
-                          <div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?"1px solid rgba(184,168,138,0.25)":"none",background:"rgba(255,255,255,0.5)"}}><div style={{fontSize:10,color:"#6B7055",textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div><div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.val===null?"#6B705540":"#4A5240",lineHeight:1}}>{col.val!==null?col.val:"–"}</div></div>
+                          <div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.cardBorder}`:"none",background:"rgba(242,239,223,0.06)"}}><div style={{fontSize:10,color:T.creamFaint,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div><div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.val===null?T.creamFaint+"40":T.gold,lineHeight:1}}>{col.val!==null?col.val:"–"}</div></div>
                         ))}
                       </div>
-                      <div className="badge-w" style={{width:68,textAlign:"center"}}>{u?<Badge variant="gold">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:"#6B705540"}}>–</span>}</div>
+                      <div className="badge-w" style={{width:68,textAlign:"center"}}>{u?<Badge variant="gold">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:T.creamFaint+"40"}}>–</span>}</div>
                       <div className="badge-w" style={{width:48,textAlign:"center"}}>{ub?<Badge variant="red">Offen</Badge>:null}</div>
                       <span className="chevron" style={{color:T.gold,fontSize:20,fontWeight:300}}>›</span>
                     </div>
@@ -807,7 +807,7 @@ export default function App(){
     <div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:appBg,color:T.cream}}>
       <style>{css}</style>
       {showLogin&&<LoginModal onLogin={()=>{setShowLogin(false);setMode("staff");}} onClose={()=>setShowLogin(false)}/>}
-      {(mode==="staff"||loginPat)&&<div style={{background:"rgba(10,14,6,0.85)",backdropFilter:"blur(12px)",color:T.cream,padding:"0 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${T.cardBorder}`,position:"sticky",top:0,zIndex:100,height:58}} className="nav-bar">
+      {(mode==="staff"||loginPat)&&<div style={{background:"rgba(42,52,36,0.9)",backdropFilter:"blur(12px)",color:T.cream,padding:"0 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${T.cardBorder}`,position:"sticky",top:0,zIndex:100,height:58}} className="nav-bar">
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:17,letterSpacing:2.5,textTransform:"uppercase",color:T.gold}}>Kaiserufer</span>
           <div style={{width:1,height:22,background:T.goldFaint,borderRadius:1}}/>
