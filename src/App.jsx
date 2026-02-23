@@ -27,6 +27,7 @@ const getPassLabel=(pk)=>{if(!pk)return"–";if(pk.typ==="INDIVIDUELL"||!PASS_TY
 const LOGIN_PASS=import.meta.env.VITE_LOGIN_PASS; // DEPRECATED – fallback only
 const LOGIN_EMAIL=import.meta.env.VITE_LOGIN_EMAIL; // DEPRECATED – fallback only
 const genId=()=>Math.random().toString(36).substr(2,9);
+const genSecureToken=()=>{const a="ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%&*-_";let t="";for(let i=0;i<16;i++)t+=a[Math.floor(Math.random()*a.length)];return t;};
 const genRechnung=(n)=>`KU-2026-${String(n).padStart(4,"0")}`;
 const fmtDate=(d)=>{try{return new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});}catch{return"–";}};
 const fmtDateTime=(d)=>{try{return new Date(d).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});}catch{return"–";}};
@@ -279,8 +280,6 @@ Wenn ein Foto einer Liste/Tabelle vorliegt, lies ALLE Zeilen sorgfältig ab. Imm
   return(<Modal onClose={onClose}><div className="modal-box" style={{background:T.cardSolid,borderRadius:24,padding:28,width:600,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.15)",border:`1px solid ${T.cardBorder}`}}>
     <Heading style={{fontSize:22,marginBottom:6}}>🐧 Pingu hilft</Heading>
     <p style={{color:T.textMid,fontSize:15,marginBottom:22,lineHeight:1.7}}>Sprich, tippe oder <strong style={{color:T.text}}>fotografiere</strong> deine alten Flossenpässe.<br/><span style={{fontSize:13,color:T.textLight}}>Sage ob ein Pass <strong>alt</strong> oder <strong>aktuell</strong> ist, und ob er <strong>bezahlt</strong> wurde.</span></p>
-
-    {/* Foto Upload */}
     <div style={{marginBottom:18}}>
       <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10,fontFamily:"Georgia,serif"}}>Foto hochladen</div>
       <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}} capture="environment"/>
@@ -293,10 +292,7 @@ Wenn ein Foto einer Liste/Tabelle vorliegt, lies ALLE Zeilen sorgfältig ab. Imm
         <button onClick={()=>removeFoto(i)} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>✕</button>
       </div>))}</div>}
     </div>
-
     <div style={{height:1,background:T.cardBorder,margin:"0 0 18px"}}/>
-
-    {/* Sprache */}
     <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10,fontFamily:"Georgia,serif"}}>Oder per Sprache / Text</div>
     <div style={{display:"flex",gap:10,marginBottom:18,alignItems:"center",flexWrap:"wrap"}}>
       {!recording?<button onClick={startRec} style={{padding:"14px 24px",borderRadius:16,background:T.red,color:"#fff",border:"none",fontWeight:700,fontSize:16,cursor:"pointer",boxShadow:`0 4px 16px ${T.red}40`}}>🎤 Aufnahme starten</button>:<button onClick={stopRec} style={{padding:"14px 24px",borderRadius:16,background:T.olive,color:"#fff",border:"none",fontWeight:700,fontSize:16,cursor:"pointer"}}>⏹ Aufnahme stoppen</button>}
@@ -555,7 +551,6 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
   const bsL=ap?(ap.bs_total||0)-(ap.bs_genutzt||0):0;
   const hePct=ap&&ap.he_total>0?((ap.he_genutzt||0)/ap.he_total)*100:0;
   const bsPct=ap&&ap.bs_total>0?((ap.bs_genutzt||0)/ap.bs_total)*100:0;
-  const appBg=`linear-gradient(180deg,${T.bg} 0%,${T.bgLight} 50%,${T.bgLighter} 100%)`;
 
   return(<div className="content-in" style={{minHeight:"100vh",background:"#2A3222"}}>
     {/* Sticky Nav */}
@@ -571,17 +566,14 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
 
       {/* Hero Greeting */}
       <div className="kunde-hero" style={{textAlign:"center",padding:"36px 0 28px"}}>
-        <div style={{fontSize:11,color:"#D4C4A0",textTransform:"uppercase",letterSpacing:3,fontWeight:600,marginBottom:8}}>Willkommen zurück</div>
-        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(26px,6vw,34px)",color:"#E8E0D0",margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
+        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(26px,6vw,34px)",color:"#E8E0D0",margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Willkommen {kunde.vorname}</h1>
         <div style={{width:40,height:2,background:`linear-gradient(90deg,transparent,#D4C4A0,transparent)`,margin:"12px auto 0",borderRadius:2}}/>
         {kunde.stammkunde&&<div style={{marginTop:16,fontSize:13,color:"#D4C4A0",fontWeight:600,letterSpacing:0.5,fontFamily:"Georgia,serif"}}>VIP-Mitglied · Ihr exklusiver Vorteilstarif ist hinterlegt</div>}
       </div>
 
       {/* Aktiver Flossenpass */}
       {ap&&(<div className="kunde-card kunde-card-1" style={{marginBottom:24}}>
-        {/* Gold accent line */}
         <div style={{height:2,background:`linear-gradient(90deg,transparent,${T.gold},transparent)`,marginBottom:24,borderRadius:2}}/>
-
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:8,padding:"0 4px"}}>
           <div>
             <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:2.5,marginBottom:4,fontWeight:700,fontFamily:"Georgia,serif"}}>Dein Flossenpass</div>
@@ -590,7 +582,6 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
           <span style={{fontSize:12,color:T.goldDim,fontWeight:500,marginTop:4}}>seit {fmtDate(ap.datum)}</span>
         </div>
 
-        {/* Einheiten */}
         <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
           {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct}].map((u,ui)=>(
             <div key={ui} style={{textAlign:"center",padding:"22px 12px 18px",borderRadius:16,border:`1.5px solid ${T.gold}50`,background:`${T.gold}15`}}>
@@ -602,7 +593,6 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
           ))}
         </div>
 
-        {/* Booking Buttons */}
         <div style={{display:"flex",gap:10,justifyContent:"center"}}>
           <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" className="btn-a" style={{padding:"10px 22px",borderRadius:12,background:T.goldDim+"30",color:heL===0?T.goldDim:"#F0EDE0",fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1,letterSpacing:0.3,border:`1px solid ${T.gold}30`}}>Therapie buchen</a>
           <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" className="btn-a" style={{padding:"10px 22px",borderRadius:12,background:T.goldDim+"30",color:bsL===0?T.goldDim:"#F0EDE0",fontWeight:600,fontSize:13,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1,letterSpacing:0.3,border:`1px solid ${T.gold}30`}}>Kurs buchen</a>
@@ -611,13 +601,11 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
         {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:16,fontSize:14,color:T.goldLight,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
       </div>)}
 
-      {/* Kein Pass */}
       {mp.length===0&&me.length===0&&(<Card className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"48px 28px",marginBottom:16}}>
         <div style={{fontSize:36,marginBottom:16,opacity:0.4}}>🐟</div>
         <p style={{color:T.textMid,lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:T.textLight}}>Sprich uns gerne an!</span></p>
       </Card>)}
 
-      {/* Alte Pässe */}
       {altePaesse.length>0&&(<Card className="kunde-card kunde-card-2" style={{marginBottom:16,padding:20}}>
         <div style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Abgeschlossene Pässe</div>
         {altePaesse.map(pk=>(<div key={pk.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.cardBorder}`,flexWrap:"wrap",gap:6}}>
@@ -629,8 +617,8 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
         </div>))}
       </Card>)}
 
-      {/* Verlauf */}
-      {ml.length>0&&(<Card className="kunde-card kunde-card-3" style={{marginBottom:16,padding:20}}>
+      {/* Verlauf – UPDATED background */}
+      {ml.length>0&&(<Card className="kunde-card kunde-card-3" style={{marginBottom:16,padding:20,background:"#c7d1ac"}}>
         <SectionLabel>Mein Verlauf</SectionLabel>
         {ml.map((l,i)=>{const b=kundenLogBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<ml.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15,animationDelay:`${i*0.04}s`}}>
           <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -641,8 +629,8 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
         </div>);})}
       </Card>)}
 
-      {/* Rechnungen */}
-      {(mp.length>0||me.length>0)&&(<Card className="kunde-card kunde-card-4" style={{marginBottom:16,padding:20}}>
+      {/* Rechnungen – UPDATED background */}
+      {(mp.length>0||me.length>0)&&(<Card className="kunde-card kunde-card-4" style={{marginBottom:16,padding:20,background:"#c7d1ac"}}>
         <SectionLabel>Meine Rechnungen</SectionLabel>
         {mp.map((pk,i)=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<mp.length+me.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15}}>
           <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -666,7 +654,6 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
         </div>))}
       </Card>)}
 
-      {/* Footer */}
       <div style={{textAlign:"center",padding:"40px 0 12px"}}>
         <div style={{width:48,height:1,background:`linear-gradient(90deg,transparent,${T.gold}60,transparent)`,margin:"0 auto 18px"}}/>
         <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.oliveDark,textDecoration:"none",letterSpacing:2.5,textTransform:"uppercase",fontWeight:600,fontFamily:"Georgia,serif"}}>kaiserufer.com ↗</a>
