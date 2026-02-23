@@ -296,7 +296,7 @@ const KIEingabeModal=({patienten,onKauf,onClose})=>{
   const [recording,setRecording]=useState(false);const [transcript,setTranscript]=useState("");
   const [loading,setLoading]=useState(false);const [eintraege,setEintraege]=useState([]);
   const [savingIdx,setSavingIdx]=useState(-1);const [error,setError]=useState("");
-  const mediaRef=useRef(null);const chunksRef=useRef([]);
+  const recognitionRef=useRef(null);
 
   const matchPat=(name)=>{if(!name)return null;return patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();const parts=name.toLowerCase().split(" ");return parts.some(part=>part.length>2&&full.includes(part));})||null;};
 
@@ -312,13 +312,12 @@ WICHTIG: "alt/aufgebraucht/abgelaufen" → ist_alt:true. "bezahlt/beglichen" →
 
   const parseResult=(raw)=>{const c=raw.replace(/```json|```/g,"").trim();const arr=JSON.parse(c);return(Array.isArray(arr)?arr:[arr]).map((item,i)=>({...item,_id:i,_skip:false,matched_pat:matchPat(item.kundenname)}));};
 
-  const analyzeText=async(textOrBlob,isAudio)=>{
+  const analyzeText=async(text)=>{
+    if(!text.trim())return;
     setLoading(true);setError("");setEintraege([]);
     try{
       const patNames=patienten.map(p=>`${p.vorname} ${p.nachname}`).join(", ");
-      let content;
-      if(isAudio){const base64=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.readAsDataURL(textOrBlob);});content=[{type:"text",text:buildPrompt(patNames)},{type:"document",source:{type:"base64",media_type:"audio/webm",data:base64}}];}
-      else{content=`${buildPrompt(patNames)}\n\nText: "${textOrBlob}"`;}
+      const content=`${buildPrompt(patNames)}\n\nText: "${text}"`;
       const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content}]})});
       const data=await resp.json();const txt=data.content?.map(c=>c.text||"").join("")||"";
       setEintraege(parseResult(txt));
@@ -326,8 +325,46 @@ WICHTIG: "alt/aufgebraucht/abgelaufen" → ist_alt:true. "bezahlt/beglichen" →
     setLoading(false);
   };
 
-  const startRec=async()=>{try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(stream);chunksRef.current=[];mr.ondataavailable=e=>chunksRef.current.push(e.data);mr.onstop=()=>{stream.getTracks().forEach(t=>t.stop());analyzeText(new Blob(chunksRef.current,{type:"audio/webm"}),true);};mr.start();mediaRef.current=mr;setRecording(true);setError("");setEintraege([]);}catch(e){setError("Mikrofon konnte nicht gestartet werden.");}};
-  const stopRec=()=>{if(mediaRef.current&&mediaRef.current.state!=="inactive"){mediaRef.current.stop();setRecording(false);}};
+  const startRec=()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){setError("Spracherkennung wird in diesem Browser nicht unterstützt. Bitte Chrome oder Edge verwenden.");return;}
+    try{
+      const recognition=new SR();
+      recognition.lang="de-DE";recognition.continuous=true;recognition.interimResults=true;
+      let finalText="";
+      recognition.onresult=(e)=>{
+        let interim="";finalText="";
+        for(let i=0;i<e.results.length;i++){
+          if(e.results[i].isFinal)finalText+=e.results[i][0].transcript+" ";
+          else interim+=e.results[i][0].transcript;
+        }
+        setTranscript((finalText+interim).trim());
+      };
+      recognition.onerror=(e)=>{
+        if(e.error==="no-speech")return;
+        setError("Sprachfehler: "+e.error);setRecording(false);
+      };
+      recognition.onend=()=>{
+        if(recognitionRef.current){
+          setRecording(false);
+          if(finalText.trim())analyzeText(finalText.trim());
+        }
+      };
+      recognition.start();
+      recognitionRef.current=recognition;
+      setRecording(true);setError("");setEintraege([]);
+    }catch(e){setError("Mikrofon konnte nicht gestartet werden.");}
+  };
+
+  const stopRec=()=>{
+    if(recognitionRef.current){
+      const ref=recognitionRef.current;
+      recognitionRef.current=null;
+      ref.stop();
+      setRecording(false);
+      if(transcript.trim())analyzeText(transcript.trim());
+    }
+  };
 
   const alleBestaetigen=async()=>{
     const aktive=eintraege.filter(e=>!e._skip&&e.matched_pat);
@@ -365,7 +402,7 @@ WICHTIG: "alt/aufgebraucht/abgelaufen" → ist_alt:true. "bezahlt/beglichen" →
           <div style={{fontSize:12,fontWeight:700,color:T.goldDim,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6}}>Oder eintippen</div>
           <div style={{display:"flex",gap:8}}>
             <textarea value={transcript} onChange={e=>setTranscript(e.target.value)} rows={3} placeholder="z.B. Anna Müller alter Plus Pass bezahlt 499€..." style={{...inp2,flex:1,resize:"vertical"}}/>
-            <Btn gold small onClick={()=>analyzeText(transcript,false)} disabled={!transcript.trim()||loading}>KI →</Btn>
+            <Btn gold small onClick={()=>analyzeText(transcript)} disabled={!transcript.trim()||loading}>KI →</Btn>
           </div>
         </div>
 
@@ -572,18 +609,18 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
             {filtered.map((p,i)=>{
               const u=getUnits(p.id);const ub=paesse.filter(pk=>pk.pat_id===p.id).some(pk=>!pk.bezahlt)||einzel.filter(e=>e.pat_id===p.id).some(e=>!e.bezahlt);
               return(
-                <div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-h slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"16px 24px",background:T.card,borderRadius:20,border:`1px solid ${T.cardBorder}`,cursor:"pointer",backdropFilter:"blur(12px)"}}>
+                <div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-h slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"16px 24px",background:"linear-gradient(135deg,rgba(240,237,224,0.92),rgba(226,227,200,0.88))",borderRadius:20,border:`1px solid ${T.goldFaint}`,cursor:"pointer",boxShadow:"0 2px 12px rgba(0,0,0,0.15)"}}>
                   <div className="liste-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <div><div style={{fontWeight:600,color:T.cream,fontSize:17,lineHeight:1.4}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:14,color:T.creamFaint}}>{p.email}</span>{p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}</div></div>
+                    <div><div style={{fontWeight:600,color:"#3D4435",fontSize:17,lineHeight:1.4}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:14,color:"#6B7055"}}>{p.email}</span>{p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}</div></div>
                     <div className="liste-right" style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-                      <div style={{display:"flex",border:`1px solid ${T.cardBorder}`,borderRadius:10,overflow:"hidden"}}>
+                      <div style={{display:"flex",border:"1px solid rgba(184,168,138,0.25)",borderRadius:10,overflow:"hidden"}}>
                         {[{label:"HE",val:u?u.he:null},{label:"GA",val:u?u.bs:null}].map((col,ci)=>(
-                          <div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.cardBorder}`:"none",background:T.bg3+"60"}}><div style={{fontSize:10,color:T.creamFaint,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div><div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.val===null?T.creamFaint+"40":T.gold,lineHeight:1}}>{col.val!==null?col.val:"–"}</div></div>
+                          <div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?"1px solid rgba(184,168,138,0.25)":"none",background:"rgba(255,255,255,0.5)"}}><div style={{fontSize:10,color:"#6B7055",textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div><div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.val===null?"#6B705540":"#4A5240",lineHeight:1}}>{col.val!==null?col.val:"–"}</div></div>
                         ))}
                       </div>
-                      <div className="badge-w" style={{width:68,textAlign:"center"}}>{u?<Badge variant="gold">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:T.creamFaint+"40"}}>–</span>}</div>
+                      <div className="badge-w" style={{width:68,textAlign:"center"}}>{u?<Badge variant="gold">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:"#6B705540"}}>–</span>}</div>
                       <div className="badge-w" style={{width:48,textAlign:"center"}}>{ub?<Badge variant="red">Offen</Badge>:null}</div>
-                      <span className="chevron" style={{color:T.goldDim,fontSize:20,fontWeight:300}}>›</span>
+                      <span className="chevron" style={{color:T.gold,fontSize:20,fontWeight:300}}>›</span>
                     </div>
                   </div>
                 </div>
@@ -770,24 +807,21 @@ export default function App(){
     <div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:appBg,color:T.cream}}>
       <style>{css}</style>
       {showLogin&&<LoginModal onLogin={()=>{setShowLogin(false);setMode("staff");}} onClose={()=>setShowLogin(false)}/>}
-      <div style={{background:"rgba(10,14,6,0.85)",backdropFilter:"blur(12px)",color:T.cream,padding:"0 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${T.cardBorder}`,position:"sticky",top:0,zIndex:100,height:58}} className="nav-bar">
+      {(mode==="staff"||loginPat)&&<div style={{background:"rgba(10,14,6,0.85)",backdropFilter:"blur(12px)",color:T.cream,padding:"0 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${T.cardBorder}`,position:"sticky",top:0,zIndex:100,height:58}} className="nav-bar">
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <span style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:17,letterSpacing:2.5,textTransform:"uppercase",color:T.gold}}>Kaiserufer</span>
           <div style={{width:1,height:22,background:T.goldFaint,borderRadius:1}}/>
           <span style={{fontSize:13,color:T.goldDim,fontWeight:500,letterSpacing:1.5,textTransform:"uppercase"}}>Home</span>
         </div>
         <div>
-          {mode==="staff"
-            ?<button onClick={()=>setMode("kunde")} style={{padding:"7px 18px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.goldDim,fontWeight:600,fontSize:12,cursor:"pointer",textTransform:"uppercase",letterSpacing:0.8,fontFamily:"inherit"}}>Abmelden</button>
-            :!loginPat&&<button onClick={()=>setShowLogin(true)} style={{padding:"6px 14px",borderRadius:10,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.goldDim+"80",fontWeight:500,fontSize:12,cursor:"pointer",letterSpacing:0.5,fontFamily:"inherit"}}>Log in</button>
-          }
+          {mode==="staff"&&<button onClick={()=>setMode("kunde")} style={{padding:"7px 18px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.goldDim,fontWeight:600,fontSize:12,cursor:"pointer",textTransform:"uppercase",letterSpacing:0.8,fontFamily:"inherit"}}>Abmelden</button>}
         </div>
-      </div>
+      </div>}
       {mode==="staff"
         ?<MitarbeiterApp patienten={patienten} setPatienten={setPatienten} paesse={paesse} setPaesse={setPaesse} log={log} setLog={setLog} rechnungsNr={rechnungsNr} setRechnungsNr={setRechnungsNr} einzel={einzel} setEinzel={setEinzel}/>
         :loginPat
           ?<KundenApp kunde={loginPat} paesse={paesse} log={log} einzel={einzel}/>
-          :<div style={{minHeight:"calc(100vh - 58px)",background:`linear-gradient(180deg,${T.bg0} 0%,${T.bg1} 40%,${T.bg2} 70%,${T.bg3} 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"28px 20px",position:"relative",overflow:"hidden"}}>
+          :<div style={{minHeight:"100vh",background:`linear-gradient(180deg,${T.bg0} 0%,${T.bg1} 40%,${T.bg2} 70%,${T.bg3} 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"28px 20px",position:"relative",overflow:"hidden"}}>
             <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 30%,rgba(184,168,138,0.06) 0%,transparent 70%)",pointerEvents:"none"}}/>
             <div style={{position:"absolute",top:"15%",left:"50%",transform:"translateX(-50%)",width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,rgba(184,168,138,0.04) 0%,transparent 70%)",filter:"blur(60px)",pointerEvents:"none"}}/>
             <div style={{position:"relative",zIndex:1,textAlign:"center",maxWidth:480}}>
