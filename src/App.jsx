@@ -264,9 +264,11 @@ TRENNE diese Teile sauber! Die Rechnungsnummer ist IMMER nur "RN" + Zahl (z.B. R
 
 KUNDENNAME: Lies den Namen IMMER aus der Spalte "Kunde", NIEMALS aus der Codes-Spalte. Der Name in der Codes-Spalte nach dem Datum ist nur eine Kopie und kann abgeschnitten oder über zwei Zeilen gehen – ignoriere ihn komplett.
 
-Spalte "Haupteinheit" = he_genutzt (bereits genutzte HE). Spalte "Zusatzangebot" = bs_genutzt (bereits genutzte GA/BS).
-Wenn Haupteinheit=0 und Zusatzangebot=0 → der Pass ist alt/aufgebraucht → ist_alt:true.
-Wenn Haupteinheit>0 oder Zusatzangebot>0 → der Pass ist aktiv → ist_alt:false. Setze he_genutzt und bs_genutzt auf die Werte aus der Tabelle.
+Spalte "Haupteinheit" = ÜBRIGE/VERBLEIBENDE HE (NICHT genutzte!). Spalte "Zusatzangebot" = ÜBRIGE/VERBLEIBENDE GA (NICHT genutzte!).
+Berechnung: he_genutzt = he_total MINUS Wert aus Spalte "Haupteinheit". bs_genutzt = bs_total MINUS Wert aus Spalte "Zusatzangebot".
+Beispiel: Plus-Pass (5 HE, 3 GA), Haupteinheit=2, Zusatzangebot=4 → he_genutzt=5-2=3, bs_genutzt=3-4=0 (min 0).
+Wenn Haupteinheit=0 und Zusatzangebot=0 → alles aufgebraucht → ist_alt:true.
+Wenn Haupteinheit>0 oder Zusatzangebot>0 → der Pass ist aktiv → ist_alt:false.
 
 Alte Flossenpässe (ist_alt:true) IMMER als typ:"pass", pass_typ:"INDIVIDUELL" mit custom_name:"Individuell" anlegen.
 Bezahlt-Checkbox angehakt → bezahlt:true. Nicht angehakt → bezahlt:false.
@@ -617,17 +619,6 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
       {mp.length===0&&me.length===0&&(<Card className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"48px 28px",marginBottom:16}}>
         <div style={{fontSize:36,marginBottom:16,opacity:0.4}}>🐟</div>
         <p style={{color:T.textMid,lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:T.textLight}}>Sprich uns gerne an!</span></p>
-      </Card>)}
-
-      {altePaesse.length>0&&(<Card className="kunde-card kunde-card-2" style={{marginBottom:16,padding:20}}>
-        <div style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Abgeschlossene Pässe</div>
-        {altePaesse.map(pk=>(<div key={pk.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${T.cardBorder}`,flexWrap:"wrap",gap:6}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:600,color:T.textMid}}>Flossenpass {getPassLabel(pk)}</span>
-            <Badge variant="cream" small>Aufgebraucht</Badge>
-          </div>
-          <span style={{fontSize:13,color:T.textLight}}>{fmtDate(pk.datum)}</span>
-        </div>))}
       </Card>)}
 
       {/* Verlauf – UPDATED background */}
