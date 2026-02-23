@@ -542,10 +542,10 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
   useEffect(()=>{const t1=setTimeout(()=>setSplashAnim(true),1800);const t2=setTimeout(()=>setSplash(false),2600);return()=>{clearTimeout(t1);clearTimeout(t2);};},[]);
 
   if(splash)return(
-    <div className={splashAnim?"splash-out":""} style={{minHeight:"100vh",background:T.oliveDark,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",position:"fixed",inset:0,zIndex:200}}>
-      <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 40%,rgba(184,168,138,0.06) 0%,transparent 70%)",pointerEvents:"none"}}/>
-      <div className="landing-title" style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(32px,8vw,48px)",letterSpacing:4,textTransform:"uppercase",color:T.gold,lineHeight:1.1,position:"relative",zIndex:1}}>Kaiserufer</div>
-      <div className="landing-sub" style={{fontSize:"clamp(13px,3vw,16px)",color:"rgba(184,168,138,0.35)",letterSpacing:6,textTransform:"uppercase",fontWeight:300,marginTop:8,position:"relative",zIndex:1}}>Home</div>
+    <div className={splashAnim?"splash-out":""} style={{minHeight:"100vh",background:"#2A3222",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",position:"fixed",inset:0,zIndex:200}}>
+      <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 40%,rgba(212,196,160,0.06) 0%,transparent 70%)",pointerEvents:"none"}}/>
+      <div className="landing-title" style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(32px,8vw,48px)",letterSpacing:4,textTransform:"uppercase",color:"#D4C4A0",lineHeight:1.1,position:"relative",zIndex:1}}>Kaiserufer</div>
+      <div className="landing-sub" style={{fontSize:"clamp(13px,3vw,16px)",color:"#D4C4A040",letterSpacing:6,textTransform:"uppercase",fontWeight:300,marginTop:8,position:"relative",zIndex:1}}>Home</div>
     </div>
   );
 
@@ -555,13 +555,13 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
   const bsPct=ap&&ap.bs_total>0?((ap.bs_genutzt||0)/ap.bs_total)*100:0;
   const appBg=`linear-gradient(180deg,${T.bg} 0%,${T.bgLight} 50%,${T.bgLighter} 100%)`;
 
-  return(<div className="content-in" style={{minHeight:"100vh",background:T.olive}}>
+  return(<div className="content-in" style={{minHeight:"100vh",background:"#2A3222"}}>
     {/* Sticky Nav */}
-    <div style={{background:T.olive+"F0",backdropFilter:"blur(12px)",padding:"0 24px",display:"flex",justifyContent:"center",alignItems:"center",position:"sticky",top:0,zIndex:100,height:52}} className="nav-bar">
+    <div style={{background:"#2A3222F0",backdropFilter:"blur(12px)",padding:"0 24px",display:"flex",justifyContent:"center",alignItems:"center",position:"sticky",top:0,zIndex:100,height:52}} className="nav-bar">
       <div style={{display:"flex",alignItems:"center",gap:8}}>
-        <span style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:15,letterSpacing:2.5,textTransform:"uppercase",color:T.goldLight}}>Kaiserufer</span>
-        <div style={{width:1,height:18,background:T.goldLight+"40",borderRadius:1}}/>
-        <span style={{fontSize:12,color:T.goldLight+"80",fontWeight:500,letterSpacing:1.5,textTransform:"uppercase"}}>Home</span>
+        <span style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:15,letterSpacing:2.5,textTransform:"uppercase",color:"#D4C4A0"}}>Kaiserufer</span>
+        <div style={{width:1,height:18,background:"#D4C4A040",borderRadius:1}}/>
+        <span style={{fontSize:12,color:"#D4C4A060",fontWeight:500,letterSpacing:1.5,textTransform:"uppercase"}}>Home</span>
       </div>
     </div>
 
@@ -569,10 +569,10 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
 
       {/* Hero Greeting */}
       <div className="kunde-hero" style={{textAlign:"center",padding:"36px 0 28px"}}>
-        <div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:3,fontWeight:600,marginBottom:8}}>Willkommen zurück</div>
-        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(26px,6vw,34px)",color:"#F0EDE0",margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
-        <div style={{width:40,height:2,background:`linear-gradient(90deg,transparent,${T.gold},transparent)`,margin:"12px auto 0",borderRadius:2}}/>
-        {kunde.stammkunde&&<div style={{marginTop:16,fontSize:13,color:T.gold,fontWeight:600,letterSpacing:0.5,fontFamily:"Georgia,serif"}}>VIP-Mitglied · Ihr exklusiver Vorteilstarif ist hinterlegt</div>}
+        <div style={{fontSize:11,color:"#D4C4A0",textTransform:"uppercase",letterSpacing:3,fontWeight:600,marginBottom:8}}>Willkommen zurück</div>
+        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(26px,6vw,34px)",color:"#E8E0D0",margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
+        <div style={{width:40,height:2,background:`linear-gradient(90deg,transparent,#D4C4A0,transparent)`,margin:"12px auto 0",borderRadius:2}}/>
+        {kunde.stammkunde&&<div style={{marginTop:16,fontSize:13,color:"#D4C4A0",fontWeight:600,letterSpacing:0.5,fontFamily:"Georgia,serif"}}>VIP-Mitglied · Ihr exklusiver Vorteilstarif ist hinterlegt</div>}
       </div>
 
       {/* Aktiver Flossenpass */}
