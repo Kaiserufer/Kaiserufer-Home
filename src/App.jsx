@@ -26,6 +26,7 @@ const getPassLabel=(pk)=>{if(!pk)return"–";if(pk.typ==="INDIVIDUELL"||!PASS_TY
 
 const LOGIN_PASS=import.meta.env.VITE_LOGIN_PASS;
 const LOGIN_EMAIL=import.meta.env.VITE_LOGIN_EMAIL;
+const ANTHROPIC_KEY=import.meta.env.VITE_ANTHROPIC_KEY;
 const genId=()=>Math.random().toString(36).substr(2,9);
 const genRechnung=(n)=>`KU-2026-${String(n).padStart(4,"0")}`;
 const fmtDate=(d)=>{try{return new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});}catch{return"–";}};
@@ -241,7 +242,7 @@ Jedes Element: {"kundenname":"string","typ":"pass/einzel","pass_typ":"BASIS/PLUS
 Kunden: ${patNames} | BASIS=3HE 1GA 299€, PLUS=5HE 3GA 499€, DELUXE=10HE 5GA 899€ | Quickie 70€, tDCS 55€, Neurofeedback 350€ | Heute: ${todayISO()}
 alt/aufgebraucht→ist_alt:true. bezahlt→bezahlt:true. offen→bezahlt:false. Immer Array.`;
   const parseResult=(raw)=>{const c=raw.replace(/```json|```/g,"").trim();const arr=JSON.parse(c);return(Array.isArray(arr)?arr:[arr]).map((item,i)=>({...item,_id:i,_skip:false,matched_pat:matchPat(item.kundenname)}));};
-  const analyzeText=async(text)=>{if(!text.trim())return;setLoading(true);setError("");setEintraege([]);try{const pn=patienten.map(p=>`${p.vorname} ${p.nachname}`).join(", ");const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:`${buildPrompt(pn)}\n\nText: "${text}"`}]})});const data=await resp.json();const txt=data.content?.map(c=>c.text||"").join("")||"";setEintraege(parseResult(txt));}catch(e){setError("Fehler beim Verarbeiten.");console.error(e);}setLoading(false);};
+  const analyzeText=async(text)=>{if(!text.trim())return;setLoading(true);setError("");setEintraege([]);try{const pn=patienten.map(p=>`${p.vorname} ${p.nachname}`).join(", ");const resp=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:2000,messages:[{role:"user",content:`${buildPrompt(pn)}\n\nText: "${text}"`}]})});const data=await resp.json();const txt=data.content?.map(c=>c.text||"").join("")||"";setEintraege(parseResult(txt));}catch(e){setError("Fehler beim Verarbeiten.");console.error(e);}setLoading(false);};
   const startRec=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setError("Spracherkennung nicht unterstützt. Bitte Chrome/Edge.");return;}try{const r=new SR();r.lang="de-DE";r.continuous=true;r.interimResults=true;let ft="";r.onresult=(e)=>{let im="";ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript+" ";else im+=e.results[i][0].transcript;}setTranscript((ft+im).trim());};r.onerror=(e)=>{if(e.error==="no-speech")return;setError("Fehler: "+e.error);setRecording(false);};r.onend=()=>{if(recognitionRef.current){setRecording(false);if(ft.trim())analyzeText(ft.trim());}};r.start();recognitionRef.current=r;setRecording(true);setError("");setEintraege([]);}catch(e){setError("Mikrofon konnte nicht gestartet werden.");}};
   const stopRec=()=>{if(recognitionRef.current){const ref=recognitionRef.current;recognitionRef.current=null;ref.stop();setRecording(false);if(transcript.trim())analyzeText(transcript.trim());}};
   const alleBestaetigen=async()=>{const aktive=eintraege.filter(e=>!e._skip&&e.matched_pat);for(let i=0;i<aktive.length;i++){setSavingIdx(i);const v=aktive[i],pat=v.matched_pat,datum=v.datum||todayISO(),rechnung=v.rechnung||"",istAlt=!!v.ist_alt,bez=v.bezahlt===true||v.bezahlt===false?v.bezahlt:null;if(v.typ==="pass"){const typ=v.pass_typ||"INDIVIDUELL";if(typ==="INDIVIDUELL")await onKauf(pat,"individuell",{name:v.custom_name||"Individuell",he:v.he_total||0,bs:v.bs_total||0,datum,rechnung,ist_alt:istAlt,bezahlt:bez},v.preis||0,"");else await onKauf(pat,"pass",typ,v.preis||PASS_TYPES[typ]?.preis||0,rechnung,datum,istAlt,bez);}else{const name=v.einzel_name||"Einzelangebot";const f=EINZELANGEBOTE.find(ea=>ea.name.toLowerCase().includes(name.toLowerCase()));await onKauf(pat,"einzel",{key:f?.key||"CUSTOM",name},v.preis||f?.preis||0,rechnung,datum,false,bez);}}setSavingIdx(-1);onClose();};
@@ -505,12 +506,12 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
         {/* Einheiten */}
         <div style={{background:T.cream,borderLeft:`1px solid ${T.cardBorder}`,borderRight:`1px solid ${T.cardBorder}`}}>
           <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr"}}>
-            {[{label:"Haupteinheiten",short:"HE",left:heL,total:ap.he_total||0,pct:hePct,color:T.olive,grad:`linear-gradient(145deg,${T.oliveDark},${T.olive})`},{label:"Gruppenangebote",short:"GA",left:bsL,total:ap.bs_total||0,pct:bsPct,color:T.gold,grad:`linear-gradient(145deg,#9A8A6A,${T.gold})`}].map((u,ui)=>(
-              <div key={u.short} className="kunde-unit-box" style={{textAlign:"center",padding:"28px 16px 24px",borderRight:ui===0?`1px solid ${T.cardBorder}`:"none"}}>
-                <div style={{fontSize:52,fontWeight:700,fontFamily:"Georgia,serif",color:u.left>0?T.oliveDark:T.textLight+"60",lineHeight:1,marginBottom:4}}>{u.left}</div>
-                <div style={{fontSize:12,color:T.textLight,textTransform:"uppercase",letterSpacing:2,marginBottom:14}}>von {u.total} {u.short}</div>
+            {[{label:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct,color:T.olive,grad:`linear-gradient(145deg,${T.oliveDark},${T.olive})`},{label:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct,color:T.gold,grad:`linear-gradient(145deg,#9A8A6A,${T.gold})`}].map((u,ui)=>(
+              <div key={u.label} className="kunde-unit-box" style={{textAlign:"center",padding:"28px 16px 24px",borderRight:ui===0?`1px solid ${T.cardBorder}`:"none"}}>
+                <div style={{fontSize:48,fontWeight:700,fontFamily:"Georgia,serif",color:u.left>0?T.oliveDark:T.textLight+"60",lineHeight:1,marginBottom:6}}>{u.left}</div>
+                <div style={{fontSize:13,color:T.textMid,marginBottom:4}}>von <strong style={{color:T.text}}>{u.total}</strong> {u.label}</div>
+                <div style={{fontSize:12,color:u.left>0?T.olive:T.textLight,fontWeight:600,marginBottom:14}}>{u.left>0?"offen":"aufgebraucht"}</div>
                 <div style={{height:5,borderRadius:10,background:T.olive+"15",overflow:"hidden",margin:"0 8px"}}><div style={{height:"100%",borderRadius:10,background:u.grad,width:`${u.pct}%`,transition:"width 0.8s ease"}}/></div>
-                <div style={{fontSize:11,color:T.textLight,marginTop:8,fontWeight:600}}>{u.label}</div>
               </div>
             ))}
           </div>
