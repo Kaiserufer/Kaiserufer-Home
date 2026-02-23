@@ -40,6 +40,8 @@ const css=`
   @keyframes goldGlow{0%,100%{text-shadow:0 0 20px rgba(184,168,138,0.3),0 0 60px rgba(184,168,138,0.1)}50%{text-shadow:0 0 30px rgba(184,168,138,0.5),0 0 80px rgba(184,168,138,0.2)}}
   @keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
   @keyframes fadeUp2{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+  @keyframes pulseGlow{0%,100%{box-shadow:0 4px 24px rgba(184,168,138,0.15)}50%{box-shadow:0 4px 32px rgba(184,168,138,0.3)}}
   .landing-title{animation:fadeUp 1s ease-out,goldGlow 4s ease-in-out infinite}
   .landing-sub{animation:fadeUp2 1s ease-out 0.3s both}
   .landing-btn{animation:fadeUp2 1s ease-out 0.6s both}
@@ -50,6 +52,16 @@ const css=`
   .btn-a:hover:not(:disabled){transform:translateY(-1px)}
   .fade-in{animation:fadeIn 0.35s ease-out}
   .slide-in{animation:slideIn 0.3s ease-out both}
+  .kunde-hero{animation:fadeUp 0.8s ease-out}
+  .kunde-card{animation:fadeUp2 0.6s ease-out both}
+  .kunde-card-1{animation-delay:0.1s}
+  .kunde-card-2{animation-delay:0.2s}
+  .kunde-card-3{animation-delay:0.3s}
+  .kunde-card-4{animation-delay:0.4s}
+  .kunde-unit-box{transition:all 0.3s ease;position:relative;overflow:hidden}
+  .kunde-unit-box::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.08) 50%,transparent 70%);background-size:200% 100%;animation:shimmer 3s ease-in-out infinite;pointer-events:none}
+  .kunde-book-btn{transition:all 0.3s cubic-bezier(0.4,0,0.2,1)}
+  .kunde-book-btn:hover:not([data-disabled="true"]){transform:translateY(-2px);box-shadow:0 8px 28px rgba(184,168,138,0.3)!important}
   *{box-sizing:border-box}
   input,textarea,select,button{font-family:inherit}
   ::selection{background:rgba(184,168,138,0.3)}
@@ -454,28 +466,106 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   </div>);
 };
 
+/* ═══════════════════════════════════════════════════════════════
+   KUNDEN-APP – Premium Redesign
+   ═══════════════════════════════════════════════════════════════ */
 const KundenApp=({kunde,paesse,log,einzel})=>{
   const mp=paesse.filter(p=>p.pat_id===kunde.id),ml=log.filter(l=>l.pat_id===kunde.id&&l.typ!=="NOTIZ"&&l.typ!=="KORREKTUR").sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));
   const me=einzel.filter(e=>e.pat_id===kunde.id),ap=mp.find(p=>!isPassAlt(p));
-  return(<div className="fade-in resp-pad" style={{padding:28,maxWidth:580,margin:"0 auto"}}>
-    <div style={{textAlign:"center",marginBottom:32}}><Heading style={{marginTop:12,fontSize:24}}>Hallo {kunde.vorname}!</Heading><p style={{color:T.textLight,margin:"8px 0 0",fontSize:16}}>Willkommen bei Kaiserufer Home</p><a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{display:"inline-block",marginTop:10,fontSize:12,color:T.gold,textDecoration:"none",letterSpacing:1,textTransform:"uppercase",borderBottom:`1px solid ${T.gold}40`,paddingBottom:1}}>kaiserufer.com ↗</a></div>
-    {ap&&(()=>{const heL=(ap.he_total||0)-(ap.he_genutzt||0),bsL=(ap.bs_total||0)-(ap.bs_genutzt||0);return(<Card style={{marginBottom:18}}>
-      <div style={{marginBottom:20}}><strong style={{fontSize:19,fontFamily:"Georgia,serif",color:T.oliveDark}}>Flossenpass {getPassLabel(ap)}</strong><span style={{fontSize:14,color:T.textLight,marginLeft:10}}>seit {fmtDate(ap.datum)}</span></div>
-      <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:22}}>
-        <div style={{textAlign:"center",padding:22,borderRadius:16,background:T.olive,border:"none"}}><div style={{fontSize:44,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>{heL}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.7)",textTransform:"uppercase",letterSpacing:2,marginTop:5}}>von {ap.he_total||0} HE</div><div style={{marginTop:12}}><Bar used={ap.he_genutzt||0} total={ap.he_total||0} color={T.goldLight} h={5}/></div></div>
-        <div style={{textAlign:"center",padding:22,borderRadius:16,background:T.olive,border:"none"}}><div style={{fontSize:44,fontWeight:700,color:"#fff",fontFamily:"Georgia,serif"}}>{bsL}</div><div style={{fontSize:11,color:"rgba(255,255,255,0.7)",textTransform:"uppercase",letterSpacing:2,marginTop:5}}>von {ap.bs_total||0} GA</div><div style={{marginTop:12}}><Bar used={ap.bs_genutzt||0} total={ap.bs_total||0} color={T.gold} h={5}/></div></div>
+
+  const kundenBg=`linear-gradient(180deg, ${T.land2} 0%, ${T.land3} 280px, ${T.bg} 420px, ${T.bgLight} 100%)`;
+
+  return(<div className="fade-in" style={{minHeight:"100vh",background:kundenBg}}>
+    {/* Hero Header – dunkler Bereich */}
+    <div className="kunde-hero" style={{textAlign:"center",padding:"48px 20px 40px",position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 60%,rgba(184,168,138,0.08) 0%,transparent 70%)",pointerEvents:"none"}}/>
+      <div style={{position:"relative",zIndex:1}}>
+        <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:13,letterSpacing:4,textTransform:"uppercase",color:T.gold,marginBottom:6,opacity:0.6}}>Kaiserufer</div>
+        <h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(26px,6vw,36px)",color:T.goldLight,margin:"0 0 8px",letterSpacing:1,lineHeight:1.2}}>Hallo {kunde.vorname}</h1>
+        <p style={{color:"rgba(184,168,138,0.45)",margin:0,fontSize:15,letterSpacing:0.5}}>Willkommen in deinem persönlichen Bereich</p>
       </div>
-      <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" style={{padding:"12px 18px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:T.cream,color:heL===0?T.textLight:T.text,fontWeight:600,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1}}>Therapie buchen →</a>
-        <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" style={{padding:"12px 18px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:T.cream,color:bsL===0?T.textLight:T.text,fontWeight:600,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1}}>Gruppenangebot →</a>
+    </div>
+
+    <div className="resp-pad" style={{padding:"0 20px 40px",maxWidth:580,margin:"0 auto"}}>
+
+      {/* Aktiver Flossenpass */}
+      {ap&&(()=>{const heL=(ap.he_total||0)-(ap.he_genutzt||0),bsL=(ap.bs_total||0)-(ap.bs_genutzt||0);
+        const hePct=ap.he_total>0?((ap.he_genutzt||0)/ap.he_total)*100:0;
+        const bsPct=ap.bs_total>0?((ap.bs_genutzt||0)/ap.bs_total)*100:0;
+        return(<div className="kunde-card kunde-card-1" style={{marginBottom:20}}>
+        {/* Pass Header */}
+        <div style={{background:`linear-gradient(135deg,${T.oliveDark},${T.olive})`,borderRadius:"22px 22px 0 0",padding:"20px 24px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+          <div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.45)",textTransform:"uppercase",letterSpacing:2.5,marginBottom:4}}>Dein Flossenpass</div>
+            <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:22,color:T.goldLight,letterSpacing:0.5}}>{getPassLabel(ap)}</div>
+          </div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",letterSpacing:0.3}}>seit {fmtDate(ap.datum)}</div>
+        </div>
+
+        {/* Einheiten */}
+        <div style={{background:T.cream,borderLeft:`1px solid ${T.cardBorder}`,borderRight:`1px solid ${T.cardBorder}`}}>
+          <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr"}}>
+            {[{label:"Haupteinheiten",short:"HE",left:heL,total:ap.he_total||0,pct:hePct,color:T.olive,grad:`linear-gradient(145deg,${T.oliveDark},${T.olive})`},{label:"Gruppenangebote",short:"GA",left:bsL,total:ap.bs_total||0,pct:bsPct,color:T.gold,grad:`linear-gradient(145deg,#9A8A6A,${T.gold})`}].map((u,ui)=>(
+              <div key={u.short} className="kunde-unit-box" style={{textAlign:"center",padding:"28px 16px 24px",borderRight:ui===0?`1px solid ${T.cardBorder}`:"none"}}>
+                <div style={{fontSize:52,fontWeight:700,fontFamily:"Georgia,serif",color:u.left>0?T.oliveDark:T.textLight+"60",lineHeight:1,marginBottom:4}}>{u.left}</div>
+                <div style={{fontSize:12,color:T.textLight,textTransform:"uppercase",letterSpacing:2,marginBottom:14}}>von {u.total} {u.short}</div>
+                <div style={{height:5,borderRadius:10,background:T.olive+"15",overflow:"hidden",margin:"0 8px"}}><div style={{height:"100%",borderRadius:10,background:u.grad,width:`${u.pct}%`,transition:"width 0.8s ease"}}/></div>
+                <div style={{fontSize:11,color:T.textLight,marginTop:8,fontWeight:600}}>{u.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Buchen Buttons */}
+        <div style={{background:T.cream,padding:"16px 20px 20px",borderLeft:`1px solid ${T.cardBorder}`,borderRight:`1px solid ${T.cardBorder}`,borderBottom:`1px solid ${T.cardBorder}`,borderRadius:"0 0 22px 22px"}}>
+          <div className="kunden-btns" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            <a href="https://connect.shore.com/bookings/kaiserufer/services?locale=de" target="_blank" rel="noopener noreferrer" data-disabled={heL===0?"true":"false"} className="kunde-book-btn" style={{padding:"16px 18px",borderRadius:16,background:heL===0?T.bgPale:`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:heL===0?T.textLight:"#2A2A1A",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:heL===0?"none":"auto",opacity:heL===0?0.35:1,boxShadow:heL===0?"none":"0 4px 20px rgba(184,168,138,0.25)",letterSpacing:0.5,lineHeight:1.5,display:"block"}}>Therapie buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>Haupteinheit</span></a>
+            <a href="https://www.eversports.de/widget/w/5tMWoO" target="_blank" rel="noopener noreferrer" data-disabled={bsL===0?"true":"false"} className="kunde-book-btn" style={{padding:"16px 18px",borderRadius:16,background:bsL===0?T.bgPale:T.olive,color:bsL===0?T.textLight:"#fff",fontWeight:700,fontSize:14,textDecoration:"none",textAlign:"center",pointerEvents:bsL===0?"none":"auto",opacity:bsL===0?0.35:1,boxShadow:bsL===0?"none":`0 4px 16px ${T.olive}30`,letterSpacing:0.5,lineHeight:1.5,display:"block"}}>Kurs buchen<br/><span style={{fontSize:11,fontWeight:500,opacity:0.7}}>Gruppenangebot</span></a>
+          </div>
+          {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:14,padding:"14px 18px",background:T.redSoft,borderRadius:14,fontSize:15,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
+        </div>
+      </div>);})()}
+
+      {/* Kein Pass */}
+      {mp.length===0&&me.length===0&&<Card className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"52px 28px",background:T.cream,border:`1px solid ${T.cardBorder}`}}><div style={{fontSize:36,marginBottom:16,opacity:0.4}}>🐟</div><p style={{color:T.textMid,lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:T.textLight}}>Sprich uns gerne an!</span></p></Card>}
+
+      {/* Alte Pässe */}
+      {mp.filter(p=>isPassAlt(p)).map(pk=>(<div key={pk.id} className="kunde-card kunde-card-2" style={{marginBottom:12,padding:"16px 22px",borderRadius:18,background:T.cream,border:`1px solid ${T.cardBorder}`,opacity:0.5}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+          <div><strong style={{fontSize:15,fontFamily:"Georgia,serif",color:T.oliveDark}}>Flossenpass {getPassLabel(pk)}</strong><span style={{fontSize:13,color:T.textLight,marginLeft:10}}>{fmtDate(pk.datum)}</span></div>
+          <Badge variant="cream" small>Aufgebraucht</Badge>
+        </div>
+      </div>))}
+
+      {/* Verlauf */}
+      {ml.length>0&&(<Card className="kunde-card kunde-card-3" style={{marginTop:20,background:T.cream,border:`1px solid ${T.cardBorder}`}}>
+        <SectionLabel>Mein Verlauf</SectionLabel>
+        {ml.map((l,i)=>{const b=logBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:`1px solid ${T.cardBorder}`,fontSize:15,animationDelay:`${i*0.04}s`}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><Badge variant={b.v} small>{b.label}</Badge><span style={{color:T.text}}>{l.notiz}</span></div>
+          <span style={{color:T.textLight,fontSize:13,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span>
+        </div>);})}
+      </Card>)}
+
+      {/* Rechnungen */}
+      {(mp.length>0||me.length>0)&&(<Card className="kunde-card kunde-card-4" style={{marginTop:16,background:T.cream,border:`1px solid ${T.cardBorder}`}}>
+        <SectionLabel>Meine Rechnungen</SectionLabel>
+        {mp.map(pk=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:`1px solid ${T.cardBorder}`,fontSize:15}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.bgPale,padding:"4px 12px",borderRadius:8,fontSize:13,color:T.textLight}}>{pk.rechnung||"–"}</code><span style={{color:T.textMid}}>Flossenpass {getPassLabel(pk)}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.textLight,fontSize:13}}>{fmtDate(pk.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark}}>{pk.preis||0} €</strong></div>
+        </div>))}
+        {me.map(e=>(<div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 0",borderBottom:`1px solid ${T.cardBorder}`,fontSize:15}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.bgPale,padding:"4px 12px",borderRadius:8,fontSize:13,color:T.textLight}}>{e.rechnung||"–"}</code><span style={{color:T.textMid}}>{e.name}</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.textLight,fontSize:13}}>{fmtDate(e.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark}}>{e.preis||0} €</strong></div>
+        </div>))}
+      </Card>)}
+
+      {/* Footer */}
+      <div style={{textAlign:"center",padding:"40px 0 12px"}}>
+        <div style={{width:40,height:1,background:T.cardBorder,margin:"0 auto 16px"}}/>
+        <a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.gold,textDecoration:"none",letterSpacing:2,textTransform:"uppercase",fontWeight:500}}>kaiserufer.com ↗</a>
+        <div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:T.textLight+"70",textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div>
       </div>
-      {heL===0&&bsL===0&&<div style={{textAlign:"center",marginTop:16,padding:"14px 18px",background:T.redSoft,borderRadius:12,fontSize:15,color:T.red,fontWeight:600}}>Alle Einheiten aufgebraucht – sprich uns gerne an!</div>}
-    </Card>);})()}
-    {mp.filter(p=>isPassAlt(p)).map(pk=>(<Card key={pk.id} style={{marginBottom:14,opacity:0.4,padding:18}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><strong style={{fontSize:16,fontFamily:"Georgia,serif",color:T.oliveDark}}>Flossenpass {getPassLabel(pk)}</strong><span style={{fontSize:13,color:T.textLight,marginLeft:8}}>{fmtDate(pk.datum)}</span></div><Badge variant="cream">Aufgebraucht</Badge></div></Card>))}
-    {mp.length===0&&me.length===0&&<Card style={{textAlign:"center",padding:48}}><p style={{color:T.textLight,lineHeight:1.8,fontSize:16}}>Du hast noch keine Angebote.<br/>Sprich uns gerne an!</p></Card>}
-    {ml.length>0&&(<Card style={{marginTop:18}}><SectionLabel>Mein Verlauf</SectionLabel>{ml.map((l,i)=>{const b=logBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.cardBorder}`,fontSize:15,animationDelay:`${i*0.04}s`}}><div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><Badge variant={b.v} small>{b.label}</Badge><span style={{color:T.text}}>{l.notiz}</span></div><span style={{color:T.textLight,fontSize:13,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span></div>);})}</Card>)}
-    {(mp.length>0||me.length>0)&&(<Card style={{marginTop:18}}><SectionLabel>Meine Rechnungen</SectionLabel>{mp.map(pk=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.cardBorder}`,fontSize:15}}><div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.bgPale,padding:"4px 12px",borderRadius:8,fontSize:13,color:T.textLight}}>{pk.rechnung||"–"}</code><span style={{color:T.textMid}}>Flossenpass {getPassLabel(pk)}</span></div><div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.textLight,fontSize:13}}>{fmtDate(pk.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark}}>{pk.preis||0} €</strong></div></div>))}{me.map(e=>(<div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 0",borderBottom:`1px solid ${T.cardBorder}`,fontSize:15}}><div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.bgPale,padding:"4px 12px",borderRadius:8,fontSize:13,color:T.textLight}}>{e.rechnung||"–"}</code><span style={{color:T.textMid}}>{e.name}</span></div><div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.textLight,fontSize:13}}>{fmtDate(e.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark}}>{e.preis||0} €</strong></div></div>))}</Card>)}
-    <div style={{textAlign:"center",padding:"36px 0 8px"}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.textLight+"80",textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz ↗</a></div>
+    </div>
   </div>);
 };
 
@@ -491,7 +581,7 @@ export default function App(){
 
   if(loading)return(<div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:appBg}}><style>{css}</style><Spinner/></div>);
 
-  return(<div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:appBg}}>
+  return(<div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:loginPat?undefined:appBg}}>
     <style>{css}</style>
     {showLogin&&<LoginModal onLogin={()=>{setShowLogin(false);setMode("staff");}} onClose={()=>setShowLogin(false)}/>}
     {(mode==="staff"||loginPat)&&<div style={{background:T.olive+"F0",backdropFilter:"blur(12px)",color:T.cream,padding:"0 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${T.olive}30`,position:"sticky",top:0,zIndex:100,height:58}} className="nav-bar">
