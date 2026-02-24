@@ -307,8 +307,8 @@ const PinguChatModal=({patienten,paesse,einzel,log,onAction,onClose})=>{
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
   const buildContext=()=>{
     const gaeste=patienten.filter(p=>!p.mitarbeiter);
-    const passInfo=paesse.map(pk=>{const pat=gaeste.find(p=>p.id===pk.pat_id);return pat?`PassID:${pk.id} → ${pat.vorname} ${pat.nachname}, ${getPassLabel(pk)}, bezahlt:${pk.bezahlt?"ja":"nein"}, preis:${pk.preis||0}€`:null;}).filter(Boolean).join("\n");
-    const einzelInfo=einzel.map(e=>{const pat=gaeste.find(p=>p.id===e.pat_id);return pat?`EinzelID:${e.id} → ${pat.vorname} ${pat.nachname}, ${e.name}, bezahlt:${e.bezahlt?"ja":"nein"}, preis:${e.preis||0}€`:null;}).filter(Boolean).join("\n");
+    const passInfo=paesse.map(pk=>{const pat=gaeste.find(p=>p.id===pk.pat_id);return pat?`PassID:${pk.id} | Rechnung:${pk.rechnung||"–"} | ${pat.vorname} ${pat.nachname} | ${getPassLabel(pk)} | bezahlt:${pk.bezahlt?"ja":"NEIN"} | ${pk.preis||0}€`:null;}).filter(Boolean).join("\n");
+    const einzelInfo=einzel.map(e=>{const pat=gaeste.find(p=>p.id===e.pat_id);return pat?`EinzelID:${e.id} | Rechnung:${e.rechnung||"–"} | ${pat.vorname} ${pat.nachname} | ${e.name} | bezahlt:${e.bezahlt?"ja":"NEIN"} | ${e.preis||0}€`:null;}).filter(Boolean).join("\n");
     const lines=gaeste.map(p=>{const pp=paesse.filter(pk=>pk.pat_id===p.id);const pe=einzel.filter(e=>e.pat_id===p.id);const ak=pp.find(pk=>!isPassAlt(pk));const offen=pp.filter(pk=>!pk.bezahlt).reduce((s,pk)=>s+(pk.preis||0),0)+pe.filter(e=>!e.bezahlt).reduce((s,e)=>s+(e.preis||0),0);
       return`${p.vorname} ${p.nachname} (ID:${p.id})${p.stammkunde?" [Stammkunde]":""}${ak?` | ${getPassLabel(ak)}-Pass, HE übrig:${(ak.he_total||0)-(ak.he_genutzt||0)}/${ak.he_total||0}, GA übrig:${(ak.bs_total||0)-(ak.bs_genutzt||0)}/${ak.bs_total||0}`:" | Kein aktiver Pass"}${offen>0?` | OFFEN: ${offen}€`:" | Alles bezahlt"}`;}).join("\n");
     return`Du bist Pingu 🐧, der KI-Assistent für die Kaiserufer Praxis-App.
@@ -320,8 +320,10 @@ Mögliche Aktionen die du ausführen kannst:
 1. Notiz hinterlegen: {"typ":"NOTIZ","pat_id":"die_patient_id","text":"Notiztext"}
 2. Als bezahlt markieren: {"typ":"BEZAHLT","id":"pass_oder_einzel_id","art":"pass"} oder {"typ":"BEZAHLT","id":"...","art":"einzel"}
 
+RECHNUNGSNUMMERN: Wenn der User sagt "RN435 wurde bezahlt" oder "folgende Rechnungsnummern wurden bezahlt: RN435, RN436", dann suche die passende Pass-ID oder Einzel-ID anhand der Rechnungsnummer und erstelle für JEDE eine BEZAHLT-Aktion. Auch bei Tippfehlern in Rechnungsnummern versuche die beste Übereinstimmung zu finden.
+
 Wenn der User dich bittet eine Notiz bei jemandem zu hinterlegen, tue es IMMER – füge die passende Aktion ins aktionen-Array ein.
-Wenn der User fragt wer noch bezahlen muss, liste alle Kunden mit offenen Zahlungen auf.
+Wenn der User fragt wer noch bezahlen muss, liste alle Kunden mit offenen Zahlungen auf MIT Rechnungsnummer.
 Wenn keine Aktion nötig ist, gib ein leeres aktionen-Array zurück [].
 Beantworte Statistik-Fragen direkt aus den Daten. Sei freundlich, kurz und hilfreich.
 
@@ -659,7 +661,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
         {tbBtn("⬇","CSV",downloadCSV)}
         {tbBtn("🐧","Pingu Import",()=>setKiModal(true))}
         {tbBtn("💬","Pingu Chat",()=>setPinguChat(true))}
-        <button disabled={shoreSync} className="btn-a" style={{padding:"9px 14px",borderRadius:12,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.olive,color:"#fff",border:"none",fontSize:13,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={async()=>{setShoreSync(true);setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);}}><span className="btn-emoji" style={{display:"none"}}>🔄</span><span className="btn-text">{shoreSync?"Sync...":"Shore</span></button>
+        <button disabled={shoreSync} className="btn-a" style={{padding:"9px 14px",borderRadius:12,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.olive,color:"#fff",border:"none",fontSize:13,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={async()=>{setShoreSync(true);setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);}}><span className="btn-emoji" style={{display:"none"}}>🔄</span><span className="btn-text">{shoreSync?"Sync...":"Shore Sync"}</span></button>
       </div>
       {shoreSyncMsg&&<div style={{padding:"12px 18px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.redSoft:T.greenSoft,color:shoreSyncMsg.startsWith("Fehler")?T.red:T.green,fontSize:14,fontWeight:600,marginBottom:14}}>{shoreSyncMsg}</div>}
       {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
