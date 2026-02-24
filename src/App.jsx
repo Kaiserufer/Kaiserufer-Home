@@ -34,6 +34,9 @@ const fmtDateTime=(d)=>{try{return new Date(d).toLocaleString("de-DE",{day:"2-di
 const todayISO=()=>new Date().toISOString().split("T")[0];
 const isPassAlt=(pk)=>!pk?false:(pk.he_genutzt??0)>=(pk.he_total??1)&&(pk.bs_genutzt??0)>=(pk.bs_total??1);
 const workingDays=(von,bis)=>{let c=0,d=new Date(von);const e=new Date(bis);while(d<=e){const day=d.getDay();if(day!==0&&day!==6)c++;d.setDate(d.getDate()+1);}return c;};
+const MONATE=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+const TAGE_KURZ=["Mo","Di","Mi","Do","Fr","Sa","So"];
+const CAL_COLORS={event:"#5A94B8",urlaub:"#9070B0",schicht:"#D4944A"};
 
 const css=`
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -66,6 +69,8 @@ const css=`
   *{box-sizing:border-box}
   input,textarea,select,button{font-family:inherit}
   ::selection{background:rgba(184,168,138,0.3)}
+  .cal-day:hover{background:rgba(116,122,91,0.12)!important}
+  .cal-day-today{box-shadow:inset 0 0 0 2px ${T.gold}!important}
   @media(max-width:640px){
     .resp-pad{padding:14px!important}
     .stat-grid-4{grid-template-columns:repeat(2,1fr)!important}
@@ -78,10 +83,8 @@ const css=`
     .liste-right{flex-wrap:wrap!important;gap:8px!important;justify-content:flex-start!important}
     .liste-right .badge-w{width:auto!important;text-align:left!important}
     .liste-right .chevron{display:none!important}
-    .toolbar{flex-direction:column!important}
-    .toolbar>input{min-width:0!important;width:100%!important}
-    .toolbar-btns{display:flex!important;gap:8px!important;width:100%!important;flex-wrap:wrap!important}
-    .toolbar-btns>button{flex:1!important;min-width:0!important}
+    .toolbar-btns{display:flex!important;gap:6px!important;width:100%!important;flex-wrap:wrap!important}
+    .toolbar-btns>button{flex:1!important;min-width:0!important;font-size:11px!important;padding:8px 10px!important}
     .btn-text{display:none!important}.btn-emoji{display:inline!important}
     .stammk-row{flex-direction:column!important;align-items:flex-start!important;gap:8px!important}
     .stammk-inner{flex-wrap:wrap!important}
@@ -92,6 +95,9 @@ const css=`
     .header-row{flex-wrap:wrap!important;gap:8px!important}
     .k-resp-pad{padding:0 16px 40px!important}
     .urlaub-grid{grid-template-columns:1fr!important}
+    .cal-grid{font-size:12px!important}
+    .cal-grid .cal-day{min-height:48px!important;padding:2px!important}
+    .team-detail-grid{grid-template-columns:1fr!important}
   }
 `;
 
@@ -102,7 +108,7 @@ const Badge=({children,variant="default",small})=>{
 };
 const Bar=({used,total,color=T.olive,h=6})=>(<div style={{background:T.olive+"18",borderRadius:20,height:h,width:"100%",overflow:"hidden"}}><div style={{background:color,height:"100%",width:`${total>0?(used/total)*100:0}%`,borderRadius:20,transition:"width 0.6s ease"}}/></div>);
 const Card=({children,style,onClick,className=""})=>(<div onClick={onClick} className={`${onClick?"card-h":""} ${className}`} style={{background:T.card,color:T.text,borderRadius:20,border:`1px solid ${T.cardBorder}`,padding:24,cursor:onClick?"pointer":"default",backdropFilter:"blur(8px)",boxShadow:"0 2px 16px rgba(74,82,64,0.06)",...style}}>{children}</div>);
-const Btn=({children,onClick,gold,small,disabled,danger,ghost,style:s,className=""})=>(<button disabled={disabled} onClick={onClick} className={`btn-a ${className}`} style={{padding:small?"8px 18px":"12px 26px",borderRadius:14,fontWeight:600,fontSize:small?13:15,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.35:1,letterSpacing:0.5,textTransform:"uppercase",lineHeight:1.5,background:danger?T.red:ghost?"transparent":gold?`linear-gradient(135deg,${T.gold},#9A8A6A)`:T.olive,color:danger?"#fff":gold?"#2A2A1A":ghost?T.textLight:"#fff",border:ghost?`1px solid ${T.cardBorder}`:"none",boxShadow:gold?`0 4px 20px rgba(184,168,138,0.25)`:danger?`0 4px 16px ${T.red}30`:"none",...s}}>{children}</button>);
+const Btn=({children,onClick,gold,small,disabled,danger,ghost,active,style:s,className=""})=>(<button disabled={disabled} onClick={onClick} className={`btn-a ${className}`} style={{padding:small?"8px 18px":"12px 26px",borderRadius:14,fontWeight:600,fontSize:small?13:15,cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.35:1,letterSpacing:0.5,textTransform:"uppercase",lineHeight:1.5,background:danger?T.red:ghost?"transparent":gold?`linear-gradient(135deg,${T.gold},#9A8A6A)`:active?T.oliveDark:T.olive,color:danger?"#fff":gold?"#2A2A1A":ghost?T.textLight:"#fff",border:ghost?`1px solid ${T.cardBorder}`:"none",boxShadow:gold?`0 4px 20px rgba(184,168,138,0.25)`:danger?`0 4px 16px ${T.red}30`:"none",...s}}>{children}</button>);
 const SectionLabel=({children})=>(<div style={{fontSize:13,fontWeight:700,color:T.gold,marginBottom:16,textTransform:"uppercase",letterSpacing:2.5,fontFamily:"Georgia,serif"}}>{children}</div>);
 const Heading=({children,style})=>(<h2 style={{fontFamily:"Georgia,serif",fontWeight:700,color:T.oliveDark,margin:0,fontSize:26,letterSpacing:0.5,...style}}>{children}</h2>);
 const QRCode=({value,size=120})=>(<img src={`https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=https://home.kaiserufer.com?token=${value}`} width={size} height={size} style={{borderRadius:12}} alt="QR"/>);
@@ -111,7 +117,6 @@ const Donut=({value,total,size=56,color=T.green})=>{const r=20,circ=2*Math.PI*r,
 const logBadge=(typ)=>{const m={HAUPTEINHEIT:{label:"Haupteinheit",v:"green"},BS:{label:"Gruppenangebot",v:"gold"},KORREKTUR:{label:"Korrektur",v:"red"},NOTIZ:{label:"Notiz",v:"cream"},QUICKIE:{label:"Psycho Quickie",v:"purple"},TDCS:{label:"tDCS",v:"blue"},NEUROFEEDBACK:{label:"Neurofeedback",v:"blue"}};return m[typ]||{label:typ||"–",v:"cream"};};
 const Spinner=()=>(<div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:60}}><div style={{width:32,height:32,border:`3px solid ${T.gold}40`,borderTopColor:T.gold,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/></div>);
 
-/* ═══ UNDO TOAST ═══ */
 const UndoToast=({message,onUndo,onDismiss})=>{
   const [hiding,setHiding]=useState(false);
   useEffect(()=>{const t=setTimeout(()=>{setHiding(true);setTimeout(onDismiss,300);},5000);return()=>clearTimeout(t);},[]);
@@ -278,10 +283,9 @@ Alte Flossenpässe (ist_alt:true) als typ:"pass", pass_typ:"INDIVIDUELL" mit cus
           <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>Preis (€)</div><input type="number" min={0} value={v.preis||""} onChange={e=>updateEintrag(v._id,"preis",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
         </div>}
         {!v._skip&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>HE gesamt</div><input type="number" min={0} value={v.he_total||""} onChange={e=>updateEintrag(v._id,"he_total",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>HE genutzt</div><input type="number" min={0} value={v.he_genutzt||""} onChange={e=>updateEintrag(v._id,"he_genutzt",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>GA gesamt</div><input type="number" min={0} value={v.bs_total||""} onChange={e=>updateEintrag(v._id,"bs_total",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>GA genutzt</div><input type="number" min={0} value={v.bs_genutzt||""} onChange={e=>updateEintrag(v._id,"bs_genutzt",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+          {[["HE gesamt","he_total"],["HE genutzt","he_genutzt"],["GA gesamt","bs_total"],["GA genutzt","bs_genutzt"]].map(([l,f])=>(
+            <div key={f}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>{l}</div><input type="number" min={0} value={v[f]||""} onChange={e=>updateEintrag(v._id,f,Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+          ))}
         </div>}
         {!v._skip&&<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
           <div style={{display:"flex",alignItems:"center",gap:6}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Datum</div><input type="date" value={v.datum||""} onChange={e=>updateEintrag(v._id,"datum",e.target.value)} style={{...eInp}}/></div>
@@ -295,7 +299,7 @@ Alte Flossenpässe (ist_alt:true) als typ:"pass", pass_typ:"INDIVIDUELL" mit cus
   </div></Modal>);
 };
 
-/* ═══ PINGU CHAT ═══ */
+/* ═══ PINGU CHAT (improved) ═══ */
 const PinguChatModal=({patienten,paesse,einzel,log,onAction,onClose})=>{
   const [messages,setMessages]=useState([{role:"assistant",text:"Hey! 🐧 Ich bin Pingu. Frag mich was – z.B. \"Wer muss noch bezahlen?\" oder \"Hinterlege bei Anna eine Notiz: Termin verschoben\"."}]);
   const [input,setInput]=useState("");const[loading,setLoading]=useState(false);
@@ -303,22 +307,47 @@ const PinguChatModal=({patienten,paesse,einzel,log,onAction,onClose})=>{
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
   const buildContext=()=>{
     const gaeste=patienten.filter(p=>!p.mitarbeiter);
+    const passInfo=paesse.map(pk=>{const pat=gaeste.find(p=>p.id===pk.pat_id);return pat?`PassID:${pk.id} → ${pat.vorname} ${pat.nachname}, ${getPassLabel(pk)}, bezahlt:${pk.bezahlt?"ja":"nein"}, preis:${pk.preis||0}€`:null;}).filter(Boolean).join("\n");
+    const einzelInfo=einzel.map(e=>{const pat=gaeste.find(p=>p.id===e.pat_id);return pat?`EinzelID:${e.id} → ${pat.vorname} ${pat.nachname}, ${e.name}, bezahlt:${e.bezahlt?"ja":"nein"}, preis:${e.preis||0}€`:null;}).filter(Boolean).join("\n");
     const lines=gaeste.map(p=>{const pp=paesse.filter(pk=>pk.pat_id===p.id);const pe=einzel.filter(e=>e.pat_id===p.id);const ak=pp.find(pk=>!isPassAlt(pk));const offen=pp.filter(pk=>!pk.bezahlt).reduce((s,pk)=>s+(pk.preis||0),0)+pe.filter(e=>!e.bezahlt).reduce((s,e)=>s+(e.preis||0),0);
-      return`${p.vorname} ${p.nachname} (ID:${p.id})${p.stammkunde?" [Stammkunde]":""}${ak?` | ${getPassLabel(ak)}-Pass, HE:${(ak.he_total||0)-(ak.he_genutzt||0)}/${ak.he_total||0}, GA:${(ak.bs_total||0)-(ak.bs_genutzt||0)}/${ak.bs_total||0}`:" | Kein Pass"}${offen>0?` | OFFEN: ${offen}€`:" | Bezahlt"}`;}).join("\n");
-    const stats=`Kunden: ${gaeste.length} | Aktive Pässe: ${paesse.filter(p=>!isPassAlt(p)).length} | Offene Zahlungen: ${paesse.filter(p=>!p.bezahlt).length+einzel.filter(e=>!e.bezahlt).length}`;
-    return`Du bist Pingu 🐧, der KI-Assistent für Kaiserufer. Antworte IMMER als JSON ohne Backticks:
+      return`${p.vorname} ${p.nachname} (ID:${p.id})${p.stammkunde?" [Stammkunde]":""}${ak?` | ${getPassLabel(ak)}-Pass, HE übrig:${(ak.he_total||0)-(ak.he_genutzt||0)}/${ak.he_total||0}, GA übrig:${(ak.bs_total||0)-(ak.bs_genutzt||0)}/${ak.bs_total||0}`:" | Kein aktiver Pass"}${offen>0?` | OFFEN: ${offen}€`:" | Alles bezahlt"}`;}).join("\n");
+    return`Du bist Pingu 🐧, der KI-Assistent für die Kaiserufer Praxis-App.
+
+WICHTIG: Antworte IMMER als valides JSON ohne Backticks, ohne Erklärungen drumherum:
 {"antwort":"Dein Text hier","aktionen":[]}
-Mögliche Aktionen: {"typ":"NOTIZ","pat_id":"...","text":"..."} | {"typ":"BEZAHLT","id":"...","art":"pass/einzel"}
-Wenn keine Aktion nötig, leeres Array. Beantworte Statistik-Fragen direkt aus den Daten. Sei freundlich, kurz und hilfreich.
-${stats}
-Kundenliste:\n${lines}\nHeute: ${todayISO()}`;
+
+Mögliche Aktionen die du ausführen kannst:
+1. Notiz hinterlegen: {"typ":"NOTIZ","pat_id":"die_patient_id","text":"Notiztext"}
+2. Als bezahlt markieren: {"typ":"BEZAHLT","id":"pass_oder_einzel_id","art":"pass"} oder {"typ":"BEZAHLT","id":"...","art":"einzel"}
+
+Wenn der User dich bittet eine Notiz bei jemandem zu hinterlegen, tue es IMMER – füge die passende Aktion ins aktionen-Array ein.
+Wenn der User fragt wer noch bezahlen muss, liste alle Kunden mit offenen Zahlungen auf.
+Wenn keine Aktion nötig ist, gib ein leeres aktionen-Array zurück [].
+Beantworte Statistik-Fragen direkt aus den Daten. Sei freundlich, kurz und hilfreich.
+
+Kunden: ${gaeste.length} | Aktive Pässe: ${paesse.filter(p=>!isPassAlt(p)).length} | Offene Zahlungen: ${paesse.filter(p=>!p.bezahlt).length+einzel.filter(e=>!e.bezahlt).length}
+Kundenliste:\n${lines}
+\nPässe:\n${passInfo}
+\nEinzelangebote:\n${einzelInfo}
+\nHeute: ${todayISO()}`;
   };
   const send=async()=>{if(!input.trim()||loading)return;const msg=input.trim();setInput("");setMessages(prev=>[...prev,{role:"user",text:msg}]);setLoading(true);
-    try{const resp=await fetch("/api/ai-analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:[{type:"text",text:`${buildContext()}\n\nNachricht: "${msg}"`}],max_tokens:2000})});
+    try{const resp=await fetch("/api/ai-analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:[{type:"text",text:`${buildContext()}\n\nNachricht vom User: "${msg}"`}],max_tokens:2000})});
       const data=await resp.json();const raw=(data.text||"").replace(/```json|```/g,"").trim();
-      try{const parsed=JSON.parse(raw);setMessages(prev=>[...prev,{role:"assistant",text:parsed.antwort||"Hmm, da bin ich mir nicht sicher."}]);
-        if(parsed.aktionen?.length>0){for(const a of parsed.aktionen){await onAction(a);}setMessages(prev=>[...prev,{role:"system",text:`✓ ${parsed.aktionen.length} Aktion${parsed.aktionen.length>1?"en":""} ausgeführt`}]);}
-      }catch{setMessages(prev=>[...prev,{role:"assistant",text:raw||"Ich konnte das leider nicht verarbeiten."}]);}
+      let parsed=null;
+      try{parsed=JSON.parse(raw);}catch{
+        // Try to extract JSON from mixed text
+        const jsonMatch=raw.match(/\{[\s\S]*\}/);
+        if(jsonMatch){try{parsed=JSON.parse(jsonMatch[0]);}catch{}}
+      }
+      if(parsed&&parsed.antwort){
+        setMessages(prev=>[...prev,{role:"assistant",text:parsed.antwort}]);
+        if(parsed.aktionen&&parsed.aktionen.length>0){
+          let ok=0;
+          for(const a of parsed.aktionen){try{await onAction(a);ok++;}catch(e){console.error("Pingu action error:",e);}}
+          if(ok>0)setMessages(prev=>[...prev,{role:"system",text:`✓ ${ok} Aktion${ok>1?"en":""} ausgeführt`}]);
+        }
+      }else{setMessages(prev=>[...prev,{role:"assistant",text:raw||"Ich konnte das leider nicht verarbeiten."}]);}
     }catch(e){setMessages(prev=>[...prev,{role:"assistant",text:"Verbindungsfehler – bitte nochmal versuchen."}]);}setLoading(false);};
   return(<Modal onClose={onClose}><div className="modal-box" style={{background:T.cardSolid,borderRadius:24,width:520,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(44,48,38,0.15)",border:`1px solid ${T.cardBorder}`,overflow:"hidden"}}>
     <div style={{padding:"20px 24px",borderBottom:`1px solid ${T.cardBorder}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -339,8 +368,162 @@ Kundenliste:\n${lines}\nHeute: ${todayISO()}`;
   </div></Modal>);
 };
 
+/* ═══ TEAM KALENDER ═══ */
+const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvents,schichten,setSchichten,onOpenAkte})=>{
+  const today=new Date();
+  const [month,setMonth]=useState(today.getMonth());const[year,setYear]=useState(today.getFullYear());
+  const [selDay,setSelDay]=useState(null);const[addModal,setAddModal]=useState(null);
+  const [evTitel,setEvTitel]=useState("");const[evFarbe,setEvFarbe]=useState("blue");const[evNotiz,setEvNotiz]=useState("");
+  const [schPat,setSchPat]=useState("");const[schVon,setSchVon]=useState("09:00");const[schBis,setSchBis]=useState("17:00");const[schNotiz,setSchNotiz]=useState("");
+  const mitarbeiter=patienten.filter(p=>p.mitarbeiter);
+  const tresenTeam=mitarbeiter.filter(p=>p.tresen);
+  const inp={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:T.text,outline:"none"};
+
+  const prevMonth=()=>{if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);};
+  const nextMonth=()=>{if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);};
+
+  // Build calendar grid
+  const firstDay=new Date(year,month,1);const lastDay=new Date(year,month+1,0);
+  let startDow=(firstDay.getDay()+6)%7; // Mon=0
+  const days=[];for(let i=0;i<startDow;i++)days.push(null);
+  for(let d=1;d<=lastDay.getDate();d++)days.push(d);
+
+  const toISO=(d)=>`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  const isToday=(d)=>{const t=todayISO();return toISO(d)===t;};
+
+  // Get entries for a day
+  const dayEntries=(d)=>{if(!d)return{events:[],urlaube:[],shifts:[]};const iso=toISO(d);
+    const events=teamEvents.filter(e=>e.datum===iso);
+    const urlaube=urlaub.filter(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);return pat&&u.von<=iso&&u.bis>=iso;});
+    const shifts=schichten.filter(s=>s.datum===iso);
+    return{events,urlaube,shifts};
+  };
+
+  const addEvent=async()=>{if(!evTitel.trim()||!selDay)return;const ne={id:genId(),titel:evTitel.trim(),datum:toISO(selDay),farbe:evFarbe,notiz:evNotiz.trim()};await supabase.from("team_events").insert(ne);setTeamEvents(prev=>[...prev,ne]);setEvTitel("");setEvNotiz("");setAddModal(null);};
+  const deleteEvent=async(eid)=>{await supabase.from("team_events").delete().eq("id",eid);setTeamEvents(prev=>prev.filter(e=>e.id!==eid));};
+  const addSchicht=async()=>{if(!schPat||!selDay)return;const ns={id:genId(),pat_id:schPat,datum:toISO(selDay),von_zeit:schVon,bis_zeit:schBis,notiz:schNotiz.trim()};await supabase.from("schichten").insert(ns);setSchichten(prev=>[...prev,ns]);setSchPat("");setSchNotiz("");setAddModal(null);};
+  const deleteSchicht=async(sid)=>{await supabase.from("schichten").delete().eq("id",sid);setSchichten(prev=>prev.filter(s=>s.id!==sid));};
+
+  const selEntries=selDay?dayEntries(selDay):{events:[],urlaube:[],shifts:[]};
+  const hasAny=selEntries.events.length+selEntries.urlaube.length+selEntries.shifts.length>0;
+
+  return(<div className="fade-in" style={{display:"flex",flexDirection:"column",gap:18}}>
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <Heading style={{fontSize:28}}>Team</Heading>
+      <div style={{display:"flex",gap:16,fontSize:13,flexWrap:"wrap"}}>
+        {[{c:CAL_COLORS.event,l:"Events"},{c:CAL_COLORS.urlaub,l:"Urlaub"},{c:CAL_COLORS.schicht,l:"Tresen"}].map(x=>(<div key={x.l} style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:10,height:10,borderRadius:3,background:x.c}}/><span style={{color:T.textMid}}>{x.l}</span></div>))}
+      </div>
+    </div>
+
+    <Card style={{padding:20}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <button onClick={prevMonth} style={{background:T.bgPale,border:`1px solid ${T.cardBorder}`,borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:16,color:T.text}}>‹</button>
+        <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:T.oliveDark}}>{MONATE[month]} {year}</div>
+        <button onClick={nextMonth} style={{background:T.bgPale,border:`1px solid ${T.cardBorder}`,borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:16,color:T.text}}>›</button>
+      </div>
+      <div className="cal-grid" style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
+        {TAGE_KURZ.map(t=>(<div key={t} style={{textAlign:"center",fontSize:12,fontWeight:700,color:T.textLight,padding:"8px 0",textTransform:"uppercase",letterSpacing:1}}>{t}</div>))}
+        {days.map((d,i)=>{
+          if(!d)return<div key={`e${i}`}/>;
+          const {events,urlaube,shifts}=dayEntries(d);
+          const hasDots=events.length+urlaube.length+shifts.length>0;
+          const isSel=selDay===d;
+          return(<div key={d} className={`cal-day ${isToday(d)?"cal-day-today":""}`} onClick={()=>setSelDay(d===selDay?null:d)} style={{minHeight:64,padding:4,borderRadius:10,cursor:"pointer",background:isSel?T.olive+"18":"transparent",border:isSel?`2px solid ${T.olive}40`:"2px solid transparent",transition:"all 0.15s"}}>
+            <div style={{fontSize:14,fontWeight:isToday(d)?800:500,color:isToday(d)?T.oliveDark:T.text,textAlign:"center",marginBottom:4}}>{d}</div>
+            {hasDots&&<div style={{display:"flex",gap:2,justifyContent:"center",flexWrap:"wrap"}}>
+              {events.map((_,ei)=><div key={`e${ei}`} style={{width:6,height:6,borderRadius:3,background:CAL_COLORS.event}}/>)}
+              {urlaube.map((_,ui)=><div key={`u${ui}`} style={{width:6,height:6,borderRadius:3,background:CAL_COLORS.urlaub}}/>)}
+              {shifts.map((_,si)=><div key={`s${si}`} style={{width:6,height:6,borderRadius:3,background:CAL_COLORS.schicht}}/>)}
+            </div>}
+          </div>);
+        })}
+      </div>
+    </Card>
+
+    {/* Selected day detail */}
+    {selDay&&<Card style={{padding:20}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+        <Heading style={{fontSize:20}}>{selDay}. {MONATE[month]} {year}</Heading>
+        <div style={{display:"flex",gap:8}}>
+          <Btn small gold onClick={()=>setAddModal("event")}>+ Event</Btn>
+          <Btn small onClick={()=>setAddModal("schicht")} style={{background:CAL_COLORS.schicht}}>+ Tresen</Btn>
+        </div>
+      </div>
+
+      {!hasAny&&<p style={{color:T.textLight,textAlign:"center",fontSize:14,padding:12}}>Keine Einträge an diesem Tag</p>}
+
+      {selEntries.events.length>0&&<div style={{marginBottom:14}}>
+        <div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.event,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Events</div>
+        {selEntries.events.map(ev=>(<div key={ev.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.blueSoft,borderRadius:12,marginBottom:6,borderLeft:`4px solid ${CAL_COLORS.event}`}}>
+          <div><strong style={{color:T.text,fontSize:15}}>{ev.titel}</strong>{ev.notiz&&<span style={{color:T.textLight,fontSize:13,marginLeft:8}}>· {ev.notiz}</span>}</div>
+          <button onClick={()=>deleteEvent(ev.id)} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${T.red}25`,background:T.redSoft,color:T.red,fontSize:11,fontWeight:700,cursor:"pointer"}}>✕</button>
+        </div>))}
+      </div>}
+
+      {selEntries.urlaube.length>0&&<div style={{marginBottom:14}}>
+        <div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.urlaub,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Urlaub</div>
+        {selEntries.urlaube.map(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);return(<div key={u.id} style={{padding:"10px 14px",background:T.purpleSoft,borderRadius:12,marginBottom:6,borderLeft:`4px solid ${CAL_COLORS.urlaub}`,fontSize:14}}>
+          <strong style={{color:T.purple}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textLight,marginLeft:8}}>· {fmtDate(u.von)} – {fmtDate(u.bis)}</span>{u.notiz&&<span style={{color:T.textLight,marginLeft:6}}>· {u.notiz}</span>}
+        </div>);})}
+      </div>}
+
+      {selEntries.shifts.length>0&&<div style={{marginBottom:14}}>
+        <div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.schicht,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Tresen-Schichten</div>
+        {selEntries.shifts.map(s=>{const pat=mitarbeiter.find(p=>p.id===s.pat_id);return(<div key={s.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.orangeSoft,borderRadius:12,marginBottom:6,borderLeft:`4px solid ${CAL_COLORS.schicht}`}}>
+          <div style={{fontSize:14}}><strong style={{color:T.orange}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textMid,marginLeft:8}}>{s.von_zeit} – {s.bis_zeit}</span>{s.notiz&&<span style={{color:T.textLight,marginLeft:6}}>· {s.notiz}</span>}</div>
+          <button onClick={()=>deleteSchicht(s.id)} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${T.red}25`,background:T.redSoft,color:T.red,fontSize:11,fontWeight:700,cursor:"pointer"}}>✕</button>
+        </div>);})}
+      </div>}
+    </Card>}
+
+    {/* Add modals */}
+    {addModal==="event"&&<Modal onClose={()=>setAddModal(null)}><Card className="modal-box" style={{width:400}}>
+      <Heading style={{fontSize:20,marginBottom:16}}>Event am {selDay}. {MONATE[month]}</Heading>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div><label style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"}}>Titel</label><input value={evTitel} onChange={e=>setEvTitel(e.target.value)} placeholder="z.B. Teammeeting, Geburtstag..." style={inp} autoFocus/></div>
+        <div><label style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"}}>Notiz</label><input value={evNotiz} onChange={e=>setEvNotiz(e.target.value)} placeholder="optional" style={inp}/></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>setAddModal(null)}>Abbrechen</Btn><Btn gold onClick={addEvent} disabled={!evTitel.trim()}>Speichern</Btn></div>
+      </div>
+    </Card></Modal>}
+
+    {addModal==="schicht"&&<Modal onClose={()=>setAddModal(null)}><Card className="modal-box" style={{width:420}}>
+      <Heading style={{fontSize:20,marginBottom:16}}>Tresen am {selDay}. {MONATE[month]}</Heading>
+      {tresenTeam.length===0?<p style={{color:T.textLight,fontSize:14,textAlign:"center",padding:16}}>Noch niemand als Tresen-Team markiert. Geh in die Mitarbeiterakte und aktiviere "Tresen".</p>:
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div><label style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"}}>Mitarbeiter:in</label><select value={schPat} onChange={e=>setSchPat(e.target.value)} style={inp}><option value="">Auswählen...</option>{tresenTeam.map(p=><option key={p.id} value={p.id}>{p.vorname} {p.nachname}</option>)}</select></div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <div><label style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"}}>Von</label><input type="time" value={schVon} onChange={e=>setSchVon(e.target.value)} style={inp}/></div>
+          <div><label style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"}}>Bis</label><input type="time" value={schBis} onChange={e=>setSchBis(e.target.value)} style={inp}/></div>
+        </div>
+        <div><label style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"}}>Notiz</label><input value={schNotiz} onChange={e=>setSchNotiz(e.target.value)} placeholder="optional" style={inp}/></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>setAddModal(null)}>Abbrechen</Btn><Btn gold onClick={addSchicht} disabled={!schPat}>Speichern</Btn></div>
+      </div>}
+    </Card></Modal>}
+
+    {/* Mitarbeiter-Liste unter dem Kalender */}
+    <div style={{marginTop:8}}>
+      <Heading style={{fontSize:22,marginBottom:14}}>Mitarbeiter:innen</Heading>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {mitarbeiter.length===0&&<p style={{textAlign:"center",color:T.textLight,padding:20,fontSize:14}}>Noch keine Mitarbeiter:innen</p>}
+        {mitarbeiter.map(p=>{const pu=urlaub.filter(u=>u.pat_id===p.id);const uGen=pu.reduce((s,u)=>s+workingDays(u.von,u.bis),0);const uRest=(p.urlaub_total||30)-uGen;
+          return(<div key={p.id} onClick={()=>onOpenAkte(p)} className="card-h" style={{padding:"16px 24px",background:T.card,borderRadius:20,border:`1px solid ${T.cardBorder}`,cursor:"pointer",backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(74,82,64,0.06)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+              <div><div style={{fontWeight:600,color:T.text,fontSize:17}}>{p.vorname} {p.nachname}</div>
+                <div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}><Badge variant="purple" small>Mitarbeiter:in</Badge>{p.tresen&&<Badge variant="orange" small>Tresen</Badge>}</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                <div style={{textAlign:"center",background:T.purpleSoft,borderRadius:10,padding:"6px 14px"}}><div style={{fontSize:18,fontWeight:700,color:T.purple,fontFamily:"Georgia,serif"}}>{uRest}</div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8}}>Urlaub</div></div>
+                <span style={{color:T.gold,fontSize:20,fontWeight:300}}>›</span>
+              </div>
+            </div>
+          </div>);})}
+      </div>
+    </div>
+  </div>);
+};
+
 /* ═══ MITARBEITER APP ═══ */
-const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnungsNr,setRechnungsNr,einzel,setEinzel,urlaub,setUrlaub})=>{
+const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnungsNr,setRechnungsNr,einzel,setEinzel,urlaub,setUrlaub,teamEvents,setTeamEvents,schichten,setSchichten})=>{
   const [view,setView]=useState("liste");const[selPat,setSelPat]=useState(null);const[search,setSearch]=useState("");
   const [scanMode,setScanMode]=useState(false);const[scanInput,setScanInput]=useState("");
   const [showStats,setShowStats]=useState(false);const[kaufModal,setKaufModal]=useState(false);const[kiModal,setKiModal]=useState(false);const[pinguChat,setPinguChat]=useState(false);
@@ -357,7 +540,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const sorted=patienten.slice().sort((a,b)=>{const na=`${a.vorname||""} ${a.nachname||""}`.trim().toLowerCase();const nb=`${b.vorname||""} ${b.nachname||""}`.trim().toLowerCase();if(!a.vorname&&b.vorname)return 1;if(a.vorname&&!b.vorname)return-1;return na.localeCompare(nb,"de");});
   const matchSearch=(p)=>{const q=search.toLowerCase();return`${p.vorname||""} ${p.nachname||""} ${p.email||""}`.toLowerCase().includes(q)||paesse.some(pk=>pk.pat_id===p.id&&(pk.rechnung||"").toLowerCase().includes(q))||einzel.some(e=>e.pat_id===p.id&&(e.rechnung||"").toLowerCase().includes(q));};
   const gaeste=sorted.filter(p=>!p.mitarbeiter&&matchSearch(p));
-  const mitarbeiter=sorted.filter(p=>p.mitarbeiter&&matchSearch(p));
 
   const patPaesse=selPat?paesse.filter(pk=>pk.pat_id===selPat.id):[];
   const patEinzel=selPat?einzel.filter(e=>e.pat_id===selPat.id).sort((a,b)=>(b.datum||"").localeCompare(a.datum||"")):[];
@@ -373,7 +555,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const handleKauf=async(typ,info,preis,eigeneRechnung,datum)=>{setSaving(true);await handleKaufFuerPat(selPat,typ,info,preis,eigeneRechnung,datum);setSaving(false);setKaufModal(false);};
   const handleKaufFuerPat=async(pat,typ,info,preis,eigeneRechnung,datum,istAlt,bezahltStatus)=>{
     const ds=datum||todayISO();let rs;
-    // Auto-track: Kennenlern → Konvertiert
     if((typ==="pass"||typ==="individuell")&&pat.kennenlern&&!pat.konvertiert){await supabase.from("patienten").update({konvertiert:true}).eq("id",pat.id);setPatienten(prev=>prev.map(p=>p.id===pat.id?{...p,konvertiert:true}:p));}
     if(typ==="individuell"){rs=info.rechnung||genRechnung(await getRechnungsNr());const h=info.he||0,b=info.bs||0,alt=istAlt||info.ist_alt||false,bez=bezahltStatus!=null?bezahltStatus:(info.bezahlt!=null?info.bezahlt:false);const heG=info.he_genutzt!=null?info.he_genutzt:(alt?h:0);const bsG=info.bs_genutzt!=null?info.bs_genutzt:(alt?b:0);const np={id:genId(),pat_id:pat.id,typ:"INDIVIDUELL",he_total:h,he_genutzt:heG,bs_total:b,bs_genutzt:bsG,preis:preis||0,rechnung:rs,bezahlt:bez,datum:info.datum||ds,aktiv:!alt,custom_name:info.name||"Individuell"};await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);}
     else if(typ==="pass"){rs=eigeneRechnung||genRechnung(await getRechnungsNr());const pt=PASS_TYPES[info],alt=!!istAlt,bez=bezahltStatus!=null?bezahltStatus:false;const np={id:genId(),pat_id:pat.id,typ:info,he_total:pt.he,he_genutzt:alt?pt.he:0,bs_total:pt.bs,bs_genutzt:alt?pt.bs:0,preis:preis||0,rechnung:rs,bezahlt:bez,datum:ds,aktiv:!alt};await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);}
@@ -397,12 +578,10 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const editInp=(w)=>({fontSize:14,fontWeight:600,background:"transparent",border:`1px solid ${T.cardBorder}`,borderRadius:8,padding:"4px 8px",color:T.text,outline:"none",width:w});
   const handleScan=()=>{const pat=patienten.find(p=>p.qr===scanInput.trim().toUpperCase());if(pat){setSelPat(pat);setView("akte");setScanMode(false);setScanInput("");}else alert("QR nicht gefunden: "+scanInput);};
 
-  // Urlaub CRUD
   const addUrlaub=async()=>{if(!urlaubVon||!urlaubBis||!selPat)return;const nu={id:genId(),pat_id:selPat.id,von:urlaubVon,bis:urlaubBis,notiz:urlaubNotiz.trim()};await supabase.from("urlaub").insert(nu);setUrlaub(prev=>[...prev,nu]);setUrlaubVon("");setUrlaubBis("");setUrlaubNotiz("");};
   const deleteUrlaub=async(uid)=>{await supabase.from("urlaub").delete().eq("id",uid);setUrlaub(prev=>prev.filter(u=>u.id!==uid));};
   const urlaubGenutzt=patUrlaub.reduce((s,u)=>s+workingDays(u.von,u.bis),0);
 
-  // Pingu Chat action handler
   const handlePinguAction=async(action)=>{
     if(action.typ==="NOTIZ"&&action.pat_id){const nl={id:genId(),pat_id:action.pat_id,pass_id:null,typ:"NOTIZ",quelle:"PINGU",datum:new Date().toISOString(),notiz:action.text||""};await supabase.from("log").insert(nl);setLog(p=>[...p,nl]);}
     if(action.typ==="BEZAHLT"&&action.id){if(action.art==="pass"){await toggleBezahlt(action.id);}else{await toggleEinzelBez(action.id);}}
@@ -439,19 +618,17 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     </div>);
   };
 
-  // List row component
-  const ListRow=({p,i,isMitarbeiter})=>{
-    const u=!isMitarbeiter?getUnits(p.id):null;
-    const ub=!isMitarbeiter&&(paesse.filter(pk=>pk.pat_id===p.id).some(pk=>!pk.bezahlt)||einzel.filter(e=>e.pat_id===p.id).some(e=>!e.bezahlt));
-    const heW=u?(u.he===1?true:false):false;const bsW=u?(u.bs===1?true:false):false;
+  const ListRow=({p,i})=>{
+    const u=getUnits(p.id);
+    const ub=paesse.filter(pk=>pk.pat_id===p.id).some(pk=>!pk.bezahlt)||einzel.filter(e=>e.pat_id===p.id).some(e=>!e.bezahlt);
+    const heW=u?(u.he===1):false;const bsW=u?(u.bs===1):false;
     return(<div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-h slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"16px 24px",background:T.card,borderRadius:20,border:`1px solid ${T.cardBorder}`,cursor:"pointer",backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(74,82,64,0.06)"}}>
       <div className="liste-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div><div style={{fontWeight:600,color:T.text,fontSize:17,lineHeight:1.4}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:14,color:T.textLight}}>{p.email}</span>{!isMitarbeiter&&p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}{isMitarbeiter&&<Badge variant="purple" small>Mitarbeiter:in</Badge>}</div></div>
+        <div><div style={{fontWeight:600,color:T.text,fontSize:17,lineHeight:1.4}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:14,color:T.textLight}}>{p.email}</span>{p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}</div></div>
         <div className="liste-right" style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-          {!isMitarbeiter&&<><div style={{display:"flex",border:`1px solid ${T.cardBorder}`,borderRadius:10,overflow:"hidden"}}>{[{label:"HE",val:u?u.he:null,warn:heW},{label:"GA",val:u?u.bs:null,warn:bsW}].map((col,ci)=>(<div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.cardBorder}`:"none",background:col.warn?T.orangeSoft:T.bgPale+"60"}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div><div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.warn?T.orange:col.val===null?T.textLight+"40":T.oliveDark,lineHeight:1}}>{col.val!==null?col.val:"–"}</div></div>))}</div>
-            <div className="badge-w" style={{width:68,textAlign:"center"}}>{u?<Badge variant="gold">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:T.textLight+"40"}}>–</span>}</div>
-            <div className="badge-w" style={{width:48,textAlign:"center"}}>{ub?<Badge variant="red">Offen</Badge>:null}</div>
-          </>}
+          <div style={{display:"flex",border:`1px solid ${T.cardBorder}`,borderRadius:10,overflow:"hidden"}}>{[{label:"HE",val:u?u.he:null,warn:heW},{label:"GA",val:u?u.bs:null,warn:bsW}].map((col,ci)=>(<div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.cardBorder}`:"none",background:col.warn?T.orangeSoft:T.bgPale+"60"}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div><div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.warn?T.orange:col.val===null?T.textLight+"40":T.oliveDark,lineHeight:1}}>{col.val!==null?col.val:"–"}</div></div>))}</div>
+          <div className="badge-w" style={{width:68,textAlign:"center"}}>{u?<Badge variant="gold">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:T.textLight+"40"}}>–</span>}</div>
+          <div className="badge-w" style={{width:48,textAlign:"center"}}>{ub?<Badge variant="red">Offen</Badge>:null}</div>
           <span className="chevron" style={{color:T.gold,fontSize:20,fontWeight:300}}>›</span>
         </div>
       </div>
@@ -459,6 +636,8 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   };
 
   if(scanMode)return(<div className="fade-in resp-pad" style={{padding:28}}><div className="header-row" style={{display:"flex",alignItems:"center",gap:14,marginBottom:28}}><Btn ghost onClick={()=>setScanMode(false)}>← Zurück</Btn><Heading style={{fontSize:22}}>QR-Code Scanner</Heading></div><Card><div style={{textAlign:"center",padding:"24px 8px"}}><div style={{fontSize:40,marginBottom:16}}>📷</div><p style={{color:T.textMid,marginBottom:20}}>QR-Token eingeben:</p><div style={{display:"flex",gap:8,justifyContent:"center",maxWidth:420,margin:"0 auto",flexWrap:"wrap"}}><input value={scanInput} onChange={e=>setScanInput(e.target.value)} placeholder="z.B. KU-A7F3B2C9" onKeyDown={e=>e.key==="Enter"&&handleScan()} style={{...inp,flex:1,fontFamily:"monospace",minWidth:180}}/><Btn gold onClick={handleScan}>Scannen</Btn></div></div></Card></div>);
+
+  const tbBtn=(emoji,label,onClick,isActive)=>(<button key={label} onClick={onClick} className="btn-a" style={{padding:"9px 14px",borderRadius:12,fontWeight:600,cursor:"pointer",background:isActive?T.oliveDark:T.olive,color:"#fff",border:"none",fontSize:13,letterSpacing:0.3,textTransform:"uppercase"}}><span className="btn-emoji" style={{display:"none"}}>{emoji}</span><span className="btn-text">{label}</span></button>);
 
   return(<div className="resp-pad" style={{padding:28}}>
     {kaufModal&&<KaufModal selPat={selPat} onKauf={handleKauf} onClose={()=>setKaufModal(false)}/>}
@@ -469,51 +648,42 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     {korrekturModal&&<Modal onClose={()=>setKorrekturModal(null)}><Card className="modal-box" style={{width:400}}><Heading style={{fontSize:20,marginBottom:18}}>Korrektur</Heading><div style={{display:"flex",flexDirection:"column",gap:14}}><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Typ</label><select value={korrekturTyp} onChange={e=>setKorrekturTyp(e.target.value)} style={inp}><option value="HE">Haupteinheit</option><option value="BS">Gruppenangebot</option></select></div><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Anzahl</label><input type="number" min={1} max={10} value={korrekturAnzahl} onChange={e=>setKorrekturAnzahl(e.target.value)} style={inp}/></div><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Grund</label><input value={korrekturGrund} onChange={e=>setKorrekturGrund(e.target.value)} placeholder="optional" style={inp}/></div><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>setKorrekturModal(null)}>Abbrechen</Btn><Btn danger onClick={korrekturSpeichern}>Speichern</Btn></div></div></Card></Modal>}
     {undoAction&&<UndoToast message={undoAction.msg} onUndo={undoAction.undo} onDismiss={()=>setUndoAction(null)}/>}
 
-    {view==="liste"&&(<div className="fade-in">
-      <div className="toolbar" style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name, E-Mail oder Rechnungsnummer..." style={{...inp,flex:1,minWidth:200}}/>
-        <div className="toolbar-btns" style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-          {[{emoji:"📷",label:"QR",onClick:()=>setScanMode(true)},{emoji:"📊",label:showStats?"Statistik ✕":"Statistik",onClick:()=>setShowStats(!showStats)},{emoji:"⬇",label:"CSV",onClick:downloadCSV},{emoji:"🐧",label:"Pingu Import",onClick:()=>setKiModal(true)},{emoji:"💬",label:"Pingu Chat",onClick:()=>setPinguChat(true)}].map(b=>(
-            <button key={b.label} onClick={b.onClick} className="btn-a" style={{padding:"10px 16px",borderRadius:14,fontWeight:600,cursor:"pointer",background:T.olive,color:"#fff",border:"none",fontSize:14,letterSpacing:0.3,textTransform:"uppercase"}}><span className="btn-emoji" style={{display:"none"}}>{b.emoji}</span><span className="btn-text">{b.label}</span></button>
-          ))}
-          <button disabled={shoreSync} className="btn-a" style={{padding:"10px 16px",borderRadius:14,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.olive,color:"#fff",border:"none",fontSize:14,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={async()=>{setShoreSync(true);setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);}}><span className="btn-emoji" style={{display:"none"}}>🔄</span><span className="btn-text">{shoreSync?"Sync...":"Shore Sync"}</span></button>
-        </div>
+    {(view==="liste"||view==="team")&&(<div className="fade-in">
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name, E-Mail oder Rechnungsnummer..." style={{...inp,marginBottom:12}}/>
+      <div className="toolbar-btns" style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>
+        {tbBtn("📋","Gäste",()=>setView("liste"),view==="liste")}
+        {tbBtn("👥","Team",()=>setView("team"),view==="team")}
+        {tbBtn("📊",showStats?"Statistik ✕":"Statistik",()=>setShowStats(!showStats),showStats)}
+        {tbBtn("📷","QR",()=>setScanMode(true))}
+        {tbBtn("⬇","CSV",downloadCSV)}
+        {tbBtn("🐧","Pingu Import",()=>setKiModal(true))}
+        {tbBtn("💬","Pingu Chat",()=>setPinguChat(true))}
+        <button disabled={shoreSync} className="btn-a" style={{padding:"9px 14px",borderRadius:12,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.olive,color:"#fff",border:"none",fontSize:13,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={async()=>{setShoreSync(true);setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);}}><span className="btn-emoji" style={{display:"none"}}>🔄</span><span className="btn-text">{shoreSync?"Sync...":"Shore</span></button>
       </div>
       {shoreSyncMsg&&<div style={{padding:"12px 18px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.redSoft:T.greenSoft,color:shoreSyncMsg.startsWith("Fehler")?T.red:T.green,fontSize:14,fontWeight:600,marginBottom:14}}>{shoreSyncMsg}</div>}
       {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
-      <div style={{marginBottom:18}}><Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading><p style={{color:T.textLight,fontSize:14,marginTop:6}}>{gaeste.length} Kunden</p></div>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {gaeste.map((p,i)=><ListRow key={p.id} p={p} i={i} isMitarbeiter={false}/>)}
-        {gaeste.length===0&&<p style={{textAlign:"center",color:T.textLight,padding:40}}>Keine Kunden gefunden</p>}
-      </div>
-      {/* Mitarbeiterliste */}
-      <div style={{marginTop:36,marginBottom:18,paddingTop:24,borderTop:`2px solid ${T.cardBorder}`}}>
-        <Heading style={{fontSize:22}}>Mitarbeiter:innen</Heading>
-        <p style={{color:T.textLight,fontSize:14,marginTop:6}}>{mitarbeiter.length} Personen</p>
-      </div>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>
-        {mitarbeiter.map((p,i)=><ListRow key={p.id} p={p} i={i} isMitarbeiter={true}/>)}
-        {mitarbeiter.length===0&&<p style={{textAlign:"center",color:T.textLight,padding:20,fontSize:14}}>Noch keine Mitarbeiter:innen – markiere Personen in ihrer Akte als Mitarbeiter:in</p>}
-      </div>
+
+      {view==="liste"&&<>
+        <div style={{marginBottom:18}}><Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading><p style={{color:T.textLight,fontSize:14,marginTop:6}}>{gaeste.length} Kunden</p></div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {gaeste.map((p,i)=><ListRow key={p.id} p={p} i={i}/>)}
+          {gaeste.length===0&&<p style={{textAlign:"center",color:T.textLight,padding:40}}>Keine Kunden gefunden</p>}
+        </div>
+      </>}
+
+      {view==="team"&&<TeamView patienten={patienten} setPatienten={setPatienten} urlaub={urlaub} setUrlaub={setUrlaub} teamEvents={teamEvents} setTeamEvents={setTeamEvents} schichten={schichten} setSchichten={setSchichten} onOpenAkte={(p)=>{setSelPat(p);setView("akte");}}/>}
     </div>)}
 
     {view==="akte"&&selPat&&(<div className="fade-in">
-      <div className="header-row" style={{display:"flex",alignItems:"center",gap:14,marginBottom:28}}><Btn ghost onClick={()=>setView("liste")}>← Zurück</Btn><Heading style={{fontSize:22}}>{selPat.vorname} {selPat.nachname}</Heading>{selPat.mitarbeiter&&<Badge variant="purple">Mitarbeiter:in</Badge>}{saving&&<span style={{fontSize:13,color:T.gold}}>Speichern...</span>}</div>
+      <div className="header-row" style={{display:"flex",alignItems:"center",gap:14,marginBottom:28}}><Btn ghost onClick={()=>setView(selPat.mitarbeiter?"team":"liste")}>← Zurück</Btn><Heading style={{fontSize:22}}>{selPat.vorname} {selPat.nachname}</Heading>{selPat.mitarbeiter&&<Badge variant="purple">Mitarbeiter:in</Badge>}{selPat.tresen&&<Badge variant="orange">Tresen</Badge>}{saving&&<span style={{fontSize:13,color:T.gold}}>Speichern...</span>}</div>
       <div className="akte-grid" style={{display:"grid",gridTemplateColumns:"1fr 220px",gap:20,alignItems:"start"}}>
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
 
-          {/* Stammdaten – immer sichtbar */}
           <Card>
             <SectionLabel>Stammdaten</SectionLabel>
             <div style={{display:"flex",flexDirection:"column",gap:10,fontSize:15,lineHeight:1.6}}>
               {[["E-Mail",selPat.email||"–"],["Telefon",selPat.telefon||"–"],["Adresse",selPat.adresse||"–"],["QR",<code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:13,wordBreak:"break-all",color:T.textLight}}>{selPat.qr}</code>],["Seit",fmtDate(selPat.erstellt)]].map(([l,v])=>(<div key={l} style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}><span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:14}}>{l}:</span><span style={{wordBreak:"break-word",color:T.text,fontSize:15}}>{v}</span></div>))}
-              {/* Rolle toggle */}
-              <div style={{display:"flex",gap:12,alignItems:"center",paddingTop:12,marginTop:6,borderTop:`1px solid ${T.cardBorder}`,flexWrap:"wrap"}}>
-                <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:14}}>Rolle:</span>
-                {["Kunde","Mitarbeiter:in"].map(opt=>{const ak=opt==="Mitarbeiter:in"?!!selPat.mitarbeiter:!selPat.mitarbeiter;return(<button key={opt} onClick={()=>updatePatient(selPat.id,{mitarbeiter:opt==="Mitarbeiter:in"})} style={{padding:"6px 20px",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",border:`1px solid ${ak?(opt==="Mitarbeiter:in"?T.purple:T.olive)+"40":T.cardBorder}`,background:ak?(opt==="Mitarbeiter:in"?T.purpleSoft:T.olive+"12"):"transparent",color:ak?(opt==="Mitarbeiter:in"?T.purple:T.olive):T.textLight,transition:"all 0.15s"}}>{opt}</button>);})}
-              </div>
 
-              {/* Kunden-spezifisch */}
               {!selPat.mitarbeiter&&<>
                 <div style={{marginTop:10,paddingTop:12,borderTop:`1px solid ${T.cardBorder}`}}>
                   <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:14}}>
@@ -535,7 +705,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
             </div>
           </Card>
 
-          {/* ═══ MITARBEITER AKTE ═══ */}
           {selPat.mitarbeiter&&<>
             <Card>
               <SectionLabel>Urlaub</SectionLabel>
@@ -566,7 +735,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
             </Card>
           </>}
 
-          {/* ═══ KUNDEN AKTE ═══ */}
           {!selPat.mitarbeiter&&<>
             <Card>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}}><SectionLabel>Angebote & Pässe</SectionLabel><Btn small gold onClick={()=>setKaufModal(true)}>+ Hinzufügen</Btn></div>
@@ -579,7 +747,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
                 </div>))}</div>)}
               {altPaesse.length>0&&<div style={{marginTop:18,paddingTop:16,borderTop:`1px solid ${T.cardBorder}`}}><div style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Alte Pässe</div><div style={{fontSize:14,color:T.textLight,textAlign:"center",padding:8}}>→ siehe Verkaufshistorie</div></div>}
             </Card>
-
             <Card>
               <SectionLabel>Verkaufshistorie & Alte Pässe</SectionLabel>
               {alleVerkaufe.length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15}}>Noch keine Verkäufe</p>}
@@ -589,7 +756,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
               </div>))}
               {alleVerkaufe.length>0&&<div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.cardBorder}`,display:"flex",justifyContent:"flex-end",gap:18,fontSize:14,flexWrap:"wrap"}}><span style={{color:T.textLight}}>Gesamt: <strong style={{color:T.text}}>{alleVerkaufe.reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span><span style={{color:T.textLight}}>Bezahlt: <strong style={{color:T.green}}>{alleVerkaufe.filter(i=>i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span><span style={{color:T.textLight}}>Offen: <strong style={{color:T.red}}>{alleVerkaufe.filter(i=>!i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span></div>}
             </Card>
-
             <Card>
               <SectionLabel>Einheiten-Verlauf</SectionLabel>
               {patLog.filter(l=>l.typ!=="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15}}>Noch kein Verlauf</p>}
@@ -603,6 +769,19 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
             <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:18}}><textarea value={notizText} onChange={e=>setNotizText(e.target.value)} placeholder="Notiz eingeben..." rows={3} style={{...inp,resize:"vertical",lineHeight:1.7}}/><div style={{display:"flex",justifyContent:"flex-end"}}><Btn small gold disabled={!notizText.trim()} onClick={notizSpeichern}>Notiz speichern</Btn></div></div>
             {patLog.filter(l=>l.typ==="NOTIZ").length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15}}>Noch keine Notizen</p>}
             {patLog.filter(l=>l.typ==="NOTIZ").map(l=>(<div key={l.id} style={{padding:"12px 16px",background:T.gold+"15",borderRadius:12,fontSize:15,marginBottom:6,borderLeft:`3px solid ${T.gold}`}}><div style={{fontSize:13,color:T.textLight,marginBottom:5}}>{fmtDateTime(l.datum)}{l.quelle==="PINGU"?" · 🐧":""}</div><div style={{color:T.text,lineHeight:1.7,wordBreak:"break-word"}}>{l.notiz}</div></div>))}
+          </Card>
+
+          {/* Rolle & Tresen – ganz unten */}
+          <Card>
+            <SectionLabel>Einstellungen</SectionLabel>
+            <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",marginBottom:selPat.mitarbeiter?14:0}}>
+              <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:14}}>Rolle:</span>
+              {["Kunde","Mitarbeiter:in"].map(opt=>{const ak=opt==="Mitarbeiter:in"?!!selPat.mitarbeiter:!selPat.mitarbeiter;return(<button key={opt} onClick={()=>updatePatient(selPat.id,{mitarbeiter:opt==="Mitarbeiter:in"})} style={{padding:"6px 20px",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",border:`1px solid ${ak?(opt==="Mitarbeiter:in"?T.purple:T.olive)+"40":T.cardBorder}`,background:ak?(opt==="Mitarbeiter:in"?T.purpleSoft:T.olive+"12"):"transparent",color:ak?(opt==="Mitarbeiter:in"?T.purple:T.olive):T.textLight,transition:"all 0.15s"}}>{opt}</button>);})}
+            </div>
+            {selPat.mitarbeiter&&<div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+              <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:14}}>Tresen:</span>
+              {["Ja","Nein"].map(opt=>{const ak=opt==="Ja"?!!selPat.tresen:!selPat.tresen;return(<button key={opt} onClick={()=>updatePatient(selPat.id,{tresen:opt==="Ja"})} style={{padding:"6px 20px",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",border:`1px solid ${ak?(opt==="Ja"?T.orange:T.text)+"40":T.cardBorder}`,background:ak?(opt==="Ja"?T.orangeSoft:T.olive+"12"):"transparent",color:ak?(opt==="Ja"?T.orange:T.text):T.textLight,transition:"all 0.15s"}}>{opt}</button>);})}
+            </div>}
           </Card>
         </div>
 
@@ -658,9 +837,10 @@ export default function App(){
   const [patienten,setPatienten]=useState([]);const[paesse,setPaesse]=useState([]);
   const [log,setLog]=useState([]);const[einzel,setEinzel]=useState([]);
   const [urlaub,setUrlaub]=useState([]);
+  const [teamEvents,setTeamEvents]=useState([]);const[schichten,setSchichten]=useState([]);
   const [rechnungsNr,setRechnungsNr]=useState(0);const[loading,setLoading]=useState(true);
   const urlToken=new URLSearchParams(window.location.search).get("token");
-  useEffect(()=>{(async()=>{setLoading(true);try{const[p,pk,l,e,cfg,u]=await Promise.all([supabase.from("patienten").select("*"),supabase.from("paesse").select("*"),supabase.from("log").select("*"),supabase.from("einzel").select("*"),supabase.from("einstellungen").select("*").eq("key","rechnungs_nr").single(),supabase.from("urlaub").select("*")]);if(p.data)setPatienten(p.data);if(pk.data)setPaesse(pk.data);if(l.data)setLog(l.data);if(e.data)setEinzel(e.data);if(cfg.data)setRechnungsNr(parseInt(cfg.data.value)||0);if(u.data)setUrlaub(u.data);}catch(err){console.error("Ladefehler:",err);}setLoading(false);})();},[]);
+  useEffect(()=>{(async()=>{setLoading(true);try{const[p,pk,l,e,cfg,u,te,sc]=await Promise.all([supabase.from("patienten").select("*"),supabase.from("paesse").select("*"),supabase.from("log").select("*"),supabase.from("einzel").select("*"),supabase.from("einstellungen").select("*").eq("key","rechnungs_nr").single(),supabase.from("urlaub").select("*"),supabase.from("team_events").select("*"),supabase.from("schichten").select("*")]);if(p.data)setPatienten(p.data);if(pk.data)setPaesse(pk.data);if(l.data)setLog(l.data);if(e.data)setEinzel(e.data);if(cfg.data)setRechnungsNr(parseInt(cfg.data.value)||0);if(u.data)setUrlaub(u.data);if(te.data)setTeamEvents(te.data);if(sc.data)setSchichten(sc.data);}catch(err){console.error("Ladefehler:",err);}setLoading(false);})();},[]);
   const loginPat=urlToken?patienten.find(p=>p.qr===urlToken.toUpperCase()):null;
   const appBg=`linear-gradient(180deg,${T.bg} 0%,${T.bgLight} 50%,${T.bgLighter} 100%)`;
   if(loading)return(<div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:appBg}}><style>{css}</style><Spinner/></div>);
@@ -669,7 +849,7 @@ export default function App(){
     {showLogin&&<LoginModal onLogin={()=>{setShowLogin(false);setMode("staff");}} onClose={()=>setShowLogin(false)}/>}
     {mode==="staff"&&<div style={{background:T.olive+"F0",backdropFilter:"blur(12px)",color:T.cream,padding:"0 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${T.olive}30`,position:"sticky",top:0,zIndex:100,height:58}} className="nav-bar"><div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:17,letterSpacing:2.5,textTransform:"uppercase",color:T.goldLight}}>Kaiserufer</span><div style={{width:1,height:22,background:T.goldLight+"40",borderRadius:1}}/><span style={{fontSize:13,color:T.goldLight+"80",fontWeight:500,letterSpacing:1.5,textTransform:"uppercase"}}>Home</span></div><div><button onClick={()=>setMode("kunde")} style={{padding:"7px 18px",borderRadius:12,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.7)",fontWeight:600,fontSize:12,cursor:"pointer",textTransform:"uppercase",letterSpacing:0.8,fontFamily:"inherit"}}>Abmelden</button></div></div>}
     {mode==="staff"
-      ?<MitarbeiterApp patienten={patienten} setPatienten={setPatienten} paesse={paesse} setPaesse={setPaesse} log={log} setLog={setLog} rechnungsNr={rechnungsNr} setRechnungsNr={setRechnungsNr} einzel={einzel} setEinzel={setEinzel} urlaub={urlaub} setUrlaub={setUrlaub}/>
+      ?<MitarbeiterApp patienten={patienten} setPatienten={setPatienten} paesse={paesse} setPaesse={setPaesse} log={log} setLog={setLog} rechnungsNr={rechnungsNr} setRechnungsNr={setRechnungsNr} einzel={einzel} setEinzel={setEinzel} urlaub={urlaub} setUrlaub={setUrlaub} teamEvents={teamEvents} setTeamEvents={setTeamEvents} schichten={schichten} setSchichten={setSchichten}/>
       :loginPat
         ?<KundenApp kunde={loginPat} paesse={paesse} log={log} einzel={einzel}/>
         :<div style={{minHeight:"100vh",background:`linear-gradient(180deg,${T.land0} 0%,${T.land1} 40%,${T.land2} 70%,${T.land3} 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"28px 20px",position:"relative",overflow:"hidden"}}>
