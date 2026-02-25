@@ -23,7 +23,7 @@ const EINZELANGEBOTE=[{key:"QUICKIE",name:"Psycho Quickie",preis:70},{key:"TDCS"
 const PASS_OPTIONS=[{key:"BASIS",label:"Basis – 3 HE · 1 GA",he:3,bs:1,preis:299},{key:"PLUS",label:"Plus – 5 HE · 3 GA",he:5,bs:3,preis:499},{key:"DELUXE",label:"Deluxe – 10 HE · 5 GA",he:10,bs:5,preis:899},{key:"INDIVIDUELL",label:"Individuell",he:0,bs:0,preis:0}];
 const EINZEL_OPTIONS=EINZELANGEBOTE.map(e=>e.name);
 const getPassName=(t)=>PASS_TYPES[t]?.name??"Individuell";
-const getPassLabel=(pk)=>{if(!pk)return"–";if(pk.typ==="INDIVIDUELL"||!PASS_TYPES[pk.typ])return pk.custom_name||"Individuell";return PASS_TYPES[pk.typ].name;};
+const getPassLabel=(pk)=>{if(!pk)return"–";if(pk.typ==="INDIVIDUELL"||!PASS_TYPES[pk.typ])return pk.custom_name||"Flossenpass";return PASS_TYPES[pk.typ].name;};
 
 const LOGIN_PASS=import.meta.env.VITE_LOGIN_PASS;
 const LOGIN_EMAIL=import.meta.env.VITE_LOGIN_EMAIL;
@@ -215,7 +215,7 @@ const KaufModal=({selPat,onKauf,onClose})=>{
   </div></Modal>);
 };
 
-const KIEingabeModal=({patienten,onKauf,onClose})=>{
+const KIEingabeModal=({patienten,paesse:existingPaesse,onKauf,onClose})=>{
   const [recording,setRecording]=useState(false);const[transcript,setTranscript]=useState("");
   const [loading,setLoading]=useState(false);const[eintraege,setEintraege]=useState([]);
   const [savingIdx,setSavingIdx]=useState(-1);const[error,setError]=useState("");
@@ -225,13 +225,62 @@ const KIEingabeModal=({patienten,onKauf,onClose})=>{
     const exact=patienten.find(p=>`${p.vorname||""} ${p.nachname||""}`.toLowerCase().trim()===nl);if(exact)return exact;
     const partial=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.some(part=>part.length>2&&full.includes(part));});if(partial)return partial;
     const firstName=parts[0];if(firstName&&firstName.length>2){const fnMatch=patienten.filter(p=>(p.vorname||"").toLowerCase()===firstName);if(fnMatch.length===1)return fnMatch[0];}return null;};
-  const buildPrompt=(patNames)=>`Du bist "Pingu hilft". Extrahiere ALLE Einträge aus dem Text oder Foto, antworte NUR mit JSON-Array ohne Backticks.
-Jedes Element: {"kundenname":"string","typ":"pass/einzel","pass_typ":"BASIS/PLUS/DELUXE/INDIVIDUELL","einzel_name":"string","he_total":n,"bs_total":n,"preis":n,"rechnung":"string","datum":"YYYY-MM-DD","custom_name":"string","ist_alt":bool,"bezahlt":bool/null,"he_uebrig":n,"bs_uebrig":n}
-Kunden: ${patNames} | BASIS=3HE 1GA 299€, PLUS=5HE 3GA 499€, DELUXE=10HE 5GA 899€ | Quickie 70€, tDCS 55€, Neurofeedback 350€ | Heute: ${todayISO()}
-WICHTIG – Rechnungsnummern-Format: "RN435-399€-02.02.2026 - Sarah Kruse" → Rechnungsnummer="RN435", Preis=399, Datum=2026-02-02. KUNDENNAME immer aus Spalte "Kunde", nie aus Codes-Spalte.
-Spalte "Haupteinheit"=ÜBRIGE HE. Spalte "Zusatzangebot"=ÜBRIGE GA. he_genutzt=he_total MINUS Haupteinheit. bs_genutzt=bs_total MINUS Zusatzangebot.
-Alte Flossenpässe (ist_alt:true) als typ:"pass", pass_typ:"INDIVIDUELL" mit custom_name:"Individuell". Immer Array.`;
-  const parseResult=(raw)=>{const c=raw.replace(/```json|```/g,"").trim();const arr=JSON.parse(c);return(Array.isArray(arr)?arr:[arr]).map((item,i)=>({...item,_id:i,_skip:false,matched_pat:matchPat(item.kundenname)}));};
+  const buildPrompt=(patNames)=>`Du bist "Pingu hilft". Extrahiere ALLE Einträge aus dem Foto oder Text. Antworte NUR mit einem JSON-Array, OHNE Backticks, OHNE Erklärungen.
+
+TABELLENFORMAT DES ALTEN SYSTEMS:
+Die Tabelle hat diese Spalten (von links nach rechts):
+1. "Codes" – Format: "RN{nummer}-{preis}€-{datum TT.MM.JJJJ} - {Name}" oder "RN {nummer} – {preis}€ – {datum TT.MM.JJJJ} - {Name}"
+2. "Kunde" – Der korrekte Kundenname (IMMER diesen verwenden, NICHT den Namen aus der Codes-Spalte!)
+3. "Bezahlt" – Checkbox (angehakt = true, leer = false)
+4. "Haupteinheit" – Zahl = ÜBRIGE (noch nicht genutzte) Haupteinheiten
+5. "Zusatzangebot" – Zahl = ÜBRIGE (noch nicht genutzte) Gruppenangebote
+6. "Ablaufdatum Zusatzangebot" – Datum (ignorieren)
+7. "Datum" – Veröffentlichungsdatum (ignorieren, Datum kommt aus Codes-Spalte)
+
+SO PARST DU DIE CODES-SPALTE:
+Beispiel: "RN449-399€-24.02.2026 - Alexandra Kairies"
+→ rechnung = "RN449" (alles vor dem ersten Bindestrich+Preis)
+→ preis = 399 (die Zahl direkt vor dem €-Zeichen)
+→ datum = "2026-02-24" (TT.MM.JJJJ umwandeln zu YYYY-MM-DD!)
+→ kundenname = Wert aus Spalte "Kunde"
+
+Beispiel: "RN 431 – 399.20€ – 09.02.2025 - Ettje Dittmann"
+→ rechnung = "RN431" (Leerzeichen entfernen!)
+→ preis = 399.20
+→ datum = "2025-02-09"
+
+AKTUELLE PASS-TYPEN: BASIS=299€ 3HE 1GA, PLUS=499€ 5HE 3GA, DELUXE=899€ 10HE 5GA.
+ALTE PREISE (im alten System): Plus war 350€ oder 399€ (gleiche Einheiten: 5HE 3GA).
+Wenn Preis NICHT exakt 299/350/399/499/899 → pass_typ="INDIVIDUELL".
+Wenn HE übrig=0 UND GA übrig=0 → ist_alt=true (aufgebrauchter Pass).
+
+JSON-FORMAT PRO EINTRAG:
+{"kundenname":"aus Kunde-Spalte","typ":"pass","pass_typ":"BASIS/PLUS/DELUXE/INDIVIDUELL","he_uebrig":Zahl aus Haupteinheit-Spalte,"bs_uebrig":Zahl aus Zusatzangebot-Spalte,"preis":Zahl aus Codes,"rechnung":"ohne Leerzeichen","datum":"YYYY-MM-DD aus Codes","bezahlt":true/false aus Checkbox,"custom_name":"Flossenpass"}
+
+BEKANNTE KUNDEN: ${patNames}
+REGELN: typ IMMER "pass". custom_name IMMER "Flossenpass". Rechnungsnummern ohne Leerzeichen. Datum IMMER YYYY-MM-DD. Heute: ${todayISO()}. NUR JSON-Array zurückgeben.`;
+  const normalizeRechnung=(r)=>(r||"").replace(/\s+/g,"").trim();
+  const normalizeDatum=(d)=>{if(!d)return"";const m=String(d).match(/(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})/);if(m)return`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;return d;};
+  const inferPassTyp=(item)=>{const p=Number(item.preis)||0;const heU=Number(item.he_uebrig??item.he_total??0);const bsU=Number(item.bs_uebrig??item.bs_total??0);if(p===299)return{pass_typ:"BASIS",he_total:3,bs_total:1};if(p===499)return{pass_typ:"PLUS",he_total:5,bs_total:3};if(p===899)return{pass_typ:"DELUXE",he_total:10,bs_total:5};if(p===350||p===399||p===399.2||Math.floor(p)===399)return{pass_typ:"INDIVIDUELL",he_total:5,bs_total:3};if(p===759)return{pass_typ:"INDIVIDUELL",he_total:10,bs_total:5};return{pass_typ:"INDIVIDUELL",he_total:heU,bs_total:bsU};};
+  const parseResult=(raw)=>{
+    const c=raw.replace(/```json|```/g,"").trim();
+    let arr;try{arr=JSON.parse(c);}catch{const m=c.match(/\[[\s\S]*\]/);if(m)arr=JSON.parse(m[0]);else throw new Error("Kein gültiges JSON");}
+    return(Array.isArray(arr)?arr:[arr]).map((item,i)=>{
+      const rechnung=normalizeRechnung(item.rechnung);
+      const datum=normalizeDatum(item.datum);
+      const heUebrig=Number(item.he_uebrig??item.he_total??0);
+      const bsUebrig=Number(item.bs_uebrig??item.bs_total??0);
+      const inf=inferPassTyp(item);
+      const pass_typ=item.pass_typ&&["BASIS","PLUS","DELUXE"].includes(item.pass_typ)?item.pass_typ:inf.pass_typ;
+      const he_total=inf.he_total;const bs_total=inf.bs_total;
+      const he_genutzt=Math.max(0,he_total-heUebrig);
+      const bs_genutzt=Math.max(0,bs_total-bsUebrig);
+      const istAlt=!!item.ist_alt||(heUebrig===0&&bsUebrig===0&&he_total>0);
+      const pat=matchPat(item.kundenname);
+      const isDuplicate=rechnung&&existingPaesse?.some(ep=>normalizeRechnung(ep.rechnung)===rechnung)||(pat&&datum&&existingPaesse?.some(ep=>ep.pat_id===pat.id&&ep.datum===datum));
+      return{...item,_id:i,_skip:!!isDuplicate,_duplicate:!!isDuplicate,rechnung,datum,pass_typ,he_total,bs_total,he_genutzt:istAlt?he_total:he_genutzt,bs_genutzt:istAlt?bs_total:bs_genutzt,he_uebrig:heUebrig,bs_uebrig:bsUebrig,preis:Number(item.preis)||0,bezahlt:!!item.bezahlt,ist_alt:istAlt,custom_name:"Flossenpass",typ:"pass",matched_pat:pat};
+    });
+  };
   const fileToBase64=(file)=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=()=>rej(new Error("Fehler"));r.readAsDataURL(file);});
   const handleFotos=async(e)=>{const files=Array.from(e.target.files||[]);if(!files.length)return;const valid=files.filter(f=>f.type.startsWith("image/"));if(!valid.length){setError("Bitte nur Bilder hochladen");return;}setFotos(prev=>[...prev,...valid]);const previews=await Promise.all(valid.map(f=>new Promise((res)=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(f);})));setFotoPreview(prev=>[...prev,...previews]);setError("");};
   const removeFoto=(idx)=>{setFotos(prev=>prev.filter((_,i)=>i!==idx));setFotoPreview(prev=>prev.filter((_,i)=>i!==idx));};
@@ -243,7 +292,20 @@ Alte Flossenpässe (ist_alt:true) als typ:"pass", pass_typ:"INDIVIDUELL" mit cus
   const analyzeFotos=async()=>analyzeContent(transcript,fotos);
   const startRec=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setError("Spracherkennung nicht unterstützt.");return;}try{const r=new SR();r.lang="de-DE";r.continuous=true;r.interimResults=true;let ft="";r.onresult=(e)=>{let im="";ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript+" ";else im+=e.results[i][0].transcript;}setTranscript((ft+im).trim());};r.onerror=(e)=>{if(e.error==="no-speech")return;setError("Fehler: "+e.error);setRecording(false);};r.onend=()=>{if(recognitionRef.current){setRecording(false);if(ft.trim())analyzeText(ft.trim());}};r.start();recognitionRef.current=r;setRecording(true);setError("");setEintraege([]);}catch(e){setError("Mikrofon konnte nicht gestartet werden.");}};
   const stopRec=()=>{if(recognitionRef.current){const ref=recognitionRef.current;recognitionRef.current=null;ref.stop();setRecording(false);if(transcript.trim())analyzeText(transcript.trim());}};
-  const alleBestaetigen=async()=>{const aktive=eintraege.filter(e=>!e._skip&&e.matched_pat);for(let i=0;i<aktive.length;i++){setSavingIdx(i);const v=aktive[i],pat=v.matched_pat,datum=v.datum||todayISO(),rechnung=v.rechnung||"",istAlt=!!v.ist_alt,bez=v.bezahlt===true||v.bezahlt===false?v.bezahlt:null;if(v.typ==="pass"||v.pass_typ){const typ=v.pass_typ||"INDIVIDUELL";const heT=v.he_total||0,bsT=v.bs_total||0,heG=v.he_genutzt||0,bsG=v.bs_genutzt||0;const alt=istAlt||(heT>0&&heG>=heT&&bsT>0&&bsG>=bsT);if(typ==="INDIVIDUELL"||alt){await onKauf(pat,"individuell",{name:v.custom_name||"Individuell",he:heT,bs:bsT,datum,rechnung,ist_alt:alt,bezahlt:bez,he_genutzt:alt?heT:heG,bs_genutzt:alt?bsT:bsG},v.preis||0,"");}else{await onKauf(pat,"pass",typ,v.preis||PASS_TYPES[typ]?.preis||0,rechnung,datum,alt,bez);}}else{const name=v.einzel_name||"Einzelangebot";const f=EINZELANGEBOTE.find(ea=>ea.name.toLowerCase().includes(name.toLowerCase()));await onKauf(pat,"einzel",{key:f?.key||"CUSTOM",name},v.preis||f?.preis||0,rechnung,datum,false,bez);}}setSavingIdx(-1);onClose();};
+  const alleBestaetigen=async()=>{
+    const aktive=eintraege.filter(e=>!e._skip&&e.matched_pat).sort((a,b)=>(a.datum||"").localeCompare(b.datum||""));
+    for(let i=0;i<aktive.length;i++){
+      setSavingIdx(i);const v=aktive[i],pat=v.matched_pat;
+      const datum=v.datum||todayISO();const rechnung=v.rechnung||"";
+      const bez=v.bezahlt===true||v.bezahlt===false?v.bezahlt:null;
+      const typ=v.pass_typ||"INDIVIDUELL";
+      const heT=Number(v.he_total)||0,bsT=Number(v.bs_total)||0;
+      const heG=Number(v.he_genutzt)||0,bsG=Number(v.bs_genutzt)||0;
+      const istAlt=!!v.ist_alt||(heT>0&&heG>=heT&&bsT>0&&bsG>=bsT);
+      await onKauf(pat,"individuell",{name:"Flossenpass",he:heT,bs:bsT,datum,rechnung,ist_alt:istAlt,bezahlt:bez,he_genutzt:heG,bs_genutzt:bsG},v.preis||0,"");
+    }
+    setSavingIdx(-1);onClose();
+  };
   const toggleSkip=(id)=>setEintraege(prev=>prev.map(e=>e._id===id?{...e,_skip:!e._skip}:e));
   const updateEintrag=(id,field,val)=>setEintraege(prev=>prev.map(e=>e._id===id?{...e,[field]:val}:e));
   const reMatchPat=(id,name)=>{const pat=matchPat(name);setEintraege(prev=>prev.map(e=>e._id===id?{...e,kundenname:name,matched_pat:pat}:e));};
@@ -273,10 +335,13 @@ Alte Flossenpässe (ist_alt:true) als typ:"pass", pass_typ:"INDIVIDUELL" mit cus
     {isSaving&&<div style={{padding:"12px 16px",borderRadius:12,background:T.greenSoft,color:T.green,fontSize:14,fontWeight:600,marginBottom:14}}>Speichere {savingIdx+1}/{aktiveCount}...</div>}
     {error&&<div style={{padding:"12px 16px",borderRadius:12,background:T.redSoft,color:T.red,fontSize:14,marginBottom:14}}>{error}</div>}
     {eintraege.length>0&&!loading&&(<div style={{marginBottom:16}}>
-      <div style={{fontSize:13,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:14}}>{eintraege.length} Einträge erkannt</div>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>{eintraege.map(v=>(<div key={v._id} style={{borderRadius:14,border:`1px solid ${v._skip?T.cardBorder:v.matched_pat?T.green+"30":T.red+"30"}`,background:v._skip?T.bgPale+"60":v.matched_pat?T.greenSoft:T.redSoft,padding:"14px 18px",opacity:v._skip?0.45:1}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2}}>{eintraege.length} Einträge erkannt</div>
+        {eintraege.some(e=>e._duplicate)&&<div style={{fontSize:12,fontWeight:600,color:T.orange,background:T.orangeSoft,padding:"4px 12px",borderRadius:8}}>{eintraege.filter(e=>e._duplicate).length} Duplikat{eintraege.filter(e=>e._duplicate).length>1?"e":""} übersprungen</div>}
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>{eintraege.map(v=>(<div key={v._id} style={{borderRadius:14,border:`1px solid ${v._duplicate?T.orange+"30":v._skip?T.cardBorder:v.matched_pat?T.green+"30":T.red+"30"}`,background:v._duplicate?T.orangeSoft:v._skip?T.bgPale+"60":v.matched_pat?T.greenSoft:T.redSoft,padding:"14px 18px",opacity:v._skip?0.45:1}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:10}}>
-          <div style={{flex:1}}>{v.matched_pat?<div style={{fontWeight:700,fontSize:15,color:T.text}}>{v.matched_pat.vorname} {v.matched_pat.nachname}</div>:<div style={{display:"flex",alignItems:"center",gap:6}}><span style={{color:T.red,fontWeight:700,fontSize:14}}>⚠</span><input value={v.kundenname||""} onChange={e=>reMatchPat(v._id,e.target.value)} style={{...eInp,flex:1,fontWeight:600}} placeholder="Name..."/></div>}</div>
+          <div style={{flex:1}}>{v._duplicate&&<div style={{fontSize:12,fontWeight:700,color:T.orange,marginBottom:4}}>Bereits vorhanden – wird übersprungen</div>}{v.matched_pat?<div style={{fontWeight:700,fontSize:15,color:T.text}}>{v.matched_pat.vorname} {v.matched_pat.nachname}</div>:<div style={{display:"flex",alignItems:"center",gap:6}}><span style={{color:T.red,fontWeight:700,fontSize:14}}>⚠</span><input value={v.kundenname||""} onChange={e=>reMatchPat(v._id,e.target.value)} style={{...eInp,flex:1,fontWeight:600}} placeholder="Name..."/></div>}</div>
           <button onClick={()=>toggleSkip(v._id)} style={{padding:"6px 14px",borderRadius:8,border:`1px solid ${v._skip?T.green+"40":T.red+"30"}`,background:"transparent",color:v._skip?T.green:T.red,fontSize:12,fontWeight:700,cursor:"pointer",textTransform:"uppercase",flexShrink:0}}>{v._skip?"↩":"✕ Skip"}</button>
         </div>
         {!v._skip&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
@@ -285,8 +350,8 @@ Alte Flossenpässe (ist_alt:true) als typ:"pass", pass_typ:"INDIVIDUELL" mit cus
           <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>Preis (€)</div><input type="number" min={0} value={v.preis||""} onChange={e=>updateEintrag(v._id,"preis",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
         </div>}
         {!v._skip&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
-          {[["HE gesamt","he_total"],["HE genutzt","he_genutzt"],["GA gesamt","bs_total"],["GA genutzt","bs_genutzt"]].map(([l,f])=>(
-            <div key={f}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>{l}</div><input type="number" min={0} value={v[f]||""} onChange={e=>updateEintrag(v._id,f,Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
+          {[["HE gesamt","he_total"],["HE übrig","he_uebrig"],["GA gesamt","bs_total"],["GA übrig","bs_uebrig"]].map(([l,f])=>(
+            <div key={f}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>{l}</div><input type="number" min={0} value={v[f]!=null?v[f]:""} onChange={e=>{const val=Number(e.target.value)||0;updateEintrag(v._id,f,val);if(f==="he_uebrig")updateEintrag(v._id,"he_genutzt",Math.max(0,(v.he_total||0)-val));if(f==="bs_uebrig")updateEintrag(v._id,"bs_genutzt",Math.max(0,(v.bs_total||0)-val));if(f==="he_total")updateEintrag(v._id,"he_genutzt",Math.max(0,val-(v.he_uebrig||0)));if(f==="bs_total")updateEintrag(v._id,"bs_genutzt",Math.max(0,val-(v.bs_uebrig||0)));}} style={{...eInp,width:"100%"}}/></div>
           ))}
         </div>}
         {!v._skip&&<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -536,19 +601,19 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const aktiverPass=aktPaesse[0]||null;
   const heUebrig=aktPaesse.reduce((s,p)=>s+((p.he_total||0)-(p.he_genutzt||0)),0);
   const bsUebrig=aktPaesse.reduce((s,p)=>s+((p.bs_total||0)-(p.bs_genutzt||0)),0);
-  const alleVerkaufe=[...patPaesse.map(pk=>({id:pk.id,art:"pass",name:`Flossenpass ${getPassLabel(pk)}`,rechnung:pk.rechnung,datum:pk.datum,preis:pk.preis||0,bezahlt:pk.bezahlt,isAlt:isPassAlt(pk)})),...patEinzel.map(e=>({id:e.id,art:"einzel",name:e.name,rechnung:e.rechnung,datum:e.datum,preis:e.preis||0,bezahlt:e.bezahlt,isAlt:false}))].sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));
+  const alleVerkaufe=[...patPaesse.map(pk=>({id:pk.id,art:"pass",name:"Flossenpass",rechnung:pk.rechnung,datum:pk.datum,preis:pk.preis||0,bezahlt:pk.bezahlt,isAlt:isPassAlt(pk)})),...patEinzel.map(e=>({id:e.id,art:"einzel",name:e.name,rechnung:e.rechnung,datum:e.datum,preis:e.preis||0,bezahlt:e.bezahlt,isAlt:false}))].sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));
 
   const getRechnungsNr=async()=>{const{data}=await supabase.from("einstellungen").select("value").eq("key","rechnungs_nr").single();const nr=parseInt(data?.value||"0")+1;await supabase.from("einstellungen").update({value:String(nr)}).eq("key","rechnungs_nr");setRechnungsNr(nr);return nr;};
   const handleKauf=async(typ,info,preis,eigeneRechnung,datum)=>{setSaving(true);await handleKaufFuerPat(selPat,typ,info,preis,eigeneRechnung,datum);setSaving(false);setKaufModal(false);};
   const handleKaufFuerPat=async(pat,typ,info,preis,eigeneRechnung,datum,istAlt,bezahltStatus)=>{
     const ds=datum||todayISO();let rs;
     if((typ==="pass"||typ==="individuell")&&pat.kennenlern&&!pat.konvertiert){await supabase.from("patienten").update({konvertiert:true}).eq("id",pat.id);setPatienten(prev=>prev.map(p=>p.id===pat.id?{...p,konvertiert:true}:p));}
-    if(typ==="individuell"){rs=info.rechnung||genRechnung(await getRechnungsNr());const h=info.he||0,b=info.bs||0,alt=istAlt||info.ist_alt||false,bez=bezahltStatus!=null?bezahltStatus:(info.bezahlt!=null?info.bezahlt:false);const heG=info.he_genutzt!=null?info.he_genutzt:(alt?h:0);const bsG=info.bs_genutzt!=null?info.bs_genutzt:(alt?b:0);const np={id:genId(),pat_id:pat.id,typ:"INDIVIDUELL",he_total:h,he_genutzt:heG,bs_total:b,bs_genutzt:bsG,preis:preis||0,rechnung:rs,bezahlt:bez,datum:info.datum||ds,aktiv:!alt,custom_name:info.name||"Individuell"};await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);}
+    if(typ==="individuell"){rs=info.rechnung||genRechnung(await getRechnungsNr());const h=info.he||0,b=info.bs||0,alt=istAlt||info.ist_alt||false,bez=bezahltStatus!=null?bezahltStatus:(info.bezahlt!=null?info.bezahlt:false);const heG=info.he_genutzt!=null?info.he_genutzt:(alt?h:0);const bsG=info.bs_genutzt!=null?info.bs_genutzt:(alt?b:0);const np={id:genId(),pat_id:pat.id,typ:"INDIVIDUELL",he_total:h,he_genutzt:heG,bs_total:b,bs_genutzt:bsG,preis:preis||0,rechnung:rs,bezahlt:bez,datum:info.datum||ds,aktiv:!alt,custom_name:info.name||"Flossenpass"};await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);}
     else if(typ==="pass"){rs=eigeneRechnung||genRechnung(await getRechnungsNr());const pt=PASS_TYPES[info],alt=!!istAlt,bez=bezahltStatus!=null?bezahltStatus:false;const np={id:genId(),pat_id:pat.id,typ:info,he_total:pt.he,he_genutzt:alt?pt.he:0,bs_total:pt.bs,bs_genutzt:alt?pt.bs:0,preis:preis||0,rechnung:rs,bezahlt:bez,datum:ds,aktiv:!alt};await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);}
     else{rs=eigeneRechnung||genRechnung(await getRechnungsNr());const bez=bezahltStatus!=null?bezahltStatus:false;const ne={id:genId(),pat_id:pat.id,key:info.key,name:info.name,preis:preis||0,rechnung:rs,bezahlt:bez,datum:ds};const nl={id:genId(),pat_id:pat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};await supabase.from("einzel").insert(ne);await supabase.from("log").insert(nl);setEinzel(prev=>[...prev,ne]);setLog(prev=>[...prev,nl]);}
   };
   const deletePass=async(pid)=>{await supabase.from("paesse").delete().eq("id",pid);setPaesse(prev=>prev.filter(p=>p.id!==pid));setConfirmDelete(null);};
-  const downloadCSV=()=>{const h=["Vorname","Nachname","E-Mail","Telefon","QR-Code","Stammkunde","Seit","Aktiver Pass","HE","GA"];const rows=gaeste.map(p=>{const ap=paesse.find(pk=>pk.pat_id===p.id&&!isPassAlt(pk));const he=ap?(ap.he_total||0)-(ap.he_genutzt||0):"";const bs=ap?(ap.bs_total||0)-(ap.bs_genutzt||0):"";return[p.vorname||"",p.nachname||"",p.email||"",p.telefon||"",p.qr||"",p.stammkunde?"Ja":"Nein",fmtDate(p.erstellt),ap?`Flossenpass ${getPassLabel(ap)}`:"–",he,bs].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";");});const csv=[h.map(x=>`"${x}"`).join(";"),...rows].join("\n");const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="gaesteliste-kaiserufer.csv";a.click();URL.revokeObjectURL(url);};
+  const downloadCSV=()=>{const h=["Vorname","Nachname","E-Mail","Telefon","QR-Code","Stammkunde","Seit","Aktiver Pass","HE","GA"];const rows=gaeste.map(p=>{const ap=paesse.find(pk=>pk.pat_id===p.id&&!isPassAlt(pk));const he=ap?(ap.he_total||0)-(ap.he_genutzt||0):"";const bs=ap?(ap.bs_total||0)-(ap.bs_genutzt||0):"";return[p.vorname||"",p.nachname||"",p.email||"",p.telefon||"",p.qr||"",p.stammkunde?"Ja":"Nein",fmtDate(p.erstellt),ap?"Flossenpass":"–",he,bs].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";");});const csv=[h.map(x=>`"${x}"`).join(";"),...rows].join("\n");const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="gaesteliste-kaiserufer.csv";a.click();URL.revokeObjectURL(url);};
 
   const heAbziehen=async(pass)=>{if(!pass||pass.he_genutzt>=pass.he_total)return;const prev={he_genutzt:pass.he_genutzt};const u={...pass,he_genutzt:pass.he_genutzt+1};const nl={id:genId(),pat_id:selPat.id,pass_id:pass.id,typ:"HAUPTEINHEIT",quelle:"SHORE",datum:new Date().toISOString(),notiz:"Haupteinheit"};await supabase.from("paesse").update({he_genutzt:u.he_genutzt}).eq("id",pass.id);await supabase.from("log").insert(nl);setPaesse(p=>p.map(x=>x.id===pass.id?u:x));setLog(p=>[...p,nl]);
     setUndoAction({msg:"Haupteinheit −1 bei "+selPat.vorname,undo:async()=>{await supabase.from("paesse").update(prev).eq("id",pass.id);await supabase.from("log").delete().eq("id",nl.id);setPaesse(p=>p.map(x=>x.id===pass.id?{...x,...prev}:x));setLog(p=>p.filter(l=>l.id!==nl.id));}});};
@@ -577,7 +642,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     const ni={width:50,padding:"4px 6px",borderRadius:8,border:`1px solid ${T.cardBorder}`,fontSize:15,fontWeight:700,background:"transparent",color:T.text,outline:"none",textAlign:"center"};
     return(<div style={{borderRadius:16,border:`1px solid ${T.cardBorder}`,background:isAlt?T.bgPale+"90":T.cream+"90",overflow:"hidden",marginBottom:12,opacity:isAlt?0.8:1}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 20px",borderBottom:`1px solid ${T.cardBorder}`,background:T.bgPale+"80",flexWrap:"wrap",gap:8}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><strong style={{fontFamily:"Georgia,serif",fontSize:17,color:T.oliveDark}}>Flossenpass {getPassLabel(pk)}</strong>{isAlt&&<Badge variant="cream" small>Aufgebraucht</Badge>}</div>
+        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><strong style={{fontFamily:"Georgia,serif",fontSize:17,color:T.oliveDark}}>Flossenpass</strong>{isAlt&&<Badge variant="cream" small>Aufgebraucht</Badge>}</div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,textTransform:"uppercase",color:pk.bezahlt?T.green:T.red,background:pk.bezahlt?T.greenSoft:T.redSoft,padding:"6px 14px",borderRadius:10}}><input type="checkbox" checked={!!pk.bezahlt} onChange={()=>toggleBezahlt(pk.id)} style={{accentColor:T.green,width:15,height:15}}/>{pk.bezahlt?"Bezahlt":"Offen"}</label>
           <button onClick={()=>setConfirmDelete(pk.id)} style={{padding:"6px 12px",borderRadius:8,border:`1px solid ${T.red}30`,background:T.redSoft,color:T.red,fontSize:12,fontWeight:700,cursor:"pointer"}}>✕</button>
@@ -626,7 +691,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
 
   return(<div className="resp-pad" style={{padding:28}}>
     {kaufModal&&<KaufModal selPat={selPat} onKauf={handleKauf} onClose={()=>setKaufModal(false)}/>}
-    {kiModal&&<KIEingabeModal patienten={patienten} onKauf={handleKaufFuerPat} onClose={()=>setKiModal(false)}/>}
+    {kiModal&&<KIEingabeModal patienten={patienten} paesse={paesse} onKauf={handleKaufFuerPat} onClose={()=>setKiModal(false)}/>}
     {pinguChat&&<PinguChatModal patienten={patienten} paesse={paesse} einzel={einzel} log={log} onAction={handlePinguAction} onClose={()=>setPinguChat(false)}/>}
     {confirmDelete&&<Modal onClose={()=>setConfirmDelete(null)}><Card className="modal-box" style={{width:380,textAlign:"center"}}><div style={{fontSize:36,marginBottom:12}}>⚠️</div><Heading style={{fontSize:20,marginBottom:8}}>Pass löschen?</Heading><p style={{color:T.textMid,fontSize:15,marginBottom:20}}>Unwiderruflich.</p><div style={{display:"flex",gap:10,justifyContent:"center"}}><Btn ghost onClick={()=>setConfirmDelete(null)}>Abbrechen</Btn><Btn danger onClick={()=>deletePass(confirmDelete)}>Löschen</Btn></div></Card></Modal>}
     {bsModal&&<Modal onClose={()=>{setBsModal(null);setBsNotiz("");}}><Card className="modal-box" style={{width:400}}><Heading style={{fontSize:20,marginBottom:4}}>Gruppenangebot abhaken</Heading><p style={{color:T.textMid,fontSize:15,marginBottom:18}}>Noch {(bsModal.bs_total||0)-(bsModal.bs_genutzt||0)} von {bsModal.bs_total||0}</p><div style={{display:"flex",flexDirection:"column",gap:12}}><input value={bsNotiz} onChange={e=>setBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." style={inp} autoFocus/><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>{setBsModal(null);setBsNotiz("");}}>Abbrechen</Btn><Btn gold disabled={!bsNotiz.trim()} onClick={()=>bsAbziehen(bsModal)}>Abhaken</Btn></div></div></Card></Modal>}
@@ -788,24 +853,35 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
 
           {!selPat.mitarbeiter&&<>
             <Card>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}}><SectionLabel>Angebote & Pässe</SectionLabel><Btn small gold onClick={()=>setKaufModal(true)}>+ Hinzufügen</Btn></div>
-              {aktPaesse.length===0&&patEinzel.length===0&&altPaesse.length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15}}>Noch keine Angebote</p>}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}}><SectionLabel>Aktiver Flossenpass</SectionLabel><Btn small gold onClick={()=>setKaufModal(true)}>+ Hinzufügen</Btn></div>
+              {aktPaesse.length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15,padding:8}}>Kein aktiver Flossenpass</p>}
               {aktPaesse.map(pk=><PassCard key={pk.id} pk={pk} isAlt={false}/>)}
               {patEinzel.length>0&&(<div style={{marginTop:aktPaesse.length>0?14:0}}><div style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Einzelangebote</div>
                 {patEinzel.map(e=>(<div key={e.id} className="einzel-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 18px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:T.cream+"80",marginBottom:8}}>
                   <div style={{display:"flex",flexDirection:"column",gap:4}}><span style={{fontSize:15,fontWeight:600,color:T.text}}>{e.name}</span><div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}><code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight}}>{e.rechnung||"–"}</code><span style={{fontSize:14,color:T.textMid}}>{fmtDate(e.datum)}</span><strong style={{fontSize:14,color:T.text}}>{e.preis||0} €</strong></div></div>
                   <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,textTransform:"uppercase",color:e.bezahlt?T.green:T.red,background:e.bezahlt?T.greenSoft:T.redSoft,padding:"6px 14px",borderRadius:10,flexShrink:0}}><input type="checkbox" checked={!!e.bezahlt} onChange={()=>toggleEinzelBez(e.id)} style={{accentColor:T.green,width:15,height:15}}/>{e.bezahlt?"Bezahlt":"Offen"}</label>
                 </div>))}</div>)}
-              {altPaesse.length>0&&<div style={{marginTop:18,paddingTop:16,borderTop:`1px solid ${T.cardBorder}`}}><div style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:2,marginBottom:12}}>Alte Pässe</div><div style={{fontSize:14,color:T.textLight,textAlign:"center",padding:8}}>→ siehe Verkaufshistorie</div></div>}
             </Card>
             <Card>
-              <SectionLabel>Verkaufshistorie & Alte Pässe</SectionLabel>
-              {alleVerkaufe.length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15}}>Noch keine Verkäufe</p>}
-              {alleVerkaufe.map(item=>(<div key={item.id} className="vk-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:item.isAlt?T.bgPale+"50":T.bgPale+"80",borderRadius:12,fontSize:15,marginBottom:6,flexWrap:"wrap",gap:8,opacity:item.isAlt?0.7:1}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><Badge variant={item.art==="pass"?"gold":"blue"} small>{item.art==="pass"?"Flossenpass":"Einzelangebot"}</Badge>{item.isAlt&&<Badge variant="cream" small>Alt</Badge>}<span style={{fontWeight:600,color:T.text}}>{item.name}</span><code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight}}>{item.rechnung||"–"}</code></div>
-                <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0,flexWrap:"wrap"}}><span style={{fontSize:13,color:T.textLight}}>{fmtDate(item.datum)}</span><strong style={{fontFamily:"Georgia,serif",fontSize:15,color:T.oliveDark}}>{item.preis} €</strong><Badge variant={item.bezahlt?"green":"red"} small>{item.bezahlt?"Bezahlt":"Offen"}</Badge><button onClick={()=>{if(item.art==="pass")setConfirmDelete(item.id);else{if(confirm("Einzelangebot löschen?")){(async()=>{await supabase.from("einzel").delete().eq("id",item.id);setEinzel(prev=>prev.filter(e=>e.id!==item.id));})();}}}} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${T.red}25`,background:T.redSoft,color:T.red,fontSize:11,fontWeight:700,cursor:"pointer"}}>✕</button></div>
+              <SectionLabel>Flossenpass-Historie</SectionLabel>
+              {alleVerkaufe.length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15}}>Noch keine Einträge</p>}
+              {alleVerkaufe.map(item=>(<div key={item.id} className="vk-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 16px",background:item.isAlt?T.bgPale+"50":T.bgPale+"80",borderRadius:12,fontSize:15,marginBottom:6,flexWrap:"wrap",gap:8,opacity:item.isAlt?0.65:1,borderLeft:item.isAlt?`3px solid ${T.gold}40`:`3px solid ${T.green}60`}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <Badge variant={item.art==="pass"?"gold":"blue"} small>{item.art==="pass"?"Flossenpass":"Einzelangebot"}</Badge>
+                  {item.isAlt&&<Badge variant="cream" small>Aufgebraucht</Badge>}
+                  <code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight,fontFamily:"monospace"}}>{item.rechnung||"–"}</code>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0,flexWrap:"wrap"}}>
+                  <span style={{fontSize:13,color:T.textLight}}>{fmtDate(item.datum)}</span>
+                  <strong style={{fontFamily:"Georgia,serif",fontSize:15,color:T.oliveDark,minWidth:60,textAlign:"right"}}>{item.preis} €</strong>
+                  <Badge variant={item.bezahlt?"green":"red"} small>{item.bezahlt?"Bezahlt":"Offen"}</Badge>
+                  <button onClick={()=>{if(item.art==="pass")setConfirmDelete(item.id);else{if(confirm("Einzelangebot löschen?")){(async()=>{await supabase.from("einzel").delete().eq("id",item.id);setEinzel(prev=>prev.filter(e=>e.id!==item.id));})();}}}} style={{padding:"4px 10px",borderRadius:6,border:`1px solid ${T.red}25`,background:T.redSoft,color:T.red,fontSize:11,fontWeight:700,cursor:"pointer"}}>✕</button>
+                </div>
               </div>))}
-              {alleVerkaufe.length>0&&<div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.cardBorder}`,display:"flex",justifyContent:"flex-end",gap:18,fontSize:14,flexWrap:"wrap"}}><span style={{color:T.textLight}}>Gesamt: <strong style={{color:T.text}}>{alleVerkaufe.reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span><span style={{color:T.textLight}}>Bezahlt: <strong style={{color:T.green}}>{alleVerkaufe.filter(i=>i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span><span style={{color:T.textLight}}>Offen: <strong style={{color:T.red}}>{alleVerkaufe.filter(i=>!i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span></div>}
+              {alleVerkaufe.length>0&&<div style={{marginTop:14,paddingTop:12,borderTop:`1px solid ${T.cardBorder}`,display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:14,flexWrap:"wrap",gap:8}}>
+                <span style={{color:T.textLight,fontSize:13}}>{alleVerkaufe.length} Einträge · {alleVerkaufe.filter(i=>i.isAlt).length} aufgebraucht</span>
+                <div style={{display:"flex",gap:16,flexWrap:"wrap"}}><span style={{color:T.textLight}}>Gesamt: <strong style={{color:T.text}}>{alleVerkaufe.reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span><span style={{color:T.textLight}}>Offen: <strong style={{color:T.red}}>{alleVerkaufe.filter(i=>!i.bezahlt).reduce((s,i)=>s+i.preis,0).toLocaleString("de-DE")} €</strong></span></div>
+              </div>}
             </Card>
             <Card>
               <SectionLabel>Einheiten-Verlauf</SectionLabel>
@@ -862,7 +938,7 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
       <div className="kunde-hero" style={{textAlign:"center",padding:"36px 0 28px"}}><h1 style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(26px,6vw,34px)",color:"#E8E0D0",margin:"0 0 6px",letterSpacing:0.5,lineHeight:1.2}}>Willkommen {kunde.vorname}</h1><div style={{width:40,height:2,background:`linear-gradient(90deg,transparent,#D4C4A0,transparent)`,margin:"12px auto 0",borderRadius:2}}/>{kunde.stammkunde&&<div style={{marginTop:16,fontSize:13,color:"#D4C4A0",fontWeight:600,letterSpacing:0.5,fontFamily:"Georgia,serif"}}>VIP-Mitglied · Ihr exklusiver Vorteilstarif ist hinterlegt</div>}</div>
       {ap&&(<div className="kunde-card kunde-card-1" style={{marginBottom:24}}>
         <div style={{height:2,background:`linear-gradient(90deg,transparent,${T.gold},transparent)`,marginBottom:24,borderRadius:2}}/>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:8,padding:"0 4px"}}><div><div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:2.5,marginBottom:4,fontWeight:700,fontFamily:"Georgia,serif"}}>Dein Flossenpass</div><div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:28,color:"#F0EDE0",letterSpacing:0.5}}>{getPassLabel(ap)}</div></div><span style={{fontSize:12,color:T.goldDim,fontWeight:500,marginTop:4}}>seit {fmtDate(ap.datum)}</span></div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,flexWrap:"wrap",gap:8,padding:"0 4px"}}><div><div style={{fontSize:11,color:T.gold,textTransform:"uppercase",letterSpacing:2.5,marginBottom:4,fontWeight:700,fontFamily:"Georgia,serif"}}>Dein Flossenpass</div><div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:28,color:"#F0EDE0",letterSpacing:0.5}}>Flossenpass</div></div><span style={{fontSize:12,color:T.goldDim,fontWeight:500,marginTop:4}}>seit {fmtDate(ap.datum)}</span></div>
         <div className="kunden-units" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
           {[{label:"Haupteinheit",labelP:"Haupteinheiten",left:heL,total:ap.he_total||0,pct:hePct},{label:"Gruppenangebot",labelP:"Gruppenangebote",left:bsL,total:ap.bs_total||0,pct:bsPct}].map((u,ui)=>(<div key={ui} style={{textAlign:"center",padding:"22px 12px 18px",borderRadius:16,border:`1.5px solid ${T.gold}50`,background:`${T.gold}15`}}><div style={{fontSize:44,fontWeight:700,fontFamily:"Georgia,serif",color:"#F0EDE0",lineHeight:1,marginBottom:4}}>{u.left}</div><div style={{fontSize:12,color:T.goldDim,marginBottom:2}}>von {u.total}</div><div style={{fontSize:13,color:T.goldLight,fontWeight:600}}>{u.left===1?u.label:u.labelP}</div><div style={{marginTop:12,padding:"0 10px"}}><Bar used={u.pct} total={100} color={T.gold} h={3}/></div></div>))}
         </div>
@@ -875,7 +951,7 @@ const KundenApp=({kunde,paesse,log,einzel})=>{
       {mp.length===0&&me.length===0&&(<Card className="kunde-card kunde-card-1" style={{textAlign:"center",padding:"48px 28px",marginBottom:16}}><div style={{fontSize:36,marginBottom:16,opacity:0.4}}>🐟</div><p style={{color:T.textMid,lineHeight:1.8,fontSize:16,margin:0}}>Du hast noch keine Angebote.<br/><span style={{color:T.textLight}}>Sprich uns gerne an!</span></p></Card>)}
       {ml.length>0&&(<Card className="kunde-card kunde-card-3" style={{marginBottom:16,padding:20,background:"#c7d1ac"}}><SectionLabel>Mein Verlauf</SectionLabel>{ml.map((l,i)=>{const b=kundenLogBadge(l.typ);return(<div key={l.id} className="slide-in log-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<ml.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15,animationDelay:`${i*0.04}s`}}><div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><Badge variant={b.v} small>{b.label}</Badge><span style={{color:T.textMid,fontSize:14}}>{l.notiz}</span></div><span style={{color:T.textLight,fontSize:13,flexShrink:0,marginLeft:8}}>{fmtDate(l.datum)}</span></div>);})}</Card>)}
       {(mp.length>0||me.length>0)&&(<Card className="kunde-card kunde-card-4" style={{marginBottom:16,padding:20,background:"#c7d1ac"}}><SectionLabel>Meine Rechnungen</SectionLabel>
-        {mp.map((pk,i)=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<mp.length+me.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15}}><div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight}}>{pk.rechnung||"–"}</code><span style={{color:T.textMid,fontSize:14}}>Flossenpass {getPassLabel(pk)}</span></div><div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{color:T.textLight,fontSize:13}}>{fmtDate(pk.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark,fontSize:15}}>{pk.preis||0} €</strong></div></div>))}
+        {mp.map((pk,i)=>(<div key={pk.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<mp.length+me.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15}}><div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight}}>{pk.rechnung||"–"}</code><span style={{color:T.textMid,fontSize:14}}>Flossenpass</span></div><div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{color:T.textLight,fontSize:13}}>{fmtDate(pk.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark,fontSize:15}}>{pk.preis||0} €</strong></div></div>))}
         {me.map((e,i)=>(<div key={e.id} className="rechnung-row" style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:i<me.length-1?`1px solid ${T.cardBorder}`:"none",fontSize:15}}><div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight}}>{e.rechnung||"–"}</code><span style={{color:T.textMid,fontSize:14}}>{e.name}</span></div><div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}><span style={{color:T.textLight,fontSize:13}}>{fmtDate(e.datum)}</span><strong style={{fontFamily:"Georgia,serif",color:T.oliveDark,fontSize:15}}>{e.preis||0} €</strong></div></div>))}
       </Card>)}
       <div style={{textAlign:"center",padding:"40px 0 12px"}}><div style={{width:48,height:1,background:`linear-gradient(90deg,transparent,${T.gold}60,transparent)`,margin:"0 auto 18px"}}/><a href="https://kaiserufer.com" target="_blank" rel="noopener noreferrer" style={{fontSize:12,color:T.oliveDark,textDecoration:"none",letterSpacing:2.5,textTransform:"uppercase",fontWeight:600,fontFamily:"Georgia,serif"}}>kaiserufer.com ↗</a><div style={{marginTop:10}}><a href="https://kaiserufer.com/datenschutz/" target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:T.textLight,textDecoration:"none",letterSpacing:1,textTransform:"uppercase"}}>Datenschutz</a></div></div>
