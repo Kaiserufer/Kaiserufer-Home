@@ -221,16 +221,22 @@ const KIEingabeModal=({patienten,paesse:existingPaesse,onKauf,onClose})=>{
   const [savingIdx,setSavingIdx]=useState(-1);const[error,setError]=useState("");
   const [fotos,setFotos]=useState([]);const[fotoPreview,setFotoPreview]=useState([]);
   const recognitionRef=useRef(null);const fileRef=useRef(null);
-  const matchPat=(name)=>{if(!name)return null;const nl=name.toLowerCase().trim();const parts=nl.split(/\s+/);
-    const exact=patienten.find(p=>`${p.vorname||""} ${p.nachname||""}`.toLowerCase().trim()===nl);if(exact)return exact;
-    const partial=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.some(part=>part.length>2&&full.includes(part));});if(partial)return partial;
-    const firstName=parts[0];if(firstName&&firstName.length>2){const fnMatch=patienten.filter(p=>(p.vorname||"").toLowerCase()===firstName);if(fnMatch.length===1)return fnMatch[0];}return null;};
+  const matchPat=(name)=>{if(!name)return null;const nl=name.toLowerCase().trim();const parts=nl.split(/\s+/).filter(p=>p.length>0);
+    const guests=patienten.filter(p=>!p.mitarbeiter);
+    const exact=guests.find(p=>`${p.vorname||""} ${p.nachname||""}`.toLowerCase().trim()===nl);if(exact)return exact;
+    if(parts.length>=2){const allParts=guests.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.every(part=>full.includes(part));});if(allParts)return allParts;}
+    const partial=guests.filter(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.some(part=>part.length>2&&full.includes(part));});if(partial.length===1)return partial[0];
+    if(parts[0]&&parts[0].length>2){const fnMatch=guests.filter(p=>(p.vorname||"").toLowerCase()===parts[0]);if(fnMatch.length===1)return fnMatch[0];}
+    const lastName=parts[parts.length-1];if(lastName&&lastName.length>2){const lnMatch=guests.filter(p=>(p.nachname||"").toLowerCase()===lastName);if(lnMatch.length===1)return lnMatch[0];}
+    if(parts[0]&&parts[0].length>2){const swMatch=guests.filter(p=>(p.vorname||"").toLowerCase().startsWith(parts[0])||(p.nachname||"").toLowerCase().startsWith(parts[0]));if(swMatch.length===1)return swMatch[0];}
+    if(parts.length>=2&&lastName.length>2){const lnSwMatch=guests.filter(p=>(p.nachname||"").toLowerCase().startsWith(lastName));if(lnSwMatch.length===1)return lnSwMatch[0];}
+    return null;};
   const buildPrompt=(patNames)=>`Du bist "Pingu hilft". Extrahiere ALLE Einträge aus dem Foto oder Text. Antworte NUR mit einem JSON-Array, OHNE Backticks, OHNE Erklärungen.
 
 TABELLENFORMAT DES ALTEN SYSTEMS:
 Die Tabelle hat diese Spalten (von links nach rechts):
 1. "Codes" – Format: "RN{nummer}-{preis}€-{datum TT.MM.JJJJ} - {Name}" oder "RN {nummer} – {preis}€ – {datum TT.MM.JJJJ} - {Name}"
-2. "Kunde" – Der korrekte Kundenname (IMMER diesen verwenden, NICHT den Namen aus der Codes-Spalte!)
+2. "Kunde" – IMMER diesen EXAKTEN Kundennamen verwenden! NIEMALS den Namen aus der Codes-Spalte! Die Codes-Spalte enthält oft abgekürzte oder falsche Namen.
 3. "Bezahlt" – Checkbox (angehakt = true, leer = false)
 4. "Haupteinheit" – Zahl = ÜBRIGE (noch nicht genutzte) Haupteinheiten
 5. "Zusatzangebot" – Zahl = ÜBRIGE (noch nicht genutzte) Gruppenangebote
@@ -249,9 +255,19 @@ Beispiel: "RN 431 – 399.20€ – 09.02.2025 - Ettje Dittmann"
 → preis = 399.20
 → datum = "2025-02-09"
 
-AKTUELLE PASS-TYPEN: BASIS=299€ 3HE 1GA, PLUS=499€ 5HE 3GA, DELUXE=899€ 10HE 5GA.
-ALTE PREISE (im alten System): Plus war 350€ oder 399€ (gleiche Einheiten: 5HE 3GA).
-Wenn Preis NICHT exakt 299/350/399/499/899 → pass_typ="INDIVIDUELL".
+PREISHISTORIE – DREI GENERATIONEN:
+1. ERSTER FLOSSENPASS: 350€ = 5HE 5GA (einzelne Variante)
+2. ALTE PREISE: Basis=299€ 3HE 3GA, Plus=399€ 5HE 5GA, Deluxe=759€ 10HE 10GA
+3. NEUE PREISE (aktuell): Basis=299€ 3HE 1GA, Plus=499€ 5HE 3GA, Deluxe=899€ 10HE 5GA
+WICHTIG: Die alte Liste enthält fast immer ALTE Preise!
+PREISERKENNUNG (Import = altes System, alte Preise bevorzugen!):
+- 350€ → 5HE 5GA, pass_typ="INDIVIDUELL"
+- 399€ → 5HE 5GA, pass_typ="INDIVIDUELL"
+- 299€ → 3HE 3GA, pass_typ="INDIVIDUELL"
+- 759€ → 10HE 10GA, pass_typ="INDIVIDUELL"
+- 499€ → 5HE 3GA, pass_typ="PLUS"
+- 899€ → 10HE 5GA, pass_typ="DELUXE"
+- Anderer Preis → pass_typ="INDIVIDUELL"
 Wenn HE übrig=0 UND GA übrig=0 → ist_alt=true (aufgebrauchter Pass).
 
 JSON-FORMAT PRO EINTRAG:
@@ -261,7 +277,7 @@ BEKANNTE KUNDEN: ${patNames}
 REGELN: typ IMMER "pass". custom_name IMMER "Flossenpass". Rechnungsnummern ohne Leerzeichen. Datum IMMER YYYY-MM-DD. Heute: ${todayISO()}. NUR JSON-Array zurückgeben.`;
   const normalizeRechnung=(r)=>(r||"").replace(/\s+/g,"").trim();
   const normalizeDatum=(d)=>{if(!d)return"";const m=String(d).match(/(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})/);if(m)return`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;return d;};
-  const inferPassTyp=(item)=>{const p=Number(item.preis)||0;const heU=Number(item.he_uebrig??item.he_total??0);const bsU=Number(item.bs_uebrig??item.bs_total??0);if(p===299)return{pass_typ:"BASIS",he_total:3,bs_total:1};if(p===499)return{pass_typ:"PLUS",he_total:5,bs_total:3};if(p===899)return{pass_typ:"DELUXE",he_total:10,bs_total:5};if(p===350||p===399||p===399.2||Math.floor(p)===399)return{pass_typ:"INDIVIDUELL",he_total:5,bs_total:3};if(p===759)return{pass_typ:"INDIVIDUELL",he_total:10,bs_total:5};return{pass_typ:"INDIVIDUELL",he_total:heU,bs_total:bsU};};
+  const inferPassTyp=(item)=>{const p=Number(item.preis)||0;const heU=Number(item.he_uebrig??item.he_total??0);const bsU=Number(item.bs_uebrig??item.bs_total??0);if(p===499)return{pass_typ:"PLUS",he_total:5,bs_total:3};if(p===899)return{pass_typ:"DELUXE",he_total:10,bs_total:5};if(p===350)return{pass_typ:"INDIVIDUELL",he_total:5,bs_total:5};if(p===399||p===399.2||Math.floor(p)===399)return{pass_typ:"INDIVIDUELL",he_total:5,bs_total:5};if(p===759)return{pass_typ:"INDIVIDUELL",he_total:10,bs_total:10};if(p===299)return{pass_typ:"INDIVIDUELL",he_total:3,bs_total:3};return{pass_typ:"INDIVIDUELL",he_total:heU,bs_total:bsU};};
   const parseResult=(raw)=>{
     const c=raw.replace(/```json|```/g,"").trim();
     let arr;try{arr=JSON.parse(c);}catch{const m=c.match(/\[[\s\S]*\]/);if(m)arr=JSON.parse(m[0]);else throw new Error("Kein gültiges JSON");}
