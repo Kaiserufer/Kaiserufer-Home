@@ -300,11 +300,6 @@ REGELN: typ IMMER "pass". custom_name IMMER "Flossenpass". Rechnungsnummern ohne
     return(Array.isArray(arr)?arr:[arr]).map((item,i)=>{
       const rechnung=normalizeRechnung(item.rechnung);
       const datum=normalizeDatum(item.datum);
-      let preis=Number(item.preis)||0;
-      const rnNum=rechnung?Number(rechnung.replace(/\D/g,"")):0;
-      const knownPrices=[299,350,399,499,759,899];
-      if(preis>0&&preis===rnNum&&!knownPrices.includes(preis)){preis=0;}
-      item.preis=preis;
       const heUebrig=Number(item.he_uebrig??item.he_total??0);
       const bsUebrig=Number(item.bs_uebrig??item.bs_total??0);
       const inf=inferPassTyp(item);
