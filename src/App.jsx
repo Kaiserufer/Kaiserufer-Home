@@ -131,7 +131,7 @@ const UndoToast=({message,onUndo,onDismiss})=>{
 
 const LoginModal=({onLogin,onClose})=>{
   const [email,setEmail]=useState("");const[pw,setPw]=useState("");const[err,setErr]=useState("");const[loading,setLoading]=useState(false);
-  const tryLogin=async()=>{if(!email.trim()||!pw.trim()){setErr("Bitte alle Felder ausfüllen");return;}setLoading(true);setErr("");try{const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email.trim(),password:pw})});const data=await r.json();if(data.success){onLogin();}else{setErr("Ungültige Anmeldedaten");setPw("");}}catch(e){if(LOGIN_PASS&&LOGIN_EMAIL){if(email.toLowerCase().trim()===LOGIN_EMAIL.toLowerCase()&&pw===LOGIN_PASS){onLogin();return;}};setErr("Anmeldung fehlgeschlagen");}setLoading(false);};
+  const tryLogin=async()=>{if(!email.trim()||!pw.trim()){setErr("Bitte alle Felder ausfüllen");return;}setLoading(true);setErr("");try{const{error}=await supabase.auth.signInWithPassword({email:email.trim(),password:pw});if(error){setErr("Ungültige Anmeldedaten");setPw("");}else{onLogin();}}catch(e){setErr("Anmeldung fehlgeschlagen");}setLoading(false);};
   const inpS={width:"100%",padding:"13px 16px",borderRadius:14,border:`1.5px solid ${err?T.red+"60":T.landBorder}`,fontSize:15,background:T.land2,color:"#F0EDE0",outline:"none"};
   return(<Modal onClose={onClose}><div className="modal-box" style={{background:`linear-gradient(180deg,${T.land1},${T.land2})`,borderRadius:28,padding:44,width:360,textAlign:"center",boxShadow:"0 32px 80px rgba(0,0,0,0.5)",border:`1px solid ${T.landBorder}`}}>
     <div style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:22,letterSpacing:3,textTransform:"uppercase",color:T.gold,marginBottom:4}}>Kaiserufer</div>
@@ -300,6 +300,10 @@ REGELN: typ IMMER "pass". custom_name IMMER "Flossenpass". Rechnungsnummern ohne
     return(Array.isArray(arr)?arr:[arr]).map((item,i)=>{
       const rechnung=normalizeRechnung(item.rechnung);
       const datum=normalizeDatum(item.datum);
+      let preis=Number(item.preis)||0;
+      const rnNum=rechnung?Number(rechnung.replace(/\D/g,"")):0;
+      if(preis===rnNum&&preis>0&&rechnung){const codeStr=String(item._raw_codes||item.codes||"");const euroMatch=codeStr.match(/(\d+(?:[.,]\d+)?)\s*€/);if(euroMatch){preis=Number(euroMatch[1].replace(",","."))||preis;}else{const knownPrices=[299,350,399,499,759,899];if(!knownPrices.includes(preis)){preis=0;}}}
+      item.preis=preis;
       const heUebrig=Number(item.he_uebrig??item.he_total??0);
       const bsUebrig=Number(item.bs_uebrig??item.bs_total??0);
       const inf=inferPassTyp(item);
@@ -1001,6 +1005,7 @@ export default function App(){
   const [teamEvents,setTeamEvents]=useState([]);const[schichten,setSchichten]=useState([]);
   const [rechnungsNr,setRechnungsNr]=useState(0);const[loading,setLoading]=useState(true);
   const urlToken=new URLSearchParams(window.location.search).get("token");
+  useEffect(()=>{supabase.auth.getSession().then(({data:{session}})=>{if(session)setMode("staff");});const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{if(session)setMode("staff");else setMode("kunde");});return()=>subscription.unsubscribe();},[]);
   useEffect(()=>{(async()=>{setLoading(true);try{const[p,pk,l,e,cfg,u,te,sc]=await Promise.all([supabase.from("patienten").select("*"),supabase.from("paesse").select("*"),supabase.from("log").select("*"),supabase.from("einzel").select("*"),supabase.from("einstellungen").select("*").eq("key","rechnungs_nr").single(),supabase.from("urlaub").select("*"),supabase.from("team_events").select("*"),supabase.from("schichten").select("*")]);if(p.data)setPatienten(p.data);if(pk.data)setPaesse(pk.data);if(l.data)setLog(l.data);if(e.data)setEinzel(e.data);if(cfg.data)setRechnungsNr(parseInt(cfg.data.value)||0);if(u.data)setUrlaub(u.data);if(te.data)setTeamEvents(te.data);if(sc.data)setSchichten(sc.data);}catch(err){console.error("Ladefehler:",err);}setLoading(false);})();},[]);
   const loginPat=urlToken?patienten.find(p=>p.qr===urlToken.toUpperCase()):null;
   const appBg=`linear-gradient(180deg,${T.bg} 0%,${T.bgLight} 50%,${T.bgLighter} 100%)`;
@@ -1008,7 +1013,7 @@ export default function App(){
   return(<div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:loginPat?undefined:appBg}}>
     <style>{css}</style>
     {showLogin&&<LoginModal onLogin={()=>{setShowLogin(false);setMode("staff");}} onClose={()=>setShowLogin(false)}/>}
-    {mode==="staff"&&<div style={{background:T.olive+"F0",backdropFilter:"blur(12px)",color:T.cream,padding:"0 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${T.olive}30`,position:"sticky",top:0,zIndex:100,height:58}} className="nav-bar"><div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:17,letterSpacing:2.5,textTransform:"uppercase",color:T.goldLight}}>Kaiserufer</span><div style={{width:1,height:22,background:T.goldLight+"40",borderRadius:1}}/><span style={{fontSize:13,color:T.goldLight+"80",fontWeight:500,letterSpacing:1.5,textTransform:"uppercase"}}>Home</span></div><div><button onClick={()=>setMode("kunde")} style={{padding:"7px 18px",borderRadius:12,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.7)",fontWeight:600,fontSize:12,cursor:"pointer",textTransform:"uppercase",letterSpacing:0.8,fontFamily:"inherit"}}>Abmelden</button></div></div>}
+    {mode==="staff"&&<div style={{background:T.olive+"F0",backdropFilter:"blur(12px)",color:T.cream,padding:"0 28px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:`1px solid ${T.olive}30`,position:"sticky",top:0,zIndex:100,height:58}} className="nav-bar"><div style={{display:"flex",alignItems:"center",gap:10}}><span style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:17,letterSpacing:2.5,textTransform:"uppercase",color:T.goldLight}}>Kaiserufer</span><div style={{width:1,height:22,background:T.goldLight+"40",borderRadius:1}}/><span style={{fontSize:13,color:T.goldLight+"80",fontWeight:500,letterSpacing:1.5,textTransform:"uppercase"}}>Home</span></div><div><button onClick={()=>{supabase.auth.signOut();setMode("kunde");}} style={{padding:"7px 18px",borderRadius:12,border:"1px solid rgba(255,255,255,0.2)",background:"transparent",color:"rgba(255,255,255,0.7)",fontWeight:600,fontSize:12,cursor:"pointer",textTransform:"uppercase",letterSpacing:0.8,fontFamily:"inherit"}}>Abmelden</button></div></div>}
     {mode==="staff"
       ?<MitarbeiterApp patienten={patienten} setPatienten={setPatienten} paesse={paesse} setPaesse={setPaesse} log={log} setLog={setLog} rechnungsNr={rechnungsNr} setRechnungsNr={setRechnungsNr} einzel={einzel} setEinzel={setEinzel} urlaub={urlaub} setUrlaub={setUrlaub} teamEvents={teamEvents} setTeamEvents={setTeamEvents} schichten={schichten} setSchichten={setSchichten}/>
       :loginPat
