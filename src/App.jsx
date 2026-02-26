@@ -508,7 +508,7 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
       </div>
     </Card>
     {selDay&&<Card style={{padding:20}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}> 
         <Heading style={{fontSize:20}}>{selDay}. {MONATE[month]} {year}</Heading>
         <div style={{display:"flex",gap:8}}><Btn small gold onClick={()=>setAddModal("event")}>+ Event</Btn><Btn small onClick={()=>setAddModal("schicht")} style={{background:CAL_COLORS.schicht}}>+ Tresen</Btn></div>
       </div>
