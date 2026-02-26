@@ -270,6 +270,12 @@ PREISHISTORIE – DREI GENERATIONEN:
 2. ALTE PREISE: Basis=299€ 3HE 3GA, Plus=399€ 5HE 5GA, Deluxe=759€ 10HE 10GA
 3. NEUE PREISE (aktuell): Basis=299€ 3HE 1GA, Plus=499€ 5HE 3GA, Deluxe=899€ 10HE 5GA
 WICHTIG: Die alte Liste enthält fast immer ALTE Preise!
+ACHTUNG 299€ und 399€ sind VERSCHIEDENE Preise! Genau lesen! 299 beginnt mit ZWEI, 399 beginnt mit DREI!
+GEGENPRÜFUNG: Lies den Preis aus der Codes-Spalte (Zahl vor €). Prüfe dann die Haupteinheit-Spalte:
+- Preis 299€ → maximal 3 Haupteinheiten möglich (Basis)
+- Preis 399€ → maximal 5 Haupteinheiten möglich (Plus)
+- Wenn Haupteinheit-Spalte zeigt 4 oder 5 → Preis MUSS 399€ sein (nicht 299!)
+- Wenn Codes-Spalte 299€ zeigt, dann ist es 299€ – NICHT auf 399 ändern!
 PREISERKENNUNG (Import = altes System, alte Preise bevorzugen!):
 - 350€ → 5HE 5GA, pass_typ="INDIVIDUELL"
 - 399€ → 5HE 5GA, pass_typ="INDIVIDUELL"
@@ -296,7 +302,8 @@ REGELN: typ IMMER "pass". custom_name IMMER "Flossenpass". Rechnungsnummern ohne
       const datum=normalizeDatum(item.datum);
       let preis=Number(item.preis)||0;
       const rnNum=rechnung?Number(rechnung.replace(/\D/g,"")):0;
-      if(preis===rnNum&&preis>0&&rechnung){const codeStr=String(item._raw_codes||item.codes||"");const euroMatch=codeStr.match(/(\d+(?:[.,]\d+)?)\s*€/);if(euroMatch){preis=Number(euroMatch[1].replace(",","."))||preis;}else{const knownPrices=[299,350,399,499,759,899];if(!knownPrices.includes(preis)){preis=0;}}}
+      const knownPrices=[299,350,399,499,759,899];
+      if(preis>0&&preis===rnNum&&!knownPrices.includes(preis)){preis=0;}
       item.preis=preis;
       const heUebrig=Number(item.he_uebrig??item.he_total??0);
       const bsUebrig=Number(item.bs_uebrig??item.bs_total??0);
