@@ -244,16 +244,26 @@ Die Tabelle hat diese Spalten (von links nach rechts):
 7. "Datum" – Veröffentlichungsdatum (ignorieren, Datum kommt aus Codes-Spalte)
 
 SO PARST DU DIE CODES-SPALTE:
-Beispiel: "RN449-399€-24.02.2026 - Alexandra Kairies"
-→ rechnung = "RN449" (alles vor dem ersten Bindestrich+Preis)
-→ preis = 399 (die Zahl direkt vor dem €-Zeichen)
-→ datum = "2026-02-24" (TT.MM.JJJJ umwandeln zu YYYY-MM-DD!)
-→ kundenname = Wert aus Spalte "Kunde"
+ACHTUNG: Die Zahl direkt nach "RN" ist die RECHNUNGSNUMMER, NICHT der Preis! Der Preis ist die Zahl mit €-Zeichen dahinter!
+Format: "RN{rechnungsnummer}-{preis}€-{datum} - {name}"
+Die Codes-Spalte hat IMMER diese Reihenfolge: 1. Rechnungsnummer (RN+Zahl), 2. Preis (Zahl+€), 3. Datum, 4. Name
 
-Beispiel: "RN 431 – 399.20€ – 09.02.2025 - Ettje Dittmann"
+Beispiel 1: "RN449-399€-24.02.2026 - Alexandra Kairies"
+→ rechnung = "RN449" (RN + Nummer = Rechnungsnummer, NICHT der Preis!)
+→ preis = 399 (die Zahl direkt VOR dem €-Zeichen, NICHT die RN-Nummer!)
+→ datum = "2026-02-24" (TT.MM.JJJJ umwandeln zu YYYY-MM-DD!)
+→ kundenname = Wert aus Spalte "Kunde" (NICHT aus Codes!)
+
+Beispiel 2: "RN 431 – 399.20€ – 09.02.2025 - Ettje Dittmann"
 → rechnung = "RN431" (Leerzeichen entfernen!)
-→ preis = 399.20
+→ preis = 399.20 (Zahl vor €, NICHT 431!)
 → datum = "2025-02-09"
+
+Beispiel 3: "RN391-299€-15.03.2024 - Max Mustermann"
+→ rechnung = "RN391" (391 ist die Rechnungsnummer!)
+→ preis = 299 (299 ist der Preis weil € dahinter steht!)
+→ datum = "2024-03-15"
+MERKE: RN391 bedeutet Rechnung Nr. 391, der Preis 299€ kommt DANACH!
 
 PREISHISTORIE – DREI GENERATIONEN:
 1. ERSTER FLOSSENPASS: 350€ = 5HE 5GA (einzelne Variante)
@@ -284,6 +294,10 @@ REGELN: typ IMMER "pass". custom_name IMMER "Flossenpass". Rechnungsnummern ohne
     return(Array.isArray(arr)?arr:[arr]).map((item,i)=>{
       const rechnung=normalizeRechnung(item.rechnung);
       const datum=normalizeDatum(item.datum);
+      let preis=Number(item.preis)||0;
+      const rnNum=rechnung?Number(rechnung.replace(/\D/g,"")):0;
+      if(preis===rnNum&&preis>0&&rechnung){const codeStr=String(item._raw_codes||item.codes||"");const euroMatch=codeStr.match(/(\d+(?:[.,]\d+)?)\s*€/);if(euroMatch){preis=Number(euroMatch[1].replace(",","."))||preis;}else{const knownPrices=[299,350,399,499,759,899];if(!knownPrices.includes(preis)){preis=0;}}}
+      item.preis=preis;
       const heUebrig=Number(item.he_uebrig??item.he_total??0);
       const bsUebrig=Number(item.bs_uebrig??item.bs_total??0);
       const inf=inferPassTyp(item);
