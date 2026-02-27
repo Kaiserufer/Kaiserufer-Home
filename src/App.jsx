@@ -1005,11 +1005,13 @@ export default function App(){
   const [teamEvents,setTeamEvents]=useState([]);const[schichten,setSchichten]=useState([]);
   const [rechnungsNr,setRechnungsNr]=useState(0);const[loading,setLoading]=useState(true);
   const urlToken=new URLSearchParams(window.location.search).get("token");
+  const[qrPat,setQrPat]=useState(null);const[qrPaesse,setQrPaesse]=useState([]);const[qrLog,setQrLog]=useState([]);const[qrEinzel,setQrEinzel]=useState([]);const[qrLoading,setQrLoading]=useState(!!urlToken);
   useEffect(()=>{supabase.auth.getSession().then(({data:{session}})=>{if(session)setMode("staff");});const{data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{if(session)setMode("staff");else setMode("kunde");});return()=>subscription.unsubscribe();},[]);
+  useEffect(()=>{if(!urlToken)return;(async()=>{setQrLoading(true);try{const{data:patArr}=await supabase.rpc('get_patient_by_qr',{qr_code:urlToken});if(patArr&&patArr.length>0){const pat=patArr[0];setQrPat(pat);const[pk,l,e]=await Promise.all([supabase.rpc('get_paesse_for_patient',{p_id:pat.id}),supabase.rpc('get_log_for_patient',{p_id:pat.id}),supabase.rpc('get_einzel_for_patient',{p_id:pat.id})]);if(pk.data)setQrPaesse(pk.data);if(l.data)setQrLog(l.data);if(e.data)setQrEinzel(e.data);}}catch(err){console.error("QR-Ladefehler:",err);}setQrLoading(false);})();},[]);
   useEffect(()=>{(async()=>{setLoading(true);try{const[p,pk,l,e,cfg,u,te,sc]=await Promise.all([supabase.from("patienten").select("*"),supabase.from("paesse").select("*"),supabase.from("log").select("*"),supabase.from("einzel").select("*"),supabase.from("einstellungen").select("*").eq("key","rechnungs_nr").single(),supabase.from("urlaub").select("*"),supabase.from("team_events").select("*"),supabase.from("schichten").select("*")]);if(p.data)setPatienten(p.data);if(pk.data)setPaesse(pk.data);if(l.data)setLog(l.data);if(e.data)setEinzel(e.data);if(cfg.data)setRechnungsNr(parseInt(cfg.data.value)||0);if(u.data)setUrlaub(u.data);if(te.data)setTeamEvents(te.data);if(sc.data)setSchichten(sc.data);}catch(err){console.error("Ladefehler:",err);}setLoading(false);})();},[]);
-  const loginPat=urlToken?patienten.find(p=>p.qr===urlToken.toUpperCase()):null;
+  const loginPat=qrPat||(urlToken?patienten.find(p=>p.qr===urlToken.toUpperCase()):null);
   const appBg=`linear-gradient(180deg,${T.bg} 0%,${T.bgLight} 50%,${T.bgLighter} 100%)`;
-  if(loading)return(<div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:appBg}}><style>{css}</style><Spinner/></div>);
+  if(loading||qrLoading)return(<div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:appBg}}><style>{css}</style><Spinner/></div>);
   return(<div style={{fontFamily:"'Inter','Segoe UI',-apple-system,sans-serif",minHeight:"100vh",background:loginPat?undefined:appBg}}>
     <style>{css}</style>
     {showLogin&&<LoginModal onLogin={()=>{setShowLogin(false);setMode("staff");}} onClose={()=>setShowLogin(false)}/>}
@@ -1017,7 +1019,7 @@ export default function App(){
     {mode==="staff"
       ?<MitarbeiterApp patienten={patienten} setPatienten={setPatienten} paesse={paesse} setPaesse={setPaesse} log={log} setLog={setLog} rechnungsNr={rechnungsNr} setRechnungsNr={setRechnungsNr} einzel={einzel} setEinzel={setEinzel} urlaub={urlaub} setUrlaub={setUrlaub} teamEvents={teamEvents} setTeamEvents={setTeamEvents} schichten={schichten} setSchichten={setSchichten}/>
       :loginPat
-        ?<KundenApp kunde={loginPat} paesse={paesse} log={log} einzel={einzel}/>
+        ?<KundenApp kunde={loginPat} paesse={qrPat?qrPaesse:paesse} log={qrPat?qrLog:log} einzel={qrPat?qrEinzel:einzel}/>
         :<div style={{minHeight:"100vh",background:`linear-gradient(180deg,${T.land0} 0%,${T.land1} 40%,${T.land2} 70%,${T.land3} 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"28px 20px",position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 30%,rgba(184,168,138,0.06) 0%,transparent 70%)",pointerEvents:"none"}}/>
           <div style={{position:"absolute",top:"15%",left:"50%",transform:"translateX(-50%)",width:400,height:400,borderRadius:"50%",background:"radial-gradient(circle,rgba(184,168,138,0.04) 0%,transparent 70%)",filter:"blur(60px)",pointerEvents:"none"}}/>
