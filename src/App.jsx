@@ -25,8 +25,6 @@ const EINZEL_OPTIONS=EINZELANGEBOTE.map(e=>e.name);
 const getPassName=(t)=>PASS_TYPES[t]?.name??"Individuell";
 const getPassLabel=(pk)=>{if(!pk)return"–";if(pk.typ==="INDIVIDUELL"||!PASS_TYPES[pk.typ])return pk.custom_name||"Flossenpass";return PASS_TYPES[pk.typ].name;};
 
-const LOGIN_PASS=import.meta.env.VITE_LOGIN_PASS;
-const LOGIN_EMAIL=import.meta.env.VITE_LOGIN_EMAIL;
 const genId=()=>Math.random().toString(36).substr(2,9);
 const genRechnung=(n)=>`KU-2026-${String(n).padStart(4,"0")}`;
 const fmtDate=(d)=>{try{return new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});}catch{return"–";}};
