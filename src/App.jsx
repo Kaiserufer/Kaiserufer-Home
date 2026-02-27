@@ -213,192 +213,6 @@ const KaufModal=({selPat,onKauf,onClose})=>{
   </div></Modal>);
 };
 
-const KIEingabeModal=({patienten,paesse:existingPaesse,onKauf,onClose})=>{
-  const [recording,setRecording]=useState(false);const[transcript,setTranscript]=useState("");
-  const [loading,setLoading]=useState(false);const[eintraege,setEintraege]=useState([]);
-  const [savingIdx,setSavingIdx]=useState(-1);const[error,setError]=useState("");
-  const [fotos,setFotos]=useState([]);const[fotoPreview,setFotoPreview]=useState([]);
-  const recognitionRef=useRef(null);const fileRef=useRef(null);
-  const matchPat=(name)=>{if(!name)return null;const nl=name.toLowerCase().trim();const parts=nl.split(/\s+/).filter(p=>p.length>0);
-    const guests=patienten.filter(p=>!p.mitarbeiter);
-    const exact=guests.find(p=>`${p.vorname||""} ${p.nachname||""}`.toLowerCase().trim()===nl);if(exact)return exact;
-    if(parts.length>=2){const allParts=guests.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.every(part=>full.includes(part));});if(allParts)return allParts;}
-    const partial=guests.filter(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.some(part=>part.length>2&&full.includes(part));});if(partial.length===1)return partial[0];
-    if(parts[0]&&parts[0].length>2){const fnMatch=guests.filter(p=>(p.vorname||"").toLowerCase()===parts[0]);if(fnMatch.length===1)return fnMatch[0];}
-    const lastName=parts[parts.length-1];if(lastName&&lastName.length>2){const lnMatch=guests.filter(p=>(p.nachname||"").toLowerCase()===lastName);if(lnMatch.length===1)return lnMatch[0];}
-    if(parts[0]&&parts[0].length>2){const swMatch=guests.filter(p=>(p.vorname||"").toLowerCase().startsWith(parts[0])||(p.nachname||"").toLowerCase().startsWith(parts[0]));if(swMatch.length===1)return swMatch[0];}
-    if(parts.length>=2&&lastName.length>2){const lnSwMatch=guests.filter(p=>(p.nachname||"").toLowerCase().startsWith(lastName));if(lnSwMatch.length===1)return lnSwMatch[0];}
-    return null;};
-  const buildPrompt=(patNames)=>`Du bist "Pingu hilft". Extrahiere ALLE Einträge aus dem Foto oder Text. Antworte NUR mit einem JSON-Array, OHNE Backticks, OHNE Erklärungen.
-
-TABELLENFORMAT DES ALTEN SYSTEMS:
-Die Tabelle hat diese Spalten (von links nach rechts):
-1. "Codes" – Format: "RN{nummer}-{preis}€-{datum TT.MM.JJJJ} - {Name}" oder "RN {nummer} – {preis}€ – {datum TT.MM.JJJJ} - {Name}"
-2. "Kunde" – IMMER diesen EXAKTEN Kundennamen verwenden! NIEMALS den Namen aus der Codes-Spalte! Die Codes-Spalte enthält oft abgekürzte oder falsche Namen.
-3. "Bezahlt" – Checkbox (angehakt = true, leer = false)
-4. "Haupteinheit" – Zahl = ÜBRIGE (noch nicht genutzte) Haupteinheiten
-5. "Zusatzangebot" – Zahl = ÜBRIGE (noch nicht genutzte) Gruppenangebote
-6. "Ablaufdatum Zusatzangebot" – Datum (ignorieren)
-7. "Datum" – Veröffentlichungsdatum (ignorieren, Datum kommt aus Codes-Spalte)
-
-SO PARST DU DIE CODES-SPALTE:
-ACHTUNG: Die Zahl direkt nach "RN" ist die RECHNUNGSNUMMER, NICHT der Preis! Der Preis ist die Zahl mit €-Zeichen dahinter!
-Format: "RN{rechnungsnummer}-{preis}€-{datum} - {name}"
-Die Codes-Spalte hat IMMER diese Reihenfolge: 1. Rechnungsnummer (RN+Zahl), 2. Preis (Zahl+€), 3. Datum, 4. Name
-
-Beispiel 1: "RN449-399€-24.02.2026 - Alexandra Kairies"
-→ rechnung = "RN449" (RN + Nummer = Rechnungsnummer, NICHT der Preis!)
-→ preis = 399 (die Zahl direkt VOR dem €-Zeichen, NICHT die RN-Nummer!)
-→ datum = "2026-02-24" (TT.MM.JJJJ umwandeln zu YYYY-MM-DD!)
-→ kundenname = Wert aus Spalte "Kunde" (NICHT aus Codes!)
-
-Beispiel 2: "RN 431 – 399.20€ – 09.02.2025 - Ettje Dittmann"
-→ rechnung = "RN431" (Leerzeichen entfernen!)
-→ preis = 399.20 (Zahl vor €, NICHT 431!)
-→ datum = "2025-02-09"
-
-Beispiel 3: "RN391-299€-15.03.2024 - Max Mustermann"
-→ rechnung = "RN391" (391 ist die Rechnungsnummer!)
-→ preis = 299 (299 ist der Preis weil € dahinter steht!)
-→ datum = "2024-03-15"
-MERKE: RN391 bedeutet Rechnung Nr. 391, der Preis 299€ kommt DANACH!
-
-PREISHISTORIE – DREI GENERATIONEN:
-1. ERSTER FLOSSENPASS: 350€ = 5HE 5GA (einzelne Variante)
-2. ALTE PREISE: Basis=299€ 3HE 3GA, Plus=399€ 5HE 5GA, Deluxe=759€ 10HE 10GA
-3. NEUE PREISE (aktuell): Basis=299€ 3HE 1GA, Plus=499€ 5HE 3GA, Deluxe=899€ 10HE 5GA
-WICHTIG: Die alte Liste enthält fast immer ALTE Preise!
-ACHTUNG 299€ und 399€ sind VERSCHIEDENE Preise! Genau lesen! 299 beginnt mit ZWEI, 399 beginnt mit DREI!
-GEGENPRÜFUNG: Lies den Preis aus der Codes-Spalte (Zahl vor €). Prüfe dann die Haupteinheit-Spalte:
-- Preis 299€ → maximal 3 Haupteinheiten möglich (Basis)
-- Preis 399€ → maximal 5 Haupteinheiten möglich (Plus)
-- Wenn Haupteinheit-Spalte zeigt 4 oder 5 → Preis MUSS 399€ sein (nicht 299!)
-- Wenn Codes-Spalte 299€ zeigt, dann ist es 299€ – NICHT auf 399 ändern!
-PREISERKENNUNG (Import = altes System, alte Preise bevorzugen!):
-- 350€ → 5HE 5GA, pass_typ="INDIVIDUELL"
-- 399€ → 5HE 5GA, pass_typ="INDIVIDUELL"
-- 299€ → 3HE 3GA, pass_typ="INDIVIDUELL"
-- 759€ → 10HE 10GA, pass_typ="INDIVIDUELL"
-- 499€ → 5HE 3GA, pass_typ="PLUS"
-- 899€ → 10HE 5GA, pass_typ="DELUXE"
-- Anderer Preis → pass_typ="INDIVIDUELL"
-Wenn HE übrig=0 UND GA übrig=0 → ist_alt=true (aufgebrauchter Pass).
-
-JSON-FORMAT PRO EINTRAG:
-{"kundenname":"aus Kunde-Spalte","typ":"pass","pass_typ":"BASIS/PLUS/DELUXE/INDIVIDUELL","he_uebrig":Zahl aus Haupteinheit-Spalte,"bs_uebrig":Zahl aus Zusatzangebot-Spalte,"preis":Zahl aus Codes,"rechnung":"ohne Leerzeichen","datum":"YYYY-MM-DD aus Codes","bezahlt":true/false aus Checkbox,"custom_name":"Flossenpass"}
-
-BEKANNTE KUNDEN: ${patNames}
-REGELN: typ IMMER "pass". custom_name IMMER "Flossenpass". Rechnungsnummern ohne Leerzeichen. Datum IMMER YYYY-MM-DD. Heute: ${todayISO()}. NUR JSON-Array zurückgeben.`;
-  const normalizeRechnung=(r)=>(r||"").replace(/\s+/g,"").trim();
-  const normalizeDatum=(d)=>{if(!d)return"";const m=String(d).match(/(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})/);if(m)return`${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;return d;};
-  const inferPassTyp=(item)=>{const p=Number(item.preis)||0;const heU=Number(item.he_uebrig??item.he_total??0);const bsU=Number(item.bs_uebrig??item.bs_total??0);if(p===499)return{pass_typ:"PLUS",he_total:5,bs_total:3};if(p===899)return{pass_typ:"DELUXE",he_total:10,bs_total:5};if(p===350)return{pass_typ:"INDIVIDUELL",he_total:5,bs_total:5};if(p===399||p===399.2||Math.floor(p)===399)return{pass_typ:"INDIVIDUELL",he_total:5,bs_total:5};if(p===759)return{pass_typ:"INDIVIDUELL",he_total:10,bs_total:10};if(p===299)return{pass_typ:"INDIVIDUELL",he_total:3,bs_total:3};return{pass_typ:"INDIVIDUELL",he_total:heU,bs_total:bsU};};
-  const parseResult=(raw)=>{
-    const c=raw.replace(/```json|```/g,"").trim();
-    let arr;try{arr=JSON.parse(c);}catch{const m=c.match(/\[[\s\S]*\]/);if(m)arr=JSON.parse(m[0]);else throw new Error("Kein gültiges JSON");}
-    return(Array.isArray(arr)?arr:[arr]).map((item,i)=>{
-      const rechnung=normalizeRechnung(item.rechnung);
-      const datum=normalizeDatum(item.datum);
-      let preis=Number(item.preis)||0;
-      const rnNum=rechnung?Number(rechnung.replace(/\D/g,"")):0;
-      if(preis===rnNum&&preis>0&&rechnung){const codeStr=String(item._raw_codes||item.codes||"");const euroMatch=codeStr.match(/(\d+(?:[.,]\d+)?)\s*€/);if(euroMatch){preis=Number(euroMatch[1].replace(",","."))||preis;}else{const knownPrices=[299,350,399,499,759,899];if(!knownPrices.includes(preis)){preis=0;}}}
-      item.preis=preis;
-      const heUebrig=Number(item.he_uebrig??item.he_total??0);
-      const bsUebrig=Number(item.bs_uebrig??item.bs_total??0);
-      const inf=inferPassTyp(item);
-      const pass_typ=item.pass_typ&&["BASIS","PLUS","DELUXE"].includes(item.pass_typ)?item.pass_typ:inf.pass_typ;
-      const he_total=inf.he_total;const bs_total=inf.bs_total;
-      const he_genutzt=Math.max(0,he_total-heUebrig);
-      const bs_genutzt=Math.max(0,bs_total-bsUebrig);
-      const istAlt=!!item.ist_alt||(heUebrig===0&&bsUebrig===0&&he_total>0);
-      const pat=matchPat(item.kundenname);
-      const isDuplicate=rechnung&&existingPaesse?.some(ep=>normalizeRechnung(ep.rechnung)===rechnung)||(pat&&datum&&existingPaesse?.some(ep=>ep.pat_id===pat.id&&ep.datum===datum));
-      return{...item,_id:i,_skip:!!isDuplicate,_duplicate:!!isDuplicate,rechnung,datum,pass_typ,he_total,bs_total,he_genutzt:istAlt?he_total:he_genutzt,bs_genutzt:istAlt?bs_total:bs_genutzt,he_uebrig:heUebrig,bs_uebrig:bsUebrig,preis:Number(item.preis)||0,bezahlt:!!item.bezahlt,ist_alt:istAlt,custom_name:"Flossenpass",typ:"pass",matched_pat:pat};
-    });
-  };
-  const fileToBase64=(file)=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(",")[1]);r.onerror=()=>rej(new Error("Fehler"));r.readAsDataURL(file);});
-  const handleFotos=async(e)=>{const files=Array.from(e.target.files||[]);if(!files.length)return;const valid=files.filter(f=>f.type.startsWith("image/"));if(!valid.length){setError("Bitte nur Bilder hochladen");return;}setFotos(prev=>[...prev,...valid]);const previews=await Promise.all(valid.map(f=>new Promise((res)=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(f);})));setFotoPreview(prev=>[...prev,...previews]);setError("");};
-  const removeFoto=(idx)=>{setFotos(prev=>prev.filter((_,i)=>i!==idx));setFotoPreview(prev=>prev.filter((_,i)=>i!==idx));};
-  const analyzeContent=async(text,images)=>{if(!text?.trim()&&(!images||images.length===0))return;setLoading(true);setError("");setEintraege([]);try{const pn=patienten.map(p=>`${p.vorname} ${p.nachname}`).join(", ");const prompt=buildPrompt(pn);const content=[];if(images&&images.length>0){for(const img of images){const b64=await fileToBase64(img);content.push({type:"image",source:{type:"base64",media_type:img.type||"image/jpeg",data:b64}});}content.push({type:"text",text:text?.trim()?`${prompt}\n\nZusätzlicher Text: "${text.trim()}"`:prompt});}else{content.push({type:"text",text:`${prompt}\n\nText: "${text}"`});}
-    const resp=await fetch("/api/ai-analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content,max_tokens:4000})});
-    if(!resp.ok){setError(`Fehler ${resp.status}`);setLoading(false);return;}
-    const data=await resp.json();const txt=data.text||"";if(!txt){setError("Leere Antwort.");setLoading(false);return;}setEintraege(parseResult(txt));}catch(e){setError("Fehler: "+e.message);}setLoading(false);};
-  const analyzeText=async(text)=>analyzeContent(text,null);
-  const analyzeFotos=async()=>analyzeContent(transcript,fotos);
-  const startRec=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){setError("Spracherkennung nicht unterstützt.");return;}try{const r=new SR();r.lang="de-DE";r.continuous=true;r.interimResults=true;let ft="";r.onresult=(e)=>{let im="";ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript+" ";else im+=e.results[i][0].transcript;}setTranscript((ft+im).trim());};r.onerror=(e)=>{if(e.error==="no-speech")return;setError("Fehler: "+e.error);setRecording(false);};r.onend=()=>{if(recognitionRef.current){setRecording(false);if(ft.trim())analyzeText(ft.trim());}};r.start();recognitionRef.current=r;setRecording(true);setError("");setEintraege([]);}catch(e){setError("Mikrofon konnte nicht gestartet werden.");}};
-  const stopRec=()=>{if(recognitionRef.current){const ref=recognitionRef.current;recognitionRef.current=null;ref.stop();setRecording(false);if(transcript.trim())analyzeText(transcript.trim());}};
-  const alleBestaetigen=async()=>{
-    const aktive=eintraege.filter(e=>!e._skip&&e.matched_pat).sort((a,b)=>(a.datum||"").localeCompare(b.datum||""));
-    for(let i=0;i<aktive.length;i++){
-      setSavingIdx(i);const v=aktive[i],pat=v.matched_pat;
-      const datum=v.datum||todayISO();const rechnung=v.rechnung||"";
-      const bez=v.bezahlt===true||v.bezahlt===false?v.bezahlt:null;
-      const typ=v.pass_typ||"INDIVIDUELL";
-      const heT=Number(v.he_total)||0,bsT=Number(v.bs_total)||0;
-      const heG=Number(v.he_genutzt)||0,bsG=Number(v.bs_genutzt)||0;
-      const istAlt=!!v.ist_alt||(heT>0&&heG>=heT&&bsT>0&&bsG>=bsT);
-      await onKauf(pat,"individuell",{name:"Flossenpass",he:heT,bs:bsT,datum,rechnung,ist_alt:istAlt,bezahlt:bez,he_genutzt:heG,bs_genutzt:bsG},v.preis||0,"");
-    }
-    setSavingIdx(-1);onClose();
-  };
-  const toggleSkip=(id)=>setEintraege(prev=>prev.map(e=>e._id===id?{...e,_skip:!e._skip}:e));
-  const updateEintrag=(id,field,val)=>setEintraege(prev=>prev.map(e=>e._id===id?{...e,[field]:val}:e));
-  const reMatchPat=(id,name)=>{const pat=matchPat(name);setEintraege(prev=>prev.map(e=>e._id===id?{...e,kundenname:name,matched_pat:pat}:e));};
-  const aktiveCount=eintraege.filter(e=>!e._skip&&e.matched_pat).length;const isSaving=savingIdx>=0;
-  const inp2={width:"100%",padding:"11px 14px",borderRadius:12,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:T.text,outline:"none"};
-  const eInp={padding:"5px 8px",borderRadius:8,border:`1px solid ${T.cardBorder}`,fontSize:13,background:T.inp,color:T.text,outline:"none",fontFamily:"inherit"};
-  return(<Modal onClose={onClose}><div className="modal-box" style={{background:T.cardSolid,borderRadius:24,padding:28,width:600,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(44,48,38,0.15)",border:`1px solid ${T.cardBorder}`}}>
-    <Heading style={{fontSize:22,marginBottom:6}}>🐧 Pingu hilft – Import</Heading>
-    <p style={{color:T.textMid,fontSize:15,marginBottom:22,lineHeight:1.7}}>Sprich, tippe oder <strong style={{color:T.text}}>fotografiere</strong> deine alten Flossenpässe.</p>
-    <div style={{marginBottom:18}}>
-      <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10,fontFamily:"Georgia,serif"}}>Foto hochladen</div>
-      <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleFotos} style={{display:"none"}} capture="environment"/>
-      <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-start"}}>
-        <button onClick={()=>fileRef.current?.click()} style={{padding:"14px 24px",borderRadius:16,background:`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:"#2A2A1A",border:"none",fontWeight:700,fontSize:14,cursor:"pointer",boxShadow:`0 4px 16px rgba(184,168,138,0.3)`}}>📸 Foto auswählen</button>
-        {fotos.length>0&&<button onClick={analyzeFotos} disabled={loading} className="btn-a" style={{padding:"14px 24px",borderRadius:16,background:T.oliveDark,color:"#F0EDE0",border:"none",fontWeight:700,fontSize:14,cursor:loading?"not-allowed":"pointer",opacity:loading?0.5:1}}>🐧 {fotos.length} Foto{fotos.length>1?"s":""} analysieren</button>}
-      </div>
-      {fotoPreview.length>0&&<div style={{display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}}>{fotoPreview.map((src,i)=>(<div key={i} style={{position:"relative",borderRadius:12,overflow:"hidden",border:`2px solid ${T.gold}40`}}><img src={src} style={{width:80,height:80,objectFit:"cover",display:"block"}} alt=""/><button onClick={()=>removeFoto(i)} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,0.6)",color:"#fff",border:"none",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button></div>))}</div>}
-    </div>
-    <div style={{height:1,background:T.cardBorder,margin:"0 0 18px"}}/>
-    <div style={{fontSize:12,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2,marginBottom:10,fontFamily:"Georgia,serif"}}>Oder per Sprache / Text</div>
-    <div style={{display:"flex",gap:10,marginBottom:18,alignItems:"center",flexWrap:"wrap"}}>
-      {!recording?<button onClick={startRec} style={{padding:"14px 24px",borderRadius:16,background:T.red,color:"#fff",border:"none",fontWeight:700,fontSize:16,cursor:"pointer"}}>🎤 Aufnahme starten</button>:<button onClick={stopRec} style={{padding:"14px 24px",borderRadius:16,background:T.olive,color:"#fff",border:"none",fontWeight:700,fontSize:16,cursor:"pointer"}}>⏹ Stoppen</button>}
-      {recording&&<span style={{fontSize:14,color:T.red,fontWeight:600}}>● läuft</span>}
-    </div>
-    <div style={{marginBottom:18}}><div style={{display:"flex",gap:8}}><textarea value={transcript} onChange={e=>setTranscript(e.target.value)} rows={3} placeholder="z.B. Anna Müller alter Plus Pass bezahlt 499€..." style={{...inp2,flex:1,resize:"vertical"}}/><Btn gold small onClick={()=>analyzeText(transcript)} disabled={!transcript.trim()||loading}>KI →</Btn></div></div>
-    {loading&&<div style={{textAlign:"center",padding:20}}><Spinner/><p style={{color:T.gold,fontSize:14}}>🐧 Pingu analysiert...</p></div>}
-    {isSaving&&<div style={{padding:"12px 16px",borderRadius:12,background:T.greenSoft,color:T.green,fontSize:14,fontWeight:600,marginBottom:14}}>Speichere {savingIdx+1}/{aktiveCount}...</div>}
-    {error&&<div style={{padding:"12px 16px",borderRadius:12,background:T.redSoft,color:T.red,fontSize:14,marginBottom:14}}>{error}</div>}
-    {eintraege.length>0&&!loading&&(<div style={{marginBottom:16}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
-        <div style={{fontSize:13,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:2}}>{eintraege.length} Einträge erkannt</div>
-        {eintraege.some(e=>e._duplicate)&&<div style={{fontSize:12,fontWeight:600,color:T.orange,background:T.orangeSoft,padding:"4px 12px",borderRadius:8}}>{eintraege.filter(e=>e._duplicate).length} Duplikat{eintraege.filter(e=>e._duplicate).length>1?"e":""} übersprungen</div>}
-      </div>
-      <div style={{display:"flex",flexDirection:"column",gap:10}}>{eintraege.map(v=>(<div key={v._id} style={{borderRadius:14,border:`1px solid ${v._duplicate?T.orange+"30":v._skip?T.cardBorder:v.matched_pat?T.green+"30":T.red+"30"}`,background:v._duplicate?T.orangeSoft:v._skip?T.bgPale+"60":v.matched_pat?T.greenSoft:T.redSoft,padding:"14px 18px",opacity:v._skip?0.45:1}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:10}}>
-          <div style={{flex:1}}>{v._duplicate&&<div style={{fontSize:12,fontWeight:700,color:T.orange,marginBottom:4}}>Bereits vorhanden – wird übersprungen</div>}{v.matched_pat?<div style={{fontWeight:700,fontSize:15,color:T.text}}>{v.matched_pat.vorname} {v.matched_pat.nachname}</div>:<div style={{display:"flex",alignItems:"center",gap:6}}><span style={{color:T.red,fontWeight:700,fontSize:14}}>⚠</span><input value={v.kundenname||""} onChange={e=>reMatchPat(v._id,e.target.value)} style={{...eInp,flex:1,fontWeight:600}} placeholder="Name..."/></div>}</div>
-          <button onClick={()=>toggleSkip(v._id)} style={{padding:"6px 14px",borderRadius:8,border:`1px solid ${v._skip?T.green+"40":T.red+"30"}`,background:"transparent",color:v._skip?T.green:T.red,fontSize:12,fontWeight:700,cursor:"pointer",textTransform:"uppercase",flexShrink:0}}>{v._skip?"↩":"✕ Skip"}</button>
-        </div>
-        {!v._skip&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>Typ</div><select value={v.pass_typ||"INDIVIDUELL"} onChange={e=>{const t=e.target.value;updateEintrag(v._id,"pass_typ",t);if(t!=="INDIVIDUELL"&&PASS_TYPES[t]){updateEintrag(v._id,"he_total",PASS_TYPES[t].he);updateEintrag(v._id,"bs_total",PASS_TYPES[t].bs);if(!v.preis)updateEintrag(v._id,"preis",PASS_TYPES[t].preis);}}} style={{...eInp,width:"100%"}}><option value="INDIVIDUELL">Individuell</option><option value="BASIS">Basis</option><option value="PLUS">Plus</option><option value="DELUXE">Deluxe</option></select></div>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>Rechnungs-Nr.</div><input value={v.rechnung||""} onChange={e=>updateEintrag(v._id,"rechnung",e.target.value)} style={{...eInp,width:"100%",fontFamily:"monospace"}} placeholder="RN412"/></div>
-          <div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>Preis (€)</div><input type="number" min={0} value={v.preis||""} onChange={e=>updateEintrag(v._id,"preis",Number(e.target.value))} style={{...eInp,width:"100%"}}/></div>
-        </div>}
-        {!v._skip&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:8}}>
-          {[["HE gesamt","he_total"],["HE übrig","he_uebrig"],["GA gesamt","bs_total"],["GA übrig","bs_uebrig"]].map(([l,f])=>(
-            <div key={f}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginBottom:3}}>{l}</div><input type="number" min={0} value={v[f]!=null?v[f]:""} onChange={e=>{const val=Number(e.target.value)||0;updateEintrag(v._id,f,val);if(f==="he_uebrig")updateEintrag(v._id,"he_genutzt",Math.max(0,(v.he_total||0)-val));if(f==="bs_uebrig")updateEintrag(v._id,"bs_genutzt",Math.max(0,(v.bs_total||0)-val));if(f==="he_total")updateEintrag(v._id,"he_genutzt",Math.max(0,val-(v.he_uebrig||0)));if(f==="bs_total")updateEintrag(v._id,"bs_genutzt",Math.max(0,val-(v.bs_uebrig||0)));}} style={{...eInp,width:"100%"}}/></div>
-          ))}
-        </div>}
-        {!v._skip&&<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <div style={{display:"flex",alignItems:"center",gap:6}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>Datum</div><input type="date" value={v.datum||""} onChange={e=>updateEintrag(v._id,"datum",e.target.value)} style={{...eInp}}/></div>
-          <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,color:v.ist_alt?T.textMid:T.textLight}}><input type="checkbox" checked={!!v.ist_alt} onChange={e=>updateEintrag(v._id,"ist_alt",e.target.checked)} style={{accentColor:T.olive}}/>Alt</label>
-          <label style={{display:"flex",alignItems:"center",gap:5,cursor:"pointer",fontSize:12,fontWeight:700,color:v.bezahlt?T.green:T.textLight}}><input type="checkbox" checked={!!v.bezahlt} onChange={e=>updateEintrag(v._id,"bezahlt",e.target.checked)} style={{accentColor:T.green}}/>Bezahlt</label>
-        </div>}
-      </div>))}</div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:16,flexWrap:"wrap",gap:8}}><span style={{fontSize:14,color:T.textLight}}>{aktiveCount}/{eintraege.length}</span><div style={{display:"flex",gap:8}}><Btn small ghost onClick={()=>{setEintraege([]);setTranscript("");setFotos([]);setFotoPreview([]);}}>Nochmal</Btn><Btn small gold disabled={aktiveCount===0||isSaving} onClick={alleBestaetigen}>✓ Alle {aktiveCount} speichern</Btn></div></div>
-    </div>)}
-    <div style={{textAlign:"right",marginTop:10}}><Btn small ghost onClick={onClose}>Abbrechen</Btn></div>
-  </div></Modal>);
-};
 /* ═══ PINGU CHAT ═══ */
 const PinguChatModal=({patienten,paesse,einzel,log,onAction,onClose})=>{
   const [messages,setMessages]=useState([{role:"assistant",text:"Hey! 🐧 Ich bin Pingu. Frag mich was – z.B. \"Wer muss noch bezahlen?\" oder \"Hinterlege bei Anna eine Notiz: Termin verschoben\"."}]);
@@ -572,7 +386,7 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
 const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnungsNr,setRechnungsNr,einzel,setEinzel,urlaub,setUrlaub,teamEvents,setTeamEvents,schichten,setSchichten})=>{
   const [view,setView]=useState("liste");const[selPat,setSelPat]=useState(null);const[search,setSearch]=useState("");
   const [scanMode,setScanMode]=useState(false);const[scanInput,setScanInput]=useState("");
-  const [showStats,setShowStats]=useState(false);const[kaufModal,setKaufModal]=useState(false);const[kiModal,setKiModal]=useState(false);const[pinguChat,setPinguChat]=useState(false);
+  const [showStats,setShowStats]=useState(false);const[kaufModal,setKaufModal]=useState(false);const[pinguChat,setPinguChat]=useState(false);
   const [bsModal,setBsModal]=useState(null);const[bsNotiz,setBsNotiz]=useState("");
   const [korrekturModal,setKorrekturModal]=useState(null);const[korrekturTyp,setKorrekturTyp]=useState("HE");
   const [korrekturAnzahl,setKorrekturAnzahl]=useState(1);const[korrekturGrund,setKorrekturGrund]=useState("");
@@ -583,6 +397,9 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const [urlaubVon,setUrlaubVon]=useState("");const[urlaubBis,setUrlaubBis]=useState("");const[urlaubNotiz,setUrlaubNotiz]=useState("");
   const [pinguName,setPinguName]=useState("");const[pinguMatch,setPinguMatch]=useState(null);const[pinguConfirmed,setPinguConfirmed]=useState(false);const[pinguBsNotiz,setPinguBsNotiz]=useState("");const[pinguDone,setPinguDone]=useState("");
   const [pinguBsStep,setPinguBsStep]=useState(false);
+
+  const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent)setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){if(!silent)setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);};
+  useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
 
   const pinguMatchPat=(name)=>{
     if(!name||name.trim().length<2)return null;
@@ -702,16 +519,22 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     </div>);
   };
 
+  const isTherapieKunde=(p)=>p.therapie||(!p.ergotherapie&&!p.sonstige);
   const ListRow=({p,i})=>{
     const u=getUnits(p.id);
     const ub=paesse.filter(pk=>pk.pat_id===p.id).some(pk=>!pk.bezahlt)||einzel.filter(e=>e.pat_id===p.id).some(e=>!e.bezahlt);
     const heW=u?(u.he===1):false;const bsW=u?(u.bs===1):false;
+    const showPass=isTherapieKunde(p);
     return(<div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-h slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"16px 24px",background:T.card,borderRadius:20,border:`1px solid ${T.cardBorder}`,cursor:"pointer",backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(74,82,64,0.06)"}}>
       <div className="liste-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <div><div style={{fontWeight:600,color:T.text,fontSize:17,lineHeight:1.4}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:14,color:T.textLight}}>{p.email}</span>{p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}</div></div>
         <div className="liste-right" style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
-          <div style={{display:"flex",border:`1px solid ${T.cardBorder}`,borderRadius:10,overflow:"hidden"}}>{[{label:"HE",val:u?u.he:null,warn:heW},{label:"GA",val:u?u.bs:null,warn:bsW}].map((col,ci)=>(<div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.cardBorder}`:"none",background:col.warn?T.orangeSoft:T.bgPale+"60"}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div><div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.warn?T.orange:col.val===null?T.textLight+"40":T.oliveDark,lineHeight:1}}>{col.val!==null?col.val:"–"}</div></div>))}</div>
-          <div className="badge-w" style={{width:68,textAlign:"center"}}>{u?<Badge variant="gold">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:T.textLight+"40"}}>–</span>}</div>
+          {showPass?<>
+            <div style={{display:"flex",border:`1px solid ${T.cardBorder}`,borderRadius:10,overflow:"hidden"}}>{[{label:"HE",val:u?u.he:null,warn:heW},{label:"GA",val:u?u.bs:null,warn:bsW}].map((col,ci)=>(<div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.cardBorder}`:"none",background:col.warn?T.orangeSoft:T.bgPale+"60"}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div><div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.warn?T.orange:col.val===null?T.textLight+"40":T.oliveDark,lineHeight:1}}>{col.val!==null?col.val:"–"}</div></div>))}</div>
+            <div className="badge-w" style={{width:68,textAlign:"center"}}>{u?<Badge variant="gold">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:T.textLight+"40"}}>–</span>}</div>
+          </>:
+            <Badge variant={p.ergotherapie?"blue":"purple"}>{p.ergotherapie?"Ergotherapie":"Sonstige"}</Badge>
+          }
           <div className="badge-w" style={{width:48,textAlign:"center"}}>{ub?<Badge variant="red">Offen</Badge>:null}</div>
           <span className="chevron" style={{color:T.gold,fontSize:20,fontWeight:300}}>›</span>
         </div>
@@ -725,7 +548,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
 
   return(<div className="resp-pad" style={{padding:28}}>
     {kaufModal&&<KaufModal selPat={selPat} onKauf={handleKauf} onClose={()=>setKaufModal(false)}/>}
-    {kiModal&&<KIEingabeModal patienten={patienten} paesse={paesse} onKauf={handleKaufFuerPat} onClose={()=>setKiModal(false)}/>}
     {pinguChat&&<PinguChatModal patienten={patienten} paesse={paesse} einzel={einzel} log={log} onAction={handlePinguAction} onClose={()=>setPinguChat(false)}/>}
     {confirmDelete&&<Modal onClose={()=>setConfirmDelete(null)}><Card className="modal-box" style={{width:380,textAlign:"center"}}><div style={{fontSize:36,marginBottom:12}}>⚠️</div><Heading style={{fontSize:20,marginBottom:8}}>Pass löschen?</Heading><p style={{color:T.textMid,fontSize:15,marginBottom:20}}>Unwiderruflich.</p><div style={{display:"flex",gap:10,justifyContent:"center"}}><Btn ghost onClick={()=>setConfirmDelete(null)}>Abbrechen</Btn><Btn danger onClick={()=>deletePass(confirmDelete)}>Löschen</Btn></div></Card></Modal>}
     {bsModal&&<Modal onClose={()=>{setBsModal(null);setBsNotiz("");}}><Card className="modal-box" style={{width:400}}><Heading style={{fontSize:20,marginBottom:4}}>Gruppenangebot abhaken</Heading><p style={{color:T.textMid,fontSize:15,marginBottom:18}}>Noch {(bsModal.bs_total||0)-(bsModal.bs_genutzt||0)} von {bsModal.bs_total||0}</p><div style={{display:"flex",flexDirection:"column",gap:12}}><input value={bsNotiz} onChange={e=>setBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." style={inp} autoFocus/><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>{setBsModal(null);setBsNotiz("");}}>Abbrechen</Btn><Btn gold disabled={!bsNotiz.trim()} onClick={()=>bsAbziehen(bsModal)}>Abhaken</Btn></div></div></Card></Modal>}
@@ -740,9 +562,8 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
         {tbBtn("📊",showStats?"Statistik ✕":"Statistik",()=>setShowStats(!showStats),showStats)}
         {tbBtn("📷","QR",()=>setScanMode(true))}
         {tbBtn("⬇","CSV",downloadCSV)}
-        {tbBtn("🐧","Pingu Import",()=>setKiModal(true))}
         {tbBtn("💬","Pingu Chat",()=>setPinguChat(true))}
-        <button disabled={shoreSync} className="btn-a" style={{padding:"9px 14px",borderRadius:12,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.olive,color:"#fff",border:"none",fontSize:13,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={async()=>{setShoreSync(true);setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);}}><span className="btn-emoji" style={{display:"none"}}>🔄</span><span className="btn-text">{shoreSync?"Sync...":"Shore Sync"}</span></button>
+        <button disabled={shoreSync} className="btn-a" style={{padding:"9px 14px",borderRadius:12,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.olive,color:"#fff",border:"none",fontSize:13,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={()=>doShoreSync(false)}><span className="btn-emoji" style={{display:"none"}}>🔄</span><span className="btn-text">{shoreSync?"Sync...":"Shore Sync"}</span></button>
       </div>
       {shoreSyncMsg&&<div style={{padding:"12px 18px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.redSoft:T.greenSoft,color:shoreSyncMsg.startsWith("Fehler")?T.red:T.green,fontSize:14,fontWeight:600,marginBottom:14}}>{shoreSyncMsg}</div>}
       {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
@@ -835,7 +656,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
               {[["E-Mail",selPat.email||"–"],["Telefon",selPat.telefon||"–"],["Adresse",selPat.adresse||"–"],["QR",<code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:13,wordBreak:"break-all",color:T.textLight}}>{selPat.qr}</code>],["Seit",fmtDate(selPat.erstellt)]].map(([l,v])=>(<div key={l} style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}><span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:14}}>{l}:</span><span style={{wordBreak:"break-word",color:T.text,fontSize:15}}>{v}</span></div>))}
 
               {!selPat.mitarbeiter&&<>
-                <div style={{marginTop:10,paddingTop:12,borderTop:`1px solid ${T.cardBorder}`}}>
+                {isTherapieKunde(selPat)&&<div style={{marginTop:10,paddingTop:12,borderTop:`1px solid ${T.cardBorder}`}}>
                   <div style={{display:"flex",gap:12,flexWrap:"wrap",marginBottom:14}}>
                     {[{val:heUebrig,l:"HE übrig"},{val:bsUebrig,l:"GA übrig"}].map(u=>(<div key={u.l} style={{display:"flex",flexDirection:"column",alignItems:"center",background:T.gold+"18",borderRadius:12,padding:"10px 20px",border:`1px solid ${T.gold}25`}}><span style={{fontSize:28,fontWeight:700,color:T.oliveDark,fontFamily:"Georgia,serif"}}>{u.val}</span><span style={{fontSize:12,color:T.textLight,textTransform:"uppercase",letterSpacing:1,marginTop:3}}>{u.l}</span></div>))}
                   </div>
@@ -843,12 +664,18 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
                     <button disabled={heUebrig===0} onClick={()=>heAbziehen(aktiverPass)} className="btn-a" style={{flex:1,minWidth:160,padding:"16px 18px",borderRadius:18,border:"none",background:heUebrig===0?T.bgPale:T.olive,color:heUebrig===0?T.textLight:"#fff",cursor:heUebrig===0?"not-allowed":"pointer",opacity:heUebrig===0?0.4:1,fontWeight:700,fontSize:15,boxShadow:heUebrig===0?"none":`0 4px 16px ${T.olive}30`,lineHeight:1.5}}>✓ Termin war heute<br/><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>Haupteinheit −1</span></button>
                     <button disabled={bsUebrig===0} onClick={()=>setBsModal(aktiverPass)} className="btn-a" style={{flex:1,minWidth:160,padding:"16px 18px",borderRadius:18,border:"none",background:bsUebrig===0?T.bgPale:T.olive,color:bsUebrig===0?T.textLight:"#fff",cursor:bsUebrig===0?"not-allowed":"pointer",opacity:bsUebrig===0?0.4:1,fontWeight:700,fontSize:15,boxShadow:bsUebrig===0?"none":`0 4px 16px ${T.olive}30`,lineHeight:1.5}}>✓ Termin war heute<br/><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>Gruppenangebot −1</span></button>
                   </div>)}
-                </div>
+                </div>}
                 <div className="stammk-row" style={{display:"flex",gap:12,alignItems:"center",paddingTop:12,marginTop:6,borderTop:`1px solid ${T.cardBorder}`}}>
                   <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:14}}>Stammkunde:</span>
                   <div className="stammk-inner" style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                     {["Ja","Nein"].map(opt=>{const ak=opt==="Ja"?!!selPat.stammkunde:!selPat.stammkunde;return(<button key={opt} onClick={()=>updatePatient(selPat.id,{stammkunde:opt==="Ja"})} style={{padding:"6px 20px",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",border:`1px solid ${ak?(opt==="Ja"?T.green:T.text)+"40":T.cardBorder}`,background:ak?(opt==="Ja"?T.greenSoft:T.olive+"12"):"transparent",color:ak?(opt==="Ja"?T.green:T.text):T.textLight}}>{opt}</button>);})}
                     {selPat.stammkunde&&<div style={{display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:14,color:T.textMid}}>Preis:</span><input type="number" min={0} value={selPat.stammpreis||""} onChange={e=>updatePatient(selPat.id,{stammpreis:e.target.value})} placeholder="420" style={{width:90,padding:"6px 10px",borderRadius:10,border:`1px solid ${T.cardBorder}`,fontSize:14,background:T.inp,color:T.text,outline:"none"}}/><span style={{fontSize:14,color:T.textMid}}>€</span></div>}
+                  </div>
+                </div>
+                <div className="stammk-row" style={{display:"flex",gap:12,alignItems:"center",paddingTop:12,marginTop:6,borderTop:`1px solid ${T.cardBorder}`}}>
+                  <span style={{color:T.textLight,minWidth:90,flexShrink:0,fontSize:14}}>Leistungen:</span>
+                  <div className="stammk-inner" style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                    {[{key:"therapie",label:"Therapie",color:T.olive},{key:"ergotherapie",label:"Ergotherapie",color:T.blue},{key:"sonstige",label:"Sonstige",color:T.purple}].map(opt=>{const ak=!!selPat[opt.key];return(<button key={opt.key} onClick={()=>updatePatient(selPat.id,{[opt.key]:!ak})} style={{padding:"6px 16px",borderRadius:10,fontSize:14,fontWeight:600,cursor:"pointer",border:`1px solid ${ak?opt.color+"40":T.cardBorder}`,background:ak?opt.color+"15":"transparent",color:ak?opt.color:T.textLight}}>{ak?"✓ ":""}{opt.label}</button>);})}
                   </div>
                 </div>
               </>}
@@ -885,7 +712,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
             </Card>
           </>}
 
-          {!selPat.mitarbeiter&&<>
+          {!selPat.mitarbeiter&&isTherapieKunde(selPat)&&<>
             <Card>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}}><SectionLabel>Aktiver Flossenpass</SectionLabel><Btn small gold onClick={()=>setKaufModal(true)}>+ Hinzufügen</Btn></div>
               {aktPaesse.length===0&&<p style={{color:T.textLight,textAlign:"center",fontSize:15,padding:8}}>Kein aktiver Flossenpass</p>}
