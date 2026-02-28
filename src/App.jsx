@@ -223,51 +223,90 @@ const KaufModal=({selPat,onKauf,onClose})=>{
 
 /* ═══ PINGU CHAT ═══ */
 const PinguChatModal=({patienten,paesse,einzel,log,onAction,onClose})=>{
-  const [messages,setMessages]=useState([{role:"assistant",text:"Hey! 🐧 Ich bin Pingu. Frag mich was – z.B. \"Wer muss noch bezahlen?\", \"Trage RN-2026-0012 als bezahlt ein\" oder \"Setze Anna als Ergotherapie-Kundin\"."}]);
+  const [messages,setMessages]=useState([{role:"assistant",text:"Hey! 🐧 Ich bin Pingu, dein Praxis-Assistent.\n\nIch kann:\n• Fragen beantworten (\"Wer muss noch bezahlen?\", \"Wie viele Kunden haben wir?\")\n• Aktionen ausführen (\"RN-2026-0012 bezahlt\", \"Setze Anna, Max und Lisa als Ergotherapie\")\n• Notizen hinterlegen (\"Notiz bei Max: Termin verschoben\")\n• Analysen machen (\"Welche Pässe laufen bald ab?\")\n\nSprich oder tippe einfach los!"}]);
   const [input,setInput]=useState("");const[loading,setLoading]=useState(false);
-  const [listening,setListening]=useState(false);const recognRef=useRef(null);
+  const [listening,setListening]=useState(false);const[interimText,setInterimText]=useState("");const recognRef=useRef(null);
   const endRef=useRef(null);
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
-  const startListening=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;if(recognRef.current){recognRef.current.stop();setListening(false);return;}const r=new SR();r.lang="de-DE";r.interimResults=false;r.maxAlternatives=1;r.onresult=(e)=>{const t=e.results[0][0].transcript;setInput(prev=>prev?prev+" "+t:t);};r.onend=()=>{setListening(false);recognRef.current=null;};r.onerror=()=>{setListening(false);recognRef.current=null;};recognRef.current=r;r.start();setListening(true);};
+  const toggleListening=()=>{
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){setMessages(prev=>[...prev,{role:"system",text:"Spracherkennung wird von diesem Browser nicht unterstützt. Bitte Chrome nutzen."}]);return;}
+    if(recognRef.current){recognRef.current.stop();return;}
+    const r=new SR();r.lang="de-DE";r.continuous=true;r.interimResults=true;r.maxAlternatives=1;
+    r.onresult=(e)=>{let interim="",final="";for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal){final+=e.results[i][0].transcript;}else{interim+=e.results[i][0].transcript;}}
+      if(final)setInput(prev=>(prev?prev+" ":"")+final);setInterimText(interim);};
+    r.onend=()=>{setListening(false);setInterimText("");recognRef.current=null;};
+    r.onerror=(e)=>{setListening(false);setInterimText("");recognRef.current=null;if(e.error==="not-allowed")setMessages(prev=>[...prev,{role:"system",text:"Mikrofon-Zugriff verweigert. Bitte in den Browser-Einstellungen erlauben."}]);};
+    recognRef.current=r;r.start();setListening(true);
+  };
+  const stopAndSend=()=>{if(recognRef.current){recognRef.current.stop();}setTimeout(()=>{if(input.trim())send();},200);};
   const buildContext=()=>{
     const gaeste=patienten.filter(p=>!p.mitarbeiter);
-    const passInfo=paesse.map(pk=>{const pat=gaeste.find(p=>p.id===pk.pat_id);return pat?`PassID:${pk.id} | Rechnung:${pk.rechnung||"–"} | ${pat.vorname} ${pat.nachname} | ${getPassLabel(pk)} | bezahlt:${pk.bezahlt?"ja":"NEIN"} | ${pk.preis||0}€`:null;}).filter(Boolean).join("\n");
+    const passInfo=paesse.map(pk=>{const pat=gaeste.find(p=>p.id===pk.pat_id);return pat?`PassID:${pk.id} | Rechnung:${pk.rechnung||"–"} | ${pat.vorname} ${pat.nachname} | ${getPassLabel(pk)} | HE:${pk.he_genutzt||0}/${pk.he_total||0} GA:${pk.bs_genutzt||0}/${pk.bs_total||0} | bezahlt:${pk.bezahlt?"ja":"NEIN"} | ${pk.preis||0}€ | ${pk.datum||"–"}`:null;}).filter(Boolean).join("\n");
     const einzelInfo=einzel.map(e=>{const pat=gaeste.find(p=>p.id===e.pat_id);return pat?`EinzelID:${e.id} | Rechnung:${e.rechnung||"–"} | ${pat.vorname} ${pat.nachname} | ${e.name} | bezahlt:${e.bezahlt?"ja":"NEIN"} | ${e.preis||0}€`:null;}).filter(Boolean).join("\n");
+    const recentLog=log.filter(l=>l.typ==="HAUPTEINHEIT"||l.typ==="BS").sort((a,b)=>(b.datum||"").localeCompare(a.datum||"")).slice(0,50).map(l=>{const pat=gaeste.find(p=>p.id===l.pat_id);return pat?`${fmtDate(l.datum)} | ${pat.vorname} ${pat.nachname} | ${l.typ} | ${l.notiz||""}`:null;}).filter(Boolean).join("\n");
     const lines=gaeste.map(p=>{const pp=paesse.filter(pk=>pk.pat_id===p.id);const pe=einzel.filter(e=>e.pat_id===p.id);const ak=pp.find(pk=>!isPassAlt(pk));const offen=pp.filter(pk=>!pk.bezahlt).reduce((s,pk)=>s+(pk.preis||0),0)+pe.filter(e=>!e.bezahlt).reduce((s,e)=>s+(e.preis||0),0);
       const svc=[p.therapie?"Therapie":null,p.ergotherapie?"Ergotherapie":null,p.sonstige?"Sonstige":null].filter(Boolean).join(",");
-      return`${p.vorname} ${p.nachname} (ID:${p.id})${p.stammkunde?" [Stammkunde]":""}${svc?` [${svc}]`:""}${ak?` | ${getPassLabel(ak)}-Pass, HE übrig:${(ak.he_total||0)-(ak.he_genutzt||0)}/${ak.he_total||0}, GA übrig:${(ak.bs_total||0)-(ak.bs_genutzt||0)}/${ak.bs_total||0}`:" | Kein aktiver Pass"}${offen>0?` | OFFEN: ${offen}€`:" | Alles bezahlt"}`;}).join("\n");
-    return`Du bist Pingu 🐧, der KI-Assistent für die Kaiserufer Praxis-App.
-WICHTIG: Antworte IMMER als valides JSON ohne Backticks, ohne Erklärungen drumherum:
+      const lastLog=log.filter(l=>l.pat_id===p.id&&(l.typ==="HAUPTEINHEIT"||l.typ==="BS")).sort((a,b)=>(b.datum||"").localeCompare(a.datum||""))[0];
+      const lastDate=lastLog?fmtDate(lastLog.datum):"nie";
+      return`${p.vorname} ${p.nachname} (ID:${p.id})${p.stammkunde?" [Stammkunde]":""}${svc?` [${svc}]`:" [keine Kategorie]"}${ak?` | ${getPassLabel(ak)} HE-Rest:${(ak.he_total||0)-(ak.he_genutzt||0)} GA-Rest:${(ak.bs_total||0)-(ak.bs_genutzt||0)}`:" | Kein Pass"} | Letzter Termin:${lastDate}${offen>0?` | OFFEN:${offen}€`:""}`;}).join("\n");
+    return`Du bist Pingu 🐧, der intelligente KI-Assistent der Kaiserufer Praxis. Du hilfst dem Team im Alltag.
+
+ANTWORTFORMAT: Antworte IMMER als valides JSON ohne Backticks:
 {"antwort":"Dein Text hier","aktionen":[]}
-Mögliche Aktionen:
-1. Notiz: {"typ":"NOTIZ","pat_id":"id","text":"..."}
-2. Bezahlt (per ID): {"typ":"BEZAHLT","id":"pass_oder_einzel_id","art":"pass"/"einzel"}
-3. Bezahlt (per Rechnungsnummer): {"typ":"BEZAHLT_RN","rechnung":"KU-2026-0012"} – nutze dies wenn der User Rechnungsnummern nennt
-4. Service setzen: {"typ":"SET_SERVICE","pat_id":"id","service":"ergotherapie"/"therapie"/"sonstige"} – damit wird das Kästchen beim Kunden angehakt
-RECHNUNGSNUMMERN: Bei "RN435 bezahlt" oder "KU-2026-0012 bezahlt" nutze BEZAHLT_RN. Mehrere RNs = mehrere Aktionen.
-ERGOTHERAPIE/THERAPIE/SONSTIGE: Bei "trage X als Ergotherapie ein" nutze SET_SERVICE mit service:"ergotherapie".
-Wenn der User eine Notiz hinterlegen will, tue es IMMER. Bei offenen Zahlungen: liste MIT Rechnungsnummer.
-Kunden: ${gaeste.length} | Aktive Pässe: ${paesse.filter(p=>!isPassAlt(p)).length} | Offene: ${paesse.filter(p=>!p.bezahlt).length+einzel.filter(e=>!e.bezahlt).length}
-Kundenliste:\n${lines}\nPässe:\n${passInfo}\nEinzelangebote:\n${einzelInfo}\nHeute: ${todayISO()}`;
+
+DEINE FÄHIGKEITEN:
+1. FRAGEN BEANTWORTEN: Beantworte JEDE Frage zu Kunden, Pässen, Zahlungen, Terminen. Analysiere die Daten intelligent.
+   Beispiele: "Wer war diese Woche da?", "Welche Pässe laufen bald ab?", "Wie viel Umsatz haben wir?", "Wer hat noch offene Rechnungen?", "Welche Kunden sind Ergotherapie?", "Wie viele Einheiten hat Max noch?"
+2. AKTIONEN AUSFÜHREN: Führe Aktionen aus wenn der User es will.
+3. PROAKTIV SEIN: Wenn du etwas Auffälliges siehst (z.B. fast aufgebrauchte Pässe), erwähne es.
+4. MEHRERE AUFGABEN: Wenn der User mehrere Sachen auf einmal sagt, führe ALLE aus.
+
+MÖGLICHE AKTIONEN:
+• Notiz: {"typ":"NOTIZ","pat_id":"id","text":"..."}
+• Bezahlt (per ID): {"typ":"BEZAHLT","id":"pass_oder_einzel_id","art":"pass"/"einzel"}
+• Bezahlt (per Rechnungsnummer): {"typ":"BEZAHLT_RN","rechnung":"KU-2026-0012"}
+• Service setzen: {"typ":"SET_SERVICE","pat_id":"id","service":"ergotherapie"/"therapie"/"sonstige"}
+  WICHTIG: Kann MEHRERE Patienten gleichzeitig setzen! Bei "Setze Anna, Max und Lisa als Ergotherapie" → 3 separate SET_SERVICE Aktionen.
+  Bei "Entferne Ergotherapie bei Anna" → {"typ":"UNSET_SERVICE","pat_id":"id","service":"ergotherapie"}
+
+REGELN:
+- Bei Rechnungsnummern (RN..., KU-2026-...) nutze BEZAHLT_RN. Mehrere = mehrere Aktionen.
+- Bei Service-Zuordnung: Erkenne auch ungenaue Eingaben ("die sind Ergo-Kunden" = ergotherapie).
+- SPRACHEINGABE: Der User nutzt oft Spracherkennung. Interpretiere auch undeutliche/phonetische Eingaben großzügig. "Suse Sur" = "Susanne Suhr", "Rechnungsnummer kuh 2026 zwölf" = "KU-2026-0012".
+- Wenn du einen Namen nicht eindeutig zuordnen kannst, frage nach.
+- Antworte kurz und freundlich auf Deutsch. Nutze Emojis sparsam.
+- Bei offenen Zahlungen: IMMER mit Rechnungsnummer auflisten.
+
+STATISTIK: ${gaeste.length} Kunden | ${paesse.filter(p=>!isPassAlt(p)).length} aktive Pässe | ${paesse.filter(p=>!p.bezahlt).length+einzel.filter(e=>!e.bezahlt).length} offene Rechnungen | ${gaeste.filter(p=>p.ergotherapie).length} Ergotherapie | ${gaeste.filter(p=>p.sonstige).length} Sonstige
+Kundenliste:\n${lines}\nPässe:\n${passInfo}\nEinzelangebote:\n${einzelInfo}\nLetzte Termine:\n${recentLog}\nHeute: ${todayISO()}`;
   };
-  const send=async()=>{if(!input.trim()||loading)return;const msg=input.trim();setInput("");setMessages(prev=>[...prev,{role:"user",text:msg}]);setLoading(true);
-    try{const resp=await fetch("/api/ai-analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:[{type:"text",text:`${buildContext()}\n\nNachricht vom User: "${msg}"`}],max_tokens:2000})});
+  const send=async()=>{if(!input.trim()||loading)return;const msg=input.trim();setInput("");setInterimText("");setMessages(prev=>[...prev,{role:"user",text:msg}]);setLoading(true);
+    try{const resp=await fetch("/api/ai-analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:[{type:"text",text:`${buildContext()}\n\nNachricht vom User: "${msg}"`}],max_tokens:3000})});
       const data=await resp.json();const raw=(data.text||"").replace(/```json|```/g,"").trim();
       let parsed=null;
       try{parsed=JSON.parse(raw);}catch{const jsonMatch=raw.match(/\{[\s\S]*\}/);if(jsonMatch){try{parsed=JSON.parse(jsonMatch[0]);}catch{}}}
       if(parsed&&parsed.antwort){setMessages(prev=>[...prev,{role:"assistant",text:parsed.antwort}]);if(parsed.aktionen&&parsed.aktionen.length>0){let ok=0;for(const a of parsed.aktionen){try{await onAction(a);ok++;}catch(e){console.error("Pingu action error:",e);}}if(ok>0)setMessages(prev=>[...prev,{role:"system",text:`✓ ${ok} Aktion${ok>1?"en":""} ausgeführt`}]);}}else{setMessages(prev=>[...prev,{role:"assistant",text:raw||"Ich konnte das leider nicht verarbeiten."}]);}
     }catch(e){setMessages(prev=>[...prev,{role:"assistant",text:"Verbindungsfehler – bitte nochmal versuchen."}]);}setLoading(false);};
-  return(<Modal onClose={onClose}><div className="modal-box" style={{background:T.cardSolid,borderRadius:24,width:520,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(44,48,38,0.15)",border:`1px solid ${T.cardBorder}`,overflow:"hidden"}}>
+  return(<Modal onClose={onClose}><div className="modal-box" style={{background:T.cardSolid,borderRadius:24,width:560,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(44,48,38,0.15)",border:`1px solid ${T.cardBorder}`,overflow:"hidden"}}>
     <div style={{padding:"20px 24px",borderBottom:`1px solid ${T.cardBorder}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><Heading style={{fontSize:20}}>🐧 Pingu Chat</Heading><button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:T.textLight,padding:4}}>✕</button></div>
     <div style={{flex:1,overflowY:"auto",padding:"16px 24px",display:"flex",flexDirection:"column",gap:12,minHeight:300}}>
       {messages.map((m,i)=>(<div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"85%",padding:"10px 16px",borderRadius:m.role==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px",background:m.role==="user"?T.olive:m.role==="system"?T.greenSoft:T.bgPale,color:m.role==="user"?"#fff":m.role==="system"?T.green:T.text,fontSize:15,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.text}</div></div>))}
       {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{padding:"10px 16px",borderRadius:"16px 16px 16px 4px",background:T.bgPale,color:T.textLight,fontSize:14}}>🐧 denkt nach...</div></div>}
       <div ref={endRef}/>
     </div>
-    <div style={{padding:"12px 24px 20px",borderTop:`1px solid ${T.cardBorder}`,display:"flex",gap:8}}>
-      <button onClick={startListening} style={{padding:"10px 14px",borderRadius:14,border:`1.5px solid ${listening?T.red:T.cardBorder}`,background:listening?T.redSoft:"transparent",color:listening?T.red:T.textLight,cursor:"pointer",fontSize:18,flexShrink:0,transition:"all 0.2s"}} title="Spracheingabe">{listening?"⏹":"🎤"}</button>
-      <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Frage stellen oder Anweisung geben..." style={{flex:1,padding:"12px 16px",borderRadius:14,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:T.text,outline:"none"}} autoFocus/>
-      <Btn gold small onClick={send} disabled={!input.trim()||loading}>→</Btn>
+    <div style={{padding:"12px 24px 20px",borderTop:`1px solid ${T.cardBorder}`,display:"flex",flexDirection:"column",gap:8}}>
+      {(listening||interimText)&&<div style={{padding:"8px 14px",borderRadius:12,background:T.redSoft,fontSize:13,color:T.red,display:"flex",alignItems:"center",gap:8}}>
+        <span style={{display:"inline-block",width:8,height:8,borderRadius:4,background:T.red,animation:"spin 1s linear infinite"}}/>
+        <span style={{fontWeight:600}}>Aufnahme läuft...</span>
+        {interimText&&<span style={{color:T.textMid,fontStyle:"italic",flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{interimText}</span>}
+        <button onClick={stopAndSend} style={{padding:"4px 12px",borderRadius:8,border:`1px solid ${T.red}`,background:"transparent",color:T.red,fontSize:12,fontWeight:700,cursor:"pointer",flexShrink:0,fontFamily:"inherit"}}>Fertig & Senden</button>
+      </div>}
+      <div style={{display:"flex",gap:8}}>
+        <button onClick={toggleListening} style={{padding:"10px 14px",borderRadius:14,border:`1.5px solid ${listening?T.red:T.cardBorder}`,background:listening?T.redSoft:"transparent",color:listening?T.red:T.textLight,cursor:"pointer",fontSize:18,flexShrink:0,transition:"all 0.2s"}} title="Spracheingabe">{listening?"⏹":"🎤"}</button>
+        <input value={input+(interimText?(" "+interimText):"")} onChange={e=>{setInput(e.target.value);setInterimText("");}} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Frage stellen oder Anweisung geben..." style={{flex:1,padding:"12px 16px",borderRadius:14,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:interimText?T.textLight:T.text,outline:"none"}} autoFocus/>
+        <Btn gold small onClick={send} disabled={!input.trim()||loading}>→</Btn>
+      </div>
     </div>
   </div></Modal>);
 };
@@ -505,6 +544,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     if(action.typ==="BEZAHLT"&&action.id){if(action.art==="pass"){await toggleBezahlt(action.id);}else{await toggleEinzelBez(action.id);}}
     if(action.typ==="BEZAHLT_RN"&&action.rechnung){const rn=action.rechnung.trim().toUpperCase();const pk=paesse.find(p=>(p.rechnung||"").toUpperCase()===rn);const ek=einzel.find(e=>(e.rechnung||"").toUpperCase()===rn);if(pk&&!pk.bezahlt)await toggleBezahlt(pk.id);else if(ek&&!ek.bezahlt)await toggleEinzelBez(ek.id);}
     if(action.typ==="SET_SERVICE"&&action.pat_id){const fields={};if(action.service==="therapie")fields.therapie=true;if(action.service==="ergotherapie")fields.ergotherapie=true;if(action.service==="sonstige")fields.sonstige=true;if(Object.keys(fields).length>0)await updatePatient(action.pat_id,fields);}
+    if(action.typ==="UNSET_SERVICE"&&action.pat_id){const fields={};if(action.service==="therapie")fields.therapie=false;if(action.service==="ergotherapie")fields.ergotherapie=false;if(action.service==="sonstige")fields.sonstige=false;if(Object.keys(fields).length>0)await updatePatient(action.pat_id,fields);}
   };
 
   const PassCard=({pk,isAlt})=>{
