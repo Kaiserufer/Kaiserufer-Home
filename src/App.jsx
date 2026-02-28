@@ -153,11 +153,19 @@ const StatistikPanel=({patienten,paesse,einzelArr})=>{
   const tBS=paesse.filter(p=>!isPassAlt(p)).reduce((s,p)=>s+(p.bs_total||0),0),gBS=paesse.filter(p=>!isPassAlt(p)).reduce((s,p)=>s+(p.bs_genutzt||0),0);
   const umsatz=paesse.reduce((s,p)=>s+(p.preis||0),0)+einzelArr.reduce((s,e)=>s+(e.preis||0),0);
   const bezahlt=paesse.filter(p=>p.bezahlt).reduce((s,p)=>s+(p.preis||0),0)+einzelArr.filter(e=>e.bezahlt).reduce((s,e)=>s+(e.preis||0),0);
+  const nTherapie=gaeste.filter(p=>p.therapie||(!p.ergotherapie&&!p.sonstige)).length;
+  const nErgo=gaeste.filter(p=>p.ergotherapie).length;
+  const nSonstige=gaeste.filter(p=>p.sonstige).length;
   return(
     <div className="fade-in" style={{display:"flex",flexDirection:"column",gap:16}}>
       <div className="stat-grid-4" style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12}}>
         {[{val:gaeste.length,label:"Kunden"},{val:aktive,label:"Aktive Pässe"},{val:offene,label:"Offen",color:offene>0?T.red:T.text},{val:`${(umsatz/1000).toFixed(1)}k`,label:"Umsatz (€)"}].map((s,i)=>(
           <Card key={i} style={{padding:18,textAlign:"center"}}><div style={{fontSize:30,fontWeight:700,fontFamily:"Georgia,serif",color:s.color||T.oliveDark}}>{s.val}</div><div style={{color:T.textLight,fontSize:12,textTransform:"uppercase",letterSpacing:1.5,marginTop:6}}>{s.label}</div></Card>
+        ))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12}}>
+        {[{val:nTherapie,label:"Therapie",color:T.olive,bg:T.greenSoft},{val:nErgo,label:"Ergotherapie",color:T.blue,bg:T.blueSoft},{val:nSonstige,label:"Sonstige",color:T.purple,bg:T.purpleSoft}].map((s,i)=>(
+          <Card key={i} style={{padding:16,textAlign:"center",background:s.bg,border:`1px solid ${s.color}20`}}><div style={{fontSize:26,fontWeight:700,fontFamily:"Georgia,serif",color:s.color}}>{s.val}</div><div style={{color:s.color,fontSize:11,textTransform:"uppercase",letterSpacing:1.5,marginTop:4,fontWeight:600}}>{s.label}</div></Card>
         ))}
       </div>
       <div className="stat-grid-2" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
@@ -215,21 +223,29 @@ const KaufModal=({selPat,onKauf,onClose})=>{
 
 /* ═══ PINGU CHAT ═══ */
 const PinguChatModal=({patienten,paesse,einzel,log,onAction,onClose})=>{
-  const [messages,setMessages]=useState([{role:"assistant",text:"Hey! 🐧 Ich bin Pingu. Frag mich was – z.B. \"Wer muss noch bezahlen?\" oder \"Hinterlege bei Anna eine Notiz: Termin verschoben\"."}]);
+  const [messages,setMessages]=useState([{role:"assistant",text:"Hey! 🐧 Ich bin Pingu. Frag mich was – z.B. \"Wer muss noch bezahlen?\", \"Trage RN-2026-0012 als bezahlt ein\" oder \"Setze Anna als Ergotherapie-Kundin\"."}]);
   const [input,setInput]=useState("");const[loading,setLoading]=useState(false);
+  const [listening,setListening]=useState(false);const recognRef=useRef(null);
   const endRef=useRef(null);
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
+  const startListening=()=>{const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return;if(recognRef.current){recognRef.current.stop();setListening(false);return;}const r=new SR();r.lang="de-DE";r.interimResults=false;r.maxAlternatives=1;r.onresult=(e)=>{const t=e.results[0][0].transcript;setInput(prev=>prev?prev+" "+t:t);};r.onend=()=>{setListening(false);recognRef.current=null;};r.onerror=()=>{setListening(false);recognRef.current=null;};recognRef.current=r;r.start();setListening(true);};
   const buildContext=()=>{
     const gaeste=patienten.filter(p=>!p.mitarbeiter);
     const passInfo=paesse.map(pk=>{const pat=gaeste.find(p=>p.id===pk.pat_id);return pat?`PassID:${pk.id} | Rechnung:${pk.rechnung||"–"} | ${pat.vorname} ${pat.nachname} | ${getPassLabel(pk)} | bezahlt:${pk.bezahlt?"ja":"NEIN"} | ${pk.preis||0}€`:null;}).filter(Boolean).join("\n");
     const einzelInfo=einzel.map(e=>{const pat=gaeste.find(p=>p.id===e.pat_id);return pat?`EinzelID:${e.id} | Rechnung:${e.rechnung||"–"} | ${pat.vorname} ${pat.nachname} | ${e.name} | bezahlt:${e.bezahlt?"ja":"NEIN"} | ${e.preis||0}€`:null;}).filter(Boolean).join("\n");
     const lines=gaeste.map(p=>{const pp=paesse.filter(pk=>pk.pat_id===p.id);const pe=einzel.filter(e=>e.pat_id===p.id);const ak=pp.find(pk=>!isPassAlt(pk));const offen=pp.filter(pk=>!pk.bezahlt).reduce((s,pk)=>s+(pk.preis||0),0)+pe.filter(e=>!e.bezahlt).reduce((s,e)=>s+(e.preis||0),0);
-      return`${p.vorname} ${p.nachname} (ID:${p.id})${p.stammkunde?" [Stammkunde]":""}${ak?` | ${getPassLabel(ak)}-Pass, HE übrig:${(ak.he_total||0)-(ak.he_genutzt||0)}/${ak.he_total||0}, GA übrig:${(ak.bs_total||0)-(ak.bs_genutzt||0)}/${ak.bs_total||0}`:" | Kein aktiver Pass"}${offen>0?` | OFFEN: ${offen}€`:" | Alles bezahlt"}`;}).join("\n");
+      const svc=[p.therapie?"Therapie":null,p.ergotherapie?"Ergotherapie":null,p.sonstige?"Sonstige":null].filter(Boolean).join(",");
+      return`${p.vorname} ${p.nachname} (ID:${p.id})${p.stammkunde?" [Stammkunde]":""}${svc?` [${svc}]`:""}${ak?` | ${getPassLabel(ak)}-Pass, HE übrig:${(ak.he_total||0)-(ak.he_genutzt||0)}/${ak.he_total||0}, GA übrig:${(ak.bs_total||0)-(ak.bs_genutzt||0)}/${ak.bs_total||0}`:" | Kein aktiver Pass"}${offen>0?` | OFFEN: ${offen}€`:" | Alles bezahlt"}`;}).join("\n");
     return`Du bist Pingu 🐧, der KI-Assistent für die Kaiserufer Praxis-App.
 WICHTIG: Antworte IMMER als valides JSON ohne Backticks, ohne Erklärungen drumherum:
 {"antwort":"Dein Text hier","aktionen":[]}
-Mögliche Aktionen: 1. Notiz: {"typ":"NOTIZ","pat_id":"id","text":"..."} 2. Bezahlt: {"typ":"BEZAHLT","id":"pass_oder_einzel_id","art":"pass"/"einzel"}
-RECHNUNGSNUMMERN: Bei "RN435 wurde bezahlt" suche die passende ID anhand der Rechnungsnummer.
+Mögliche Aktionen:
+1. Notiz: {"typ":"NOTIZ","pat_id":"id","text":"..."}
+2. Bezahlt (per ID): {"typ":"BEZAHLT","id":"pass_oder_einzel_id","art":"pass"/"einzel"}
+3. Bezahlt (per Rechnungsnummer): {"typ":"BEZAHLT_RN","rechnung":"KU-2026-0012"} – nutze dies wenn der User Rechnungsnummern nennt
+4. Service setzen: {"typ":"SET_SERVICE","pat_id":"id","service":"ergotherapie"/"therapie"/"sonstige"} – damit wird das Kästchen beim Kunden angehakt
+RECHNUNGSNUMMERN: Bei "RN435 bezahlt" oder "KU-2026-0012 bezahlt" nutze BEZAHLT_RN. Mehrere RNs = mehrere Aktionen.
+ERGOTHERAPIE/THERAPIE/SONSTIGE: Bei "trage X als Ergotherapie ein" nutze SET_SERVICE mit service:"ergotherapie".
 Wenn der User eine Notiz hinterlegen will, tue es IMMER. Bei offenen Zahlungen: liste MIT Rechnungsnummer.
 Kunden: ${gaeste.length} | Aktive Pässe: ${paesse.filter(p=>!isPassAlt(p)).length} | Offene: ${paesse.filter(p=>!p.bezahlt).length+einzel.filter(e=>!e.bezahlt).length}
 Kundenliste:\n${lines}\nPässe:\n${passInfo}\nEinzelangebote:\n${einzelInfo}\nHeute: ${todayISO()}`;
@@ -249,6 +265,7 @@ Kundenliste:\n${lines}\nPässe:\n${passInfo}\nEinzelangebote:\n${einzelInfo}\nHe
       <div ref={endRef}/>
     </div>
     <div style={{padding:"12px 24px 20px",borderTop:`1px solid ${T.cardBorder}`,display:"flex",gap:8}}>
+      <button onClick={startListening} style={{padding:"10px 14px",borderRadius:14,border:`1.5px solid ${listening?T.red:T.cardBorder}`,background:listening?T.redSoft:"transparent",color:listening?T.red:T.textLight,cursor:"pointer",fontSize:18,flexShrink:0,transition:"all 0.2s"}} title="Spracheingabe">{listening?"⏹":"🎤"}</button>
       <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Frage stellen oder Anweisung geben..." style={{flex:1,padding:"12px 16px",borderRadius:14,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:T.text,outline:"none"}} autoFocus/>
       <Btn gold small onClick={send} disabled={!input.trim()||loading}>→</Btn>
     </div>
@@ -384,7 +401,7 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
 
 /* ═══ MITARBEITER APP ═══ */
 const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnungsNr,setRechnungsNr,einzel,setEinzel,urlaub,setUrlaub,teamEvents,setTeamEvents,schichten,setSchichten})=>{
-  const [view,setView]=useState("liste");const[selPat,setSelPat]=useState(null);const[search,setSearch]=useState("");
+  const [view,setView]=useState("liste");const[selPat,setSelPat]=useState(null);const[search,setSearch]=useState("");const[listFilter,setListFilter]=useState("alle");
   const [scanMode,setScanMode]=useState(false);const[scanInput,setScanInput]=useState("");
   const [showStats,setShowStats]=useState(false);const[kaufModal,setKaufModal]=useState(false);const[pinguChat,setPinguChat]=useState(false);
   const [bsModal,setBsModal]=useState(null);const[bsNotiz,setBsNotiz]=useState("");
@@ -395,55 +412,55 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [undoAction,setUndoAction]=useState(null);
   const [urlaubVon,setUrlaubVon]=useState("");const[urlaubBis,setUrlaubBis]=useState("");const[urlaubNotiz,setUrlaubNotiz]=useState("");
-  const [pinguName,setPinguName]=useState("");const[pinguMatch,setPinguMatch]=useState(null);const[pinguConfirmed,setPinguConfirmed]=useState(false);const[pinguBsNotiz,setPinguBsNotiz]=useState("");const[pinguDone,setPinguDone]=useState("");
+  const [pinguName,setPinguName]=useState("");const[pinguMatches,setPinguMatches]=useState([]);const[pinguSelected,setPinguSelected]=useState(null);const[pinguBsNotiz,setPinguBsNotiz]=useState("");const[pinguDone,setPinguDone]=useState("");
   const [pinguBsStep,setPinguBsStep]=useState(false);
 
   const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent)setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){if(!silent)setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);};
   useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
 
   const pinguMatchPat=(name)=>{
-    if(!name||name.trim().length<2)return null;
+    if(!name||name.trim().length<2)return[];
     const nl=name.toLowerCase().trim();const parts=nl.split(/\s+/).filter(p=>p.length>0);
     const guests=patienten.filter(p=>!p.mitarbeiter);
-    const exact=guests.find(p=>`${p.vorname||""} ${p.nachname||""}`.toLowerCase().trim()===nl);if(exact)return exact;
-    const allParts=guests.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.every(part=>full.includes(part));});if(allParts)return allParts;
-    const partial=guests.filter(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.some(part=>part.length>2&&full.includes(part));});if(partial.length===1)return partial[0];
-    if(parts[0]&&parts[0].length>2){const fnMatch=guests.filter(p=>(p.vorname||"").toLowerCase()===parts[0]);if(fnMatch.length===1)return fnMatch[0];}
-    if(parts[0]&&parts[0].length>2){const sw=guests.filter(p=>(p.vorname||"").toLowerCase().startsWith(parts[0])||(p.nachname||"").toLowerCase().startsWith(parts[0]));if(sw.length===1)return sw[0];}
-    return null;
+    const exact=guests.filter(p=>`${p.vorname||""} ${p.nachname||""}`.toLowerCase().trim()===nl);if(exact.length>0)return exact.slice(0,8);
+    const allParts=guests.filter(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.every(part=>full.includes(part));});if(allParts.length>0)return allParts.slice(0,8);
+    const partial=guests.filter(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.some(part=>part.length>=2&&full.includes(part));});if(partial.length>0)return partial.slice(0,8);
+    if(parts[0]&&parts[0].length>=2){const sw=guests.filter(p=>(p.vorname||"").toLowerCase().startsWith(parts[0])||(p.nachname||"").toLowerCase().startsWith(parts[0]));if(sw.length>0)return sw.slice(0,8);}
+    return[];
   };
-  const pinguReset=()=>{setPinguName("");setPinguMatch(null);setPinguConfirmed(false);setPinguBsNotiz("");setPinguDone("");setPinguBsStep(false);};
-  const pinguOnNameChange=(val)=>{setPinguName(val);setPinguConfirmed(false);setPinguDone("");setPinguBsStep(false);setPinguBsNotiz("");setPinguMatch(pinguMatchPat(val));};
-  const pinguConfirm=()=>{if(pinguMatch)setPinguConfirmed(true);};
-  const pinguAktPass=pinguMatch?paesse.find(pk=>pk.pat_id===pinguMatch.id&&!isPassAlt(pk)):null;
+  const pinguReset=()=>{setPinguName("");setPinguMatches([]);setPinguSelected(null);setPinguBsNotiz("");setPinguDone("");setPinguBsStep(false);};
+  const pinguOnNameChange=(val)=>{setPinguName(val);setPinguSelected(null);setPinguDone("");setPinguBsStep(false);setPinguBsNotiz("");setPinguMatches(pinguMatchPat(val));};
+  const pinguSelectPat=(p)=>{setPinguSelected(p);setPinguMatches([]);setPinguName(`${p.vorname} ${p.nachname}`);};
+  const pinguAktPass=pinguSelected?paesse.find(pk=>pk.pat_id===pinguSelected.id&&!isPassAlt(pk)):null;
   const pinguHeLeft=pinguAktPass?(pinguAktPass.he_total||0)-(pinguAktPass.he_genutzt||0):0;
   const pinguBsLeft=pinguAktPass?(pinguAktPass.bs_total||0)-(pinguAktPass.bs_genutzt||0):0;
 
   const pinguHeAbziehen=async()=>{
-    if(!pinguMatch||!pinguAktPass||pinguHeLeft===0)return;
+    if(!pinguSelected||!pinguAktPass||pinguHeLeft===0)return;
     const ap=pinguAktPass;const prev={he_genutzt:ap.he_genutzt};const u={...ap,he_genutzt:ap.he_genutzt+1};
-    const nl={id:genId(),pat_id:pinguMatch.id,pass_id:ap.id,typ:"HAUPTEINHEIT",quelle:"PINGU",datum:new Date().toISOString(),notiz:"Haupteinheit"};
+    const nl={id:genId(),pat_id:pinguSelected.id,pass_id:ap.id,typ:"HAUPTEINHEIT",quelle:"PINGU",datum:new Date().toISOString(),notiz:"Haupteinheit"};
     await supabase.from("paesse").update({he_genutzt:u.he_genutzt}).eq("id",ap.id);await supabase.from("log").insert(nl);
     setPaesse(p=>p.map(x=>x.id===ap.id?u:x));setLog(p=>[...p,nl]);
-    setPinguDone(`Haupteinheit bei ${pinguMatch.vorname} abgezogen ✓`);
-    setUndoAction({msg:`Haupteinheit −1 bei ${pinguMatch.vorname}`,undo:async()=>{await supabase.from("paesse").update(prev).eq("id",ap.id);await supabase.from("log").delete().eq("id",nl.id);setPaesse(p=>p.map(x=>x.id===ap.id?{...x,...prev}:x));setLog(p=>p.filter(l=>l.id!==nl.id));}});
+    setPinguDone(`Haupteinheit bei ${pinguSelected.vorname} abgezogen ✓`);
+    setUndoAction({msg:`Haupteinheit −1 bei ${pinguSelected.vorname}`,undo:async()=>{await supabase.from("paesse").update(prev).eq("id",ap.id);await supabase.from("log").delete().eq("id",nl.id);setPaesse(p=>p.map(x=>x.id===ap.id?{...x,...prev}:x));setLog(p=>p.filter(l=>l.id!==nl.id));}});
     setTimeout(pinguReset,3000);
   };
   const pinguBsAbziehen=async()=>{
-    if(!pinguMatch||!pinguAktPass||pinguBsLeft===0||!pinguBsNotiz.trim())return;
+    if(!pinguSelected||!pinguAktPass||pinguBsLeft===0||!pinguBsNotiz.trim())return;
     const ap=pinguAktPass;const prev={bs_genutzt:ap.bs_genutzt};const u={...ap,bs_genutzt:ap.bs_genutzt+1};
-    const nl={id:genId(),pat_id:pinguMatch.id,pass_id:ap.id,typ:"BS",quelle:"PINGU",datum:new Date().toISOString(),notiz:pinguBsNotiz.trim()};
+    const nl={id:genId(),pat_id:pinguSelected.id,pass_id:ap.id,typ:"BS",quelle:"PINGU",datum:new Date().toISOString(),notiz:pinguBsNotiz.trim()};
     await supabase.from("paesse").update({bs_genutzt:u.bs_genutzt}).eq("id",ap.id);await supabase.from("log").insert(nl);
     setPaesse(p=>p.map(x=>x.id===ap.id?u:x));setLog(p=>[...p,nl]);
-    setPinguDone(`Gruppenangebot bei ${pinguMatch.vorname} abgezogen ✓`);
-    setUndoAction({msg:`Gruppenangebot −1 bei ${pinguMatch.vorname}`,undo:async()=>{await supabase.from("paesse").update(prev).eq("id",ap.id);await supabase.from("log").delete().eq("id",nl.id);setPaesse(p=>p.map(x=>x.id===ap.id?{...x,...prev}:x));setLog(p=>p.filter(l=>l.id!==nl.id));}});
+    setPinguDone(`Gruppenangebot bei ${pinguSelected.vorname} abgezogen ✓`);
+    setUndoAction({msg:`Gruppenangebot −1 bei ${pinguSelected.vorname}`,undo:async()=>{await supabase.from("paesse").update(prev).eq("id",ap.id);await supabase.from("log").delete().eq("id",nl.id);setPaesse(p=>p.map(x=>x.id===ap.id?{...x,...prev}:x));setLog(p=>p.filter(l=>l.id!==nl.id));}});
     setTimeout(pinguReset,3000);
   };
 
   const inp={width:"100%",padding:"11px 14px",borderRadius:12,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:T.text,outline:"none"};
   const sorted=patienten.slice().sort((a,b)=>{const na=`${a.vorname||""} ${a.nachname||""}`.trim().toLowerCase();const nb=`${b.vorname||""} ${b.nachname||""}`.trim().toLowerCase();if(!a.vorname&&b.vorname)return 1;if(a.vorname&&!b.vorname)return-1;return na.localeCompare(nb,"de");});
   const matchSearch=(p)=>{const q=search.toLowerCase();return`${p.vorname||""} ${p.nachname||""} ${p.email||""}`.toLowerCase().includes(q)||paesse.some(pk=>pk.pat_id===p.id&&(pk.rechnung||"").toLowerCase().includes(q))||einzel.some(e=>e.pat_id===p.id&&(e.rechnung||"").toLowerCase().includes(q));};
-  const gaeste=sorted.filter(p=>!p.mitarbeiter&&matchSearch(p));
+  const gaesteAll=sorted.filter(p=>!p.mitarbeiter&&matchSearch(p));
+  const gaeste=listFilter==="alle"?gaesteAll:listFilter==="therapie"?gaesteAll.filter(p=>p.therapie||(!p.ergotherapie&&!p.sonstige)):listFilter==="ergo"?gaesteAll.filter(p=>p.ergotherapie):gaesteAll.filter(p=>p.sonstige);
   const patPaesse=selPat?paesse.filter(pk=>pk.pat_id===selPat.id):[];
   const patEinzel=selPat?einzel.filter(e=>e.pat_id===selPat.id).sort((a,b)=>(b.datum||"").localeCompare(a.datum||"")):[];
   const patLog=selPat?log.filter(l=>l.pat_id===selPat.id).sort((a,b)=>(b.datum||"").localeCompare(a.datum||"")):[];
@@ -486,6 +503,8 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const handlePinguAction=async(action)=>{
     if(action.typ==="NOTIZ"&&action.pat_id){const nl={id:genId(),pat_id:action.pat_id,pass_id:null,typ:"NOTIZ",quelle:"PINGU",datum:new Date().toISOString(),notiz:action.text||""};await supabase.from("log").insert(nl);setLog(p=>[...p,nl]);}
     if(action.typ==="BEZAHLT"&&action.id){if(action.art==="pass"){await toggleBezahlt(action.id);}else{await toggleEinzelBez(action.id);}}
+    if(action.typ==="BEZAHLT_RN"&&action.rechnung){const rn=action.rechnung.trim().toUpperCase();const pk=paesse.find(p=>(p.rechnung||"").toUpperCase()===rn);const ek=einzel.find(e=>(e.rechnung||"").toUpperCase()===rn);if(pk&&!pk.bezahlt)await toggleBezahlt(pk.id);else if(ek&&!ek.bezahlt)await toggleEinzelBez(ek.id);}
+    if(action.typ==="SET_SERVICE"&&action.pat_id){const fields={};if(action.service==="therapie")fields.therapie=true;if(action.service==="ergotherapie")fields.ergotherapie=true;if(action.service==="sonstige")fields.sonstige=true;if(Object.keys(fields).length>0)await updatePatient(action.pat_id,fields);}
   };
 
   const PassCard=({pk,isAlt})=>{
@@ -520,14 +539,16 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   };
 
   const isTherapieKunde=(p)=>p.therapie||(!p.ergotherapie&&!p.sonstige);
+  const getLastActivity=(patId)=>{const pl=log.filter(l=>l.pat_id===patId&&(l.typ==="HAUPTEINHEIT"||l.typ==="BS")).sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));return pl[0]?.datum?fmtDate(pl[0].datum):null;};
   const ListRow=({p,i})=>{
     const u=getUnits(p.id);
     const ub=paesse.filter(pk=>pk.pat_id===p.id).some(pk=>!pk.bezahlt)||einzel.filter(e=>e.pat_id===p.id).some(e=>!e.bezahlt);
     const heW=u?(u.he===1):false;const bsW=u?(u.bs===1):false;
     const showPass=isTherapieKunde(p);
+    const lastAct=showPass?getLastActivity(p.id):null;
     return(<div key={p.id} onClick={()=>{setSelPat(p);setView("akte");}} className="card-h slide-in" style={{animationDelay:`${i<20?i*0.05:0}s`,padding:"16px 24px",background:T.card,borderRadius:20,border:`1px solid ${T.cardBorder}`,cursor:"pointer",backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(74,82,64,0.06)"}}>
       <div className="liste-row" style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div><div style={{fontWeight:600,color:T.text,fontSize:17,lineHeight:1.4}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:14,color:T.textLight}}>{p.email}</span>{p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}</div></div>
+        <div><div style={{fontWeight:600,color:T.text,fontSize:17,lineHeight:1.4}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:14,color:T.textLight}}>{p.email}</span>{p.stammkunde&&<Badge variant="green" small>Stammkunde</Badge>}{lastAct&&<span style={{fontSize:11,color:T.textLight+"90"}}>Letzter Termin: {lastAct}</span>}</div></div>
         <div className="liste-right" style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
           {showPass?<>
             <div style={{display:"flex",border:`1px solid ${T.cardBorder}`,borderRadius:10,overflow:"hidden"}}>{[{label:"HE",val:u?u.he:null,warn:heW},{label:"GA",val:u?u.bs:null,warn:bsW}].map((col,ci)=>(<div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.cardBorder}`:"none",background:col.warn?T.orangeSoft:T.bgPale+"60"}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div><div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.warn?T.orange:col.val===null?T.textLight+"40":T.oliveDark,lineHeight:1}}>{col.val!==null?col.val:"–"}</div></div>))}</div>
@@ -578,64 +599,68 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
                   <span>{pinguDone}</span>
                   <button onClick={pinguReset} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",fontSize:13,color:T.textLight,textDecoration:"underline",fontFamily:"inherit"}}>Nochmal</button>
                 </div>
-              ):(
-                <>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:600,color:T.oliveDark,marginBottom:12,lineHeight:1.5}}>
-                    {!pinguConfirmed?"Wem darf ich eine Einheit abziehen?":`Was möchtest du bei ${pinguMatch?.vorname} abhaken?`}
-                  </div>
-                  {!pinguConfirmed?(
-                    <div>
-                      <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:pinguMatch||pinguName.length>2?10:0}}>
-                        <input value={pinguName} onChange={e=>pinguOnNameChange(e.target.value)} placeholder="Name eingeben..." autoComplete="off" onKeyDown={e=>{if(e.key==="Enter"&&pinguMatch)pinguConfirm();}} style={{...inp,flex:1,background:T.white,border:`1.5px solid ${pinguMatch?T.green+"60":pinguName.length>2&&!pinguMatch?T.red+"30":T.cardBorder}`}}/>
-                        {pinguMatch&&<Btn small gold onClick={pinguConfirm}>Bestätigen</Btn>}
+              ):!pinguSelected?(
+                <div>
+                  <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:600,color:T.oliveDark,marginBottom:12,lineHeight:1.5}}>Wem darf ich eine Einheit abziehen?</div>
+                  <div style={{position:"relative"}}>
+                    <input value={pinguName} onChange={e=>pinguOnNameChange(e.target.value)} placeholder="Name tippen..." autoComplete="off" style={{...inp,background:T.white,border:`1.5px solid ${pinguMatches.length>0?T.green+"60":pinguName.length>=2&&pinguMatches.length===0?T.red+"30":T.cardBorder}`}}/>
+                    {pinguMatches.length>0&&(
+                      <div className="fade-in" style={{position:"absolute",top:"100%",left:0,right:0,zIndex:20,marginTop:4,background:T.white,borderRadius:14,border:`1.5px solid ${T.green}40`,boxShadow:"0 8px 32px rgba(44,48,38,0.12)",overflow:"hidden",maxHeight:320,overflowY:"auto"}}>
+                        {pinguMatches.map(p=>{const ap=paesse.find(pk=>pk.pat_id===p.id&&!isPassAlt(pk));const heL=ap?(ap.he_total||0)-(ap.he_genutzt||0):0;const bsL=ap?(ap.bs_total||0)-(ap.bs_genutzt||0):0;
+                          return(<div key={p.id} onClick={()=>pinguSelectPat(p)} style={{padding:"12px 16px",cursor:"pointer",borderBottom:`1px solid ${T.cardBorder}`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background=T.greenSoft} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                            <div><div style={{fontWeight:600,color:T.text,fontSize:15}}>{p.vorname} {p.nachname}</div>{p.ergotherapie&&<span style={{fontSize:11,color:T.blue,fontWeight:600}}>Ergotherapie</span>}{p.sonstige&&<span style={{fontSize:11,color:T.purple,fontWeight:600}}>Sonstige</span>}</div>
+                            {ap?<div style={{display:"flex",gap:6,fontSize:12,color:T.textLight}}><span style={{background:T.bgPale,padding:"3px 8px",borderRadius:6,fontWeight:600}}>{heL} HE</span><span style={{background:T.bgPale,padding:"3px 8px",borderRadius:6,fontWeight:600}}>{bsL} GA</span></div>
+                            :<span style={{fontSize:11,color:T.red,fontWeight:600}}>Kein Pass</span>}
+                          </div>);})}
                       </div>
-                      {pinguMatch&&(
-                        <div className="fade-in" style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:T.greenSoft,borderRadius:12,fontSize:14,flexWrap:"wrap"}}>
-                          <span style={{color:T.green,fontWeight:700,fontSize:16}}>✓</span>
-                          <span style={{fontWeight:600,color:T.text}}>{pinguMatch.vorname} {pinguMatch.nachname}</span>
-                          {pinguAktPass?(
-                            <span style={{color:T.textLight,fontSize:13}}>· {getPassLabel(pinguAktPass)} – {pinguHeLeft} HE · {pinguBsLeft} GA übrig</span>
-                          ):(
-                            <span style={{color:T.red,fontSize:13,fontWeight:600}}>· Kein aktiver Pass</span>
-                          )}
-                        </div>
-                      )}
-                      {pinguName.length>2&&!pinguMatch&&(
-                        <div className="fade-in" style={{fontSize:13,color:T.red,padding:"6px 0"}}>Kein Kunde gefunden – versuch einen anderen Namen</div>
-                      )}
+                    )}
+                  </div>
+                  {pinguName.length>=2&&pinguMatches.length===0&&(
+                    <div className="fade-in" style={{fontSize:13,color:T.red,padding:"6px 0"}}>Kein Kunde gefunden</div>
+                  )}
+                </div>
+              ):(
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+                    <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:600,color:T.oliveDark}}>Was bei {pinguSelected.vorname} abhaken?</div>
+                    <button onClick={pinguReset} style={{marginLeft:"auto",padding:"4px 12px",borderRadius:10,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>Andere:r</button>
+                  </div>
+                  {!pinguAktPass?(
+                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <div style={{fontSize:14,color:T.red,fontWeight:600}}>Kein aktiver Pass vorhanden</div>
+                      <button onClick={pinguReset} style={{padding:"8px 16px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit"}}>← Zurück</button>
+                    </div>
+                  ):!pinguBsStep?(
+                    <div className="fade-in pingu-btns" style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                      <button disabled={pinguHeLeft===0} onClick={pinguHeAbziehen} className="btn-a" style={{flex:1,minWidth:140,padding:"14px 18px",borderRadius:16,border:"none",background:pinguHeLeft===0?T.bgPale:T.olive,color:pinguHeLeft===0?T.textLight:"#fff",cursor:pinguHeLeft===0?"not-allowed":"pointer",opacity:pinguHeLeft===0?0.4:1,fontWeight:700,fontSize:14,lineHeight:1.5}}>✓ Haupteinheit −1<br/><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>{pinguHeLeft} übrig</span></button>
+                      <button disabled={pinguBsLeft===0} onClick={()=>setPinguBsStep(true)} className="btn-a" style={{flex:1,minWidth:140,padding:"14px 18px",borderRadius:16,border:"none",background:pinguBsLeft===0?T.bgPale:`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:pinguBsLeft===0?T.textLight:"#2A2A1A",cursor:pinguBsLeft===0?"not-allowed":"pointer",opacity:pinguBsLeft===0?0.4:1,fontWeight:700,fontSize:14,lineHeight:1.5}}>✓ Gruppenangebot −1<br/><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>{pinguBsLeft} übrig</span></button>
+                      <button onClick={pinguReset} style={{padding:"14px 12px",borderRadius:16,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:16,lineHeight:1}}>✕</button>
                     </div>
                   ):(
-                    <div>
-                      {!pinguAktPass?(
-                        <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                          <div style={{fontSize:14,color:T.red,fontWeight:600}}>Kein aktiver Pass vorhanden</div>
-                          <button onClick={pinguReset} style={{padding:"8px 16px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit"}}>← Zurück</button>
-                        </div>
-                      ):!pinguBsStep?(
-                        <div className="fade-in pingu-btns" style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                          <button disabled={pinguHeLeft===0} onClick={pinguHeAbziehen} className="btn-a" style={{flex:1,minWidth:140,padding:"14px 18px",borderRadius:16,border:"none",background:pinguHeLeft===0?T.bgPale:T.olive,color:pinguHeLeft===0?T.textLight:"#fff",cursor:pinguHeLeft===0?"not-allowed":"pointer",opacity:pinguHeLeft===0?0.4:1,fontWeight:700,fontSize:14,lineHeight:1.5}}>✓ Haupteinheit −1<br/><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>{pinguHeLeft} übrig</span></button>
-                          <button disabled={pinguBsLeft===0} onClick={()=>setPinguBsStep(true)} className="btn-a" style={{flex:1,minWidth:140,padding:"14px 18px",borderRadius:16,border:"none",background:pinguBsLeft===0?T.bgPale:`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:pinguBsLeft===0?T.textLight:"#2A2A1A",cursor:pinguBsLeft===0?"not-allowed":"pointer",opacity:pinguBsLeft===0?0.4:1,fontWeight:700,fontSize:14,lineHeight:1.5}}>✓ Gruppenangebot −1<br/><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>{pinguBsLeft} übrig</span></button>
-                          <button onClick={pinguReset} style={{padding:"14px 12px",borderRadius:16,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:16,lineHeight:1}}>✕</button>
-                        </div>
-                      ):(
-                        <div className="fade-in">
-                          <div style={{fontSize:13,color:T.textLight,marginBottom:8}}>Welches Gruppenangebot war es?</div>
-                          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                            <input value={pinguBsNotiz} onChange={e=>setPinguBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." autoFocus onKeyDown={e=>e.key==="Enter"&&pinguBsNotiz.trim()&&pinguBsAbziehen()} style={{...inp,flex:1,background:T.white,minWidth:160}}/>
-                            <Btn small gold disabled={!pinguBsNotiz.trim()} onClick={pinguBsAbziehen}>Abhaken</Btn>
-                            <button onClick={()=>{setPinguBsStep(false);setPinguBsNotiz("");}} style={{padding:"8px 14px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>←</button>
-                          </div>
-                        </div>
-                      )}
+                    <div className="fade-in">
+                      <div style={{fontSize:13,color:T.textLight,marginBottom:8}}>Welches Gruppenangebot war es?</div>
+                      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                        <input value={pinguBsNotiz} onChange={e=>setPinguBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." autoFocus onKeyDown={e=>e.key==="Enter"&&pinguBsNotiz.trim()&&pinguBsAbziehen()} style={{...inp,flex:1,background:T.white,minWidth:160}}/>
+                        <Btn small gold disabled={!pinguBsNotiz.trim()} onClick={pinguBsAbziehen}>Abhaken</Btn>
+                        <button onClick={()=>{setPinguBsStep(false);setPinguBsNotiz("");}} style={{padding:"8px 14px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>←</button>
+                      </div>
                     </div>
                   )}
-                </>
+                </div>
               )}
             </div>
           </div>
         </Card>
 
-        <div style={{marginBottom:18}}><Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading><p style={{color:T.textLight,fontSize:14,marginTop:6}}>{gaeste.length} Kunden</p></div>
+        <div style={{marginBottom:18}}>
+          <Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading>
+          <div style={{display:"flex",gap:6,marginTop:12,flexWrap:"wrap"}}>
+            {[{k:"alle",l:"Alle",c:T.olive},{k:"therapie",l:"Therapie",c:T.olive},{k:"ergo",l:"Ergotherapie",c:T.blue},{k:"sonstige",l:"Sonstige",c:T.purple}].map(f=>(
+              <button key={f.k} onClick={()=>setListFilter(f.k)} style={{padding:"7px 16px",borderRadius:20,border:listFilter===f.k?"none":`1px solid ${T.cardBorder}`,background:listFilter===f.k?f.c:"transparent",color:listFilter===f.k?"#fff":T.textMid,fontSize:13,fontWeight:600,cursor:"pointer",transition:"all 0.2s",fontFamily:"inherit"}}>{f.l}</button>
+            ))}
+          </div>
+          <p style={{color:T.textLight,fontSize:14,marginTop:8}}>{gaeste.length} Kunden</p>
+        </div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           {gaeste.map((p,i)=><ListRow key={p.id} p={p} i={i}/>)}
           {gaeste.length===0&&<p style={{textAlign:"center",color:T.textLight,padding:40}}>Keine Kunden gefunden</p>}
