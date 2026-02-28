@@ -590,7 +590,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
       {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
 
       {view==="liste"&&<>
-        <Card style={{marginBottom:20,padding:"20px 24px",background:`linear-gradient(135deg,${T.bgPale},${T.cream})`,border:`1.5px solid ${T.gold}30`,overflow:"hidden"}}>
+        <Card style={{marginBottom:20,padding:"20px 24px",background:`linear-gradient(135deg,${T.bgPale},${T.cream})`,border:`1.5px solid ${T.gold}30`,overflow:"visible"}}>
           <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
             <div style={{fontSize:40,lineHeight:1,flexShrink:0,marginTop:2}}>🐧</div>
             <div style={{flex:1,minWidth:0}}>
