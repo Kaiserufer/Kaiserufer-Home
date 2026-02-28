@@ -456,6 +456,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
 
   const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent)setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){if(!silent)setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);};
   useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
+  useEffect(()=>{const fixTherapie=async()=>{const toFix=patienten.filter(p=>!p.mitarbeiter&&!p.therapie&&!p.ergotherapie&&!p.sonstige);if(toFix.length===0)return;for(const p of toFix){await supabase.from("patienten").update({therapie:true}).eq("id",p.id);}setPatienten(prev=>prev.map(p=>(!p.mitarbeiter&&!p.therapie&&!p.ergotherapie&&!p.sonstige)?{...p,therapie:true}:p));};if(patienten.length>0)fixTherapie();},[patienten.length]);
 
   const isTherapieKunde=(p)=>p.therapie||(!p.ergotherapie&&!p.sonstige);
   const pinguMatchPat=(name)=>{
