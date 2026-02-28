@@ -457,10 +457,11 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent)setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){if(!silent)setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);};
   useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
 
+  const isTherapieKunde=(p)=>p.therapie||(!p.ergotherapie&&!p.sonstige);
   const pinguMatchPat=(name)=>{
     if(!name||name.trim().length<2)return[];
     const nl=name.toLowerCase().trim();const parts=nl.split(/\s+/).filter(p=>p.length>0);
-    const guests=patienten.filter(p=>!p.mitarbeiter);
+    const guests=patienten.filter(p=>!p.mitarbeiter&&isTherapieKunde(p));
     const exact=guests.filter(p=>`${p.vorname||""} ${p.nachname||""}`.toLowerCase().trim()===nl);if(exact.length>0)return exact.slice(0,8);
     const allParts=guests.filter(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.every(part=>full.includes(part));});if(allParts.length>0)return allParts.slice(0,8);
     const partial=guests.filter(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.some(part=>part.length>=2&&full.includes(part));});if(partial.length>0)return partial.slice(0,8);
@@ -578,7 +579,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     </div>);
   };
 
-  const isTherapieKunde=(p)=>p.therapie||(!p.ergotherapie&&!p.sonstige);
   const getLastActivity=(patId)=>{const pl=log.filter(l=>l.pat_id===patId&&(l.typ==="HAUPTEINHEIT"||l.typ==="BS")).sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));return pl[0]?.datum?fmtDate(pl[0].datum):null;};
   const ListRow=({p,i})=>{
     const u=getUnits(p.id);
