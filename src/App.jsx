@@ -621,7 +621,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
       <div className="toolbar-btns" style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:18}}>
         {tbBtn("📋","Gäste",()=>setView("liste"),view==="liste")}
         {tbBtn("👥","Team",()=>setView("team"),view==="team")}
-        {tbBtn("📊",showStats?"Statistik ✕":"Statistik",()=>setShowStats(!showStats),showStats)}
+        {tbBtn("📊",showStats?"Statistik ✕":"Statistik",()=>{if(showStats){setShowStats(false);return;}const pw=prompt("Passwort für Statistik:");if(pw==="Vogel")setShowStats(true);else if(pw!==null)alert("Falsches Passwort");},showStats)}
         {tbBtn("📷","QR",()=>setScanMode(true))}
         {tbBtn("⬇","CSV",downloadCSV)}
         {tbBtn("💬","Pingu Chat",()=>setPinguChat(true))}
