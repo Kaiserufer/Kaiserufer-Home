@@ -450,12 +450,36 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const [shoreSync,setShoreSync]=useState(false);const[shoreSyncMsg,setShoreSyncMsg]=useState("");
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [undoAction,setUndoAction]=useState(null);
+  const [pendingPasses,setPendingPasses]=useState([]);
+  const [editPass,setEditPass]=useState(null);
   const [urlaubVon,setUrlaubVon]=useState("");const[urlaubBis,setUrlaubBis]=useState("");const[urlaubNotiz,setUrlaubNotiz]=useState("");
   const [pinguName,setPinguName]=useState("");const[pinguMatches,setPinguMatches]=useState([]);const[pinguSelected,setPinguSelected]=useState(null);const[pinguBsNotiz,setPinguBsNotiz]=useState("");const[pinguDone,setPinguDone]=useState("");
   const [pinguBsStep,setPinguBsStep]=useState(false);
 
   const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent)setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){if(!silent)setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);};
   useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
+
+  // Pass-Check: Neue Flossenpass-Verkäufe aus Shore erkennen
+  const checkPassSales=async()=>{try{const r=await fetch("/api/pass-check");const d=await r.json();if(d.pending?.length)setPendingPasses(d.pending);}catch(e){}};
+  useEffect(()=>{if(patienten.length>0)checkPassSales();const iv=setInterval(checkPassSales,5*60*1000);return()=>clearInterval(iv);},[patienten.length]);
+
+  const confirmPassSale=async(pp,custom)=>{
+    const pt=custom||PASS_TYPES[pp.passType];
+    const cname=pp.customer?.name||"";
+    const parts=cname.toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);
+    const pat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});
+    if(!pat){alert("Patient nicht gefunden: "+cname);return;}
+    const rs=genRechnung(await getRechnungsNr());
+    const ds=(pp.date||"").split("T")[0]||todayISO();
+    const np={id:genId(),pat_id:pat.id,typ:custom?"INDIVIDUELL":pp.passType,custom_name:custom?.name||null,he_total:custom?custom.he:pt.he,he_genutzt:0,bs_total:custom?custom.bs:pt.bs,bs_genutzt:0,preis:custom?custom.preis:pp.price,rechnung:rs,bezahlt:true,datum:ds,aktiv:true};
+    await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);
+    await fetch("/api/pass-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orderIds:[pp.orderId]})});
+    setPendingPasses(prev=>prev.filter(p=>p.orderId!==pp.orderId));setEditPass(null);
+  };
+  const dismissPassSale=async(pp)=>{
+    await fetch("/api/pass-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orderIds:[pp.orderId]})});
+    setPendingPasses(prev=>prev.filter(p=>p.orderId!==pp.orderId));
+  };
   useEffect(()=>{const fixTherapie=async()=>{const toFix=patienten.filter(p=>!p.mitarbeiter&&!p.therapie&&!p.ergotherapie&&!p.sonstige);if(toFix.length===0)return;for(const p of toFix){await supabase.from("patienten").update({therapie:true}).eq("id",p.id);}setPatienten(prev=>prev.map(p=>(!p.mitarbeiter&&!p.therapie&&!p.ergotherapie&&!p.sonstige)?{...p,therapie:true}:p));};if(patienten.length>0)fixTherapie();},[patienten.length]);
 
   const isTherapieKunde=(p)=>p.therapie||(!p.ergotherapie&&!p.sonstige);
@@ -613,6 +637,32 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     {bsModal&&<Modal onClose={()=>{setBsModal(null);setBsNotiz("");}}><Card className="modal-box" style={{width:400}}><Heading style={{fontSize:20,marginBottom:4}}>Gruppenangebot abhaken</Heading><p style={{color:T.textMid,fontSize:15,marginBottom:18}}>Noch {(bsModal.bs_total||0)-(bsModal.bs_genutzt||0)} von {bsModal.bs_total||0}</p><div style={{display:"flex",flexDirection:"column",gap:12}}><input value={bsNotiz} onChange={e=>setBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." style={inp} autoFocus/><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>{setBsModal(null);setBsNotiz("");}}>Abbrechen</Btn><Btn gold disabled={!bsNotiz.trim()} onClick={()=>bsAbziehen(bsModal)}>Abhaken</Btn></div></div></Card></Modal>}
     {korrekturModal&&<Modal onClose={()=>setKorrekturModal(null)}><Card className="modal-box" style={{width:400}}><Heading style={{fontSize:20,marginBottom:18}}>Korrektur</Heading><div style={{display:"flex",flexDirection:"column",gap:14}}><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Typ</label><select value={korrekturTyp} onChange={e=>setKorrekturTyp(e.target.value)} style={inp}><option value="HE">Haupteinheit</option><option value="BS">Gruppenangebot</option></select></div><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Anzahl</label><input type="number" min={1} max={10} value={korrekturAnzahl} onChange={e=>setKorrekturAnzahl(e.target.value)} style={inp}/></div><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Grund</label><input value={korrekturGrund} onChange={e=>setKorrekturGrund(e.target.value)} placeholder="optional" style={inp}/></div><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>setKorrekturModal(null)}>Abbrechen</Btn><Btn danger onClick={korrekturSpeichern}>Speichern</Btn></div></div></Card></Modal>}
     {undoAction&&<UndoToast message={undoAction.msg} onUndo={undoAction.undo} onDismiss={()=>setUndoAction(null)}/>}
+
+    {pendingPasses.length>0&&<div className="fade-in" style={{marginBottom:18}}>
+      {pendingPasses.map(pp=>{
+        const isEdit=editPass?.orderId===pp.orderId;
+        return(<Card key={pp.orderId} style={{padding:"16px 20px",border:`2px solid ${pp.priceMatch?T.gold:T.orange}`,background:pp.priceMatch?T.goldFaint:T.orangeSoft}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Neuer Flossenpass-Verkauf</div>
+              <div style={{fontSize:16,fontWeight:600,color:T.text}}>{pp.customer?.name||"Unbekannt"}</div>
+              <div style={{fontSize:14,color:T.textMid,marginTop:2}}>{getPassName(pp.passType)} · {pp.price}€{!pp.priceMatch&&<span style={{color:T.orange,fontWeight:600}}> (Standard: {pp.standardPrice}€)</span>}</div>
+            </div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {pp.priceMatch?<Btn gold onClick={()=>confirmPassSale(pp)}>Bestätigen</Btn>:<Btn gold onClick={()=>setEditPass(isEdit?null:{orderId:pp.orderId,he:PASS_TYPES[pp.passType]?.he||0,bs:PASS_TYPES[pp.passType]?.bs||0,preis:pp.price,name:getPassName(pp.passType)})}>Anpassen</Btn>}
+              <Btn ghost onClick={()=>dismissPassSale(pp)}>Ignorieren</Btn>
+            </div>
+          </div>
+          {isEdit&&<div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${T.cardBorder}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
+            <div><label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",display:"block",marginBottom:4}}>HE</label><input type="number" min={0} value={editPass.he} onChange={e=>setEditPass({...editPass,he:Number(e.target.value)})} style={inp}/></div>
+            <div><label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",display:"block",marginBottom:4}}>GA</label><input type="number" min={0} value={editPass.bs} onChange={e=>setEditPass({...editPass,bs:Number(e.target.value)})} style={inp}/></div>
+            <div><label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",display:"block",marginBottom:4}}>Preis</label><input type="number" min={0} value={editPass.preis} onChange={e=>setEditPass({...editPass,preis:Number(e.target.value)})} style={inp}/></div>
+            <div><label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",display:"block",marginBottom:4}}>Name</label><input value={editPass.name} onChange={e=>setEditPass({...editPass,name:e.target.value})} style={inp}/></div>
+            <div style={{gridColumn:"span 4",textAlign:"right"}}><Btn gold onClick={()=>confirmPassSale(pp,editPass)}>Individuell anlegen</Btn></div>
+          </div>}
+        </Card>);
+      })}
+    </div>}
 
     {(view==="liste"||view==="team")&&(<div className="fade-in">
       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name, E-Mail oder Rechnungsnummer..." style={{...inp,marginBottom:12}}/>
