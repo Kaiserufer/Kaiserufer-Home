@@ -223,7 +223,7 @@ const KaufModal=({selPat,onKauf,onClose})=>{
 
 /* ═══ PINGU CHAT ═══ */
 const PinguChatModal=({patienten,paesse,einzel,log,onAction,onClose})=>{
-  const [messages,setMessages]=useState([{role:"assistant",text:"Hey! 🐧 Ich bin Pingu, dein Praxis-Assistent.\n\nIch kann:\n• Fragen beantworten (\"Wer muss noch bezahlen?\", \"Wie viele Kunden haben wir?\")\n• Aktionen ausführen (\"RN-2026-0012 bezahlt\", \"Setze Anna, Max und Lisa als Ergotherapie\")\n• Notizen hinterlegen (\"Notiz bei Max: Termin verschoben\")\n• Analysen machen (\"Welche Pässe laufen bald ab?\")\n\nSprich oder tippe einfach los!"}]);
+  const [messages,setMessages]=useState([{role:"assistant",text:"Hey! Ich bin Pingu, dein Praxis-Assistent.\n\nIch kann:\n• Einheiten abziehen (\"Zieh bei Max eine HE ab\", \"Lisa war beim Yoga\")\n• Pässe & Einzelangebote anlegen (\"Basis-Pass für Anna\", \"Quickie für Max\")\n• Zahlungen vermerken (\"RN12 bezahlt\")\n• Fragen beantworten (\"Wer muss noch bezahlen?\", \"Wie viele Einheiten hat Max?\")\n• Notizen & Services setzen\n\nSprich oder tippe einfach los!"}]);
   const [input,setInput]=useState("");const[loading,setLoading]=useState(false);
   const [listening,setListening]=useState(false);const[interimText,setInterimText]=useState("");const recognRef=useRef(null);
   const endRef=useRef(null);
@@ -250,49 +250,71 @@ const PinguChatModal=({patienten,paesse,einzel,log,onAction,onClose})=>{
       const lastLog=log.filter(l=>l.pat_id===p.id&&(l.typ==="HAUPTEINHEIT"||l.typ==="BS")).sort((a,b)=>(b.datum||"").localeCompare(a.datum||""))[0];
       const lastDate=lastLog?fmtDate(lastLog.datum):"nie";
       return`${p.vorname} ${p.nachname} (ID:${p.id})${p.stammkunde?" [Stammkunde]":""}${svc?` [${svc}]`:" [keine Kategorie]"}${ak?` | ${getPassLabel(ak)} HE-Rest:${(ak.he_total||0)-(ak.he_genutzt||0)} GA-Rest:${(ak.bs_total||0)-(ak.bs_genutzt||0)}`:" | Kein Pass"} | Letzter Termin:${lastDate}${offen>0?` | OFFEN:${offen}€`:""}`;}).join("\n");
-    return`Du bist Pingu 🐧, der intelligente KI-Assistent der Kaiserufer Praxis. Du hilfst dem Team im Alltag.
+    return`Du bist Pingu, der KI-Assistent der Kaiserufer Praxis. Du hilfst dem Team im Alltag.
 
 ANTWORTFORMAT: Antworte IMMER als valides JSON ohne Backticks:
 {"antwort":"Dein Text hier","aktionen":[]}
 
 DEINE FÄHIGKEITEN:
-1. FRAGEN BEANTWORTEN: Beantworte JEDE Frage zu Kunden, Pässen, Zahlungen, Terminen. Analysiere die Daten intelligent.
-   Beispiele: "Wer war diese Woche da?", "Welche Pässe laufen bald ab?", "Wie viel Umsatz haben wir?", "Wer hat noch offene Rechnungen?", "Welche Kunden sind Ergotherapie?", "Wie viele Einheiten hat Max noch?"
-2. AKTIONEN AUSFÜHREN: Führe Aktionen aus wenn der User es will.
-3. PROAKTIV SEIN: Wenn du etwas Auffälliges siehst (z.B. fast aufgebrauchte Pässe), erwähne es.
-4. MEHRERE AUFGABEN: Wenn der User mehrere Sachen auf einmal sagt, führe ALLE aus.
+1. EINHEITEN ABZIEHEN: Haupteinheiten (HE) und Gruppenangebote (GA) von Pässen abziehen. Das ist die wichtigste Alltagsaufgabe!
+2. PÄSSE & EINZELANGEBOTE ANLEGEN: Neue Flossenpässe oder Einzelangebote für Kunden erstellen.
+3. FRAGEN BEANTWORTEN: Beantworte JEDE Frage zu Kunden, Pässen, Zahlungen, Terminen. Analysiere intelligent.
+4. ZAHLUNGEN VERMERKEN: Rechnungen als bezahlt markieren.
+5. SERVICES & NOTIZEN: Kategorien setzen, Notizen hinterlegen.
+6. PROAKTIV SEIN: Wenn du etwas Auffälliges siehst (fast aufgebrauchte Pässe, offene Rechnungen), erwähne es.
+7. MEHRERE AUFGABEN: Wenn der User mehrere Sachen auf einmal sagt, führe ALLE aus.
 
 MÖGLICHE AKTIONEN:
+• HE abziehen: {"typ":"HE_ABZIEHEN","pat_id":"id"}
+  Beispiele: "Zieh bei Max eine HE ab", "Haupteinheit bei Anna", "Max war heute da"
+• GA abziehen: {"typ":"BS_ABZIEHEN","pat_id":"id","notiz":"Yoga"}
+  Beispiele: "Max war beim Yoga", "GA bei Anna: Sound Bath"
+  WICHTIG: notiz ist PFLICHT (welches Angebot). Wenn nicht klar, FRAGE nach welches Gruppenangebot.
+• Pass anlegen: {"typ":"PASS_ANLEGEN","pat_id":"id","passtyp":"BASIS"/"PLUS"/"DELUXE"}
+  Passtypen: BASIS (3 HE, 1 GA, 299€), PLUS (5 HE, 3 GA, 499€), DELUXE (10 HE, 5 GA, 899€)
+  Beispiele: "Basis-Pass für Anna", "Leg Max einen Deluxe an"
+• Einzelangebot: {"typ":"EINZEL_ANLEGEN","pat_id":"id","name":"Psycho Quickie","preis":70}
+  Bekannte: Psycho Quickie (70€), tDCS (55€), Neurofeedback 5er Karte (350€). Auch Custom möglich.
+  Beispiele: "Quickie für Max", "tDCS bei Anna", "Neurofeedback für Lisa"
 • Notiz: {"typ":"NOTIZ","pat_id":"id","text":"..."}
+• Bezahlt (per Rechnungsnr.): {"typ":"BEZAHLT_RN","rechnung":"RN12"}
 • Bezahlt (per ID): {"typ":"BEZAHLT","id":"pass_oder_einzel_id","art":"pass"/"einzel"}
-• Bezahlt (per Rechnungsnummer): {"typ":"BEZAHLT_RN","rechnung":"KU-2026-0012"}
 • Service setzen: {"typ":"SET_SERVICE","pat_id":"id","service":"ergotherapie"/"therapie"/"sonstige"}
-  WICHTIG: Kann MEHRERE Patienten gleichzeitig setzen! Bei "Setze Anna, Max und Lisa als Ergotherapie" → 3 separate SET_SERVICE Aktionen.
-  Bei "Entferne Ergotherapie bei Anna" → {"typ":"UNSET_SERVICE","pat_id":"id","service":"ergotherapie"}
+  Kann MEHRERE Patienten gleichzeitig. Bei "Entferne Ergotherapie bei Anna" → {"typ":"UNSET_SERVICE","pat_id":"id","service":"ergotherapie"}
 
 REGELN:
-- Bei Rechnungsnummern (RN..., KU-2026-...) nutze BEZAHLT_RN. Mehrere = mehrere Aktionen.
-- Bei Service-Zuordnung: Erkenne auch ungenaue Eingaben ("die sind Ergo-Kunden" = ergotherapie).
-- SPRACHEINGABE: Der User nutzt oft Spracherkennung. Interpretiere auch undeutliche/phonetische Eingaben großzügig. "Suse Sur" = "Susanne Suhr", "Rechnungsnummer kuh 2026 zwölf" = "KU-2026-0012".
+- SPRACHEINGABE: Der User nutzt oft Spracherkennung. Interpretiere phonetische Eingaben großzügig. "Suse Sur" = "Susanne Suhr".
 - Wenn du einen Namen nicht eindeutig zuordnen kannst, frage nach.
-- Antworte kurz und freundlich auf Deutsch. Nutze Emojis sparsam.
+- Antworte kurz und freundlich auf Deutsch.
 - Bei offenen Zahlungen: IMMER mit Rechnungsnummer auflisten.
+- "War heute da" / "hatte Termin" = HE abziehen. "War beim [Angebot]" = GA abziehen.
 
 STATISTIK: ${gaeste.length} Kunden | ${paesse.filter(p=>!isPassAlt(p)).length} aktive Pässe | ${paesse.filter(p=>!p.bezahlt).length+einzel.filter(e=>!e.bezahlt).length} offene Rechnungen | ${gaeste.filter(p=>p.ergotherapie).length} Ergotherapie | ${gaeste.filter(p=>p.sonstige).length} Sonstige
 Kundenliste:\n${lines}\nPässe:\n${passInfo}\nEinzelangebote:\n${einzelInfo}\nLetzte Termine:\n${recentLog}\nHeute: ${todayISO()}`;
   };
   const send=async()=>{if(!input.trim()||loading)return;const msg=input.trim();setInput("");setInterimText("");setMessages(prev=>[...prev,{role:"user",text:msg}]);setLoading(true);
-    try{const resp=await fetch("/api/ai-analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({content:[{type:"text",text:`${buildContext()}\n\nNachricht vom User: "${msg}"`}],max_tokens:3000})});
+    try{
+      const history=messages.filter(m=>m.role==="user"||m.role==="assistant").slice(-10).map(m=>({role:m.role,content:m.text}));
+      history.push({role:"user",content:msg});
+      const resp=await fetch("/api/ai-analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({system:buildContext(),messages:history,max_tokens:3000})});
       const data=await resp.json();const raw=(data.text||"").replace(/```json|```/g,"").trim();
       let parsed=null;
       try{parsed=JSON.parse(raw);}catch{const jsonMatch=raw.match(/\{[\s\S]*\}/);if(jsonMatch){try{parsed=JSON.parse(jsonMatch[0]);}catch{}}}
-      if(parsed&&parsed.antwort){setMessages(prev=>[...prev,{role:"assistant",text:parsed.antwort}]);if(parsed.aktionen&&parsed.aktionen.length>0){let ok=0;for(const a of parsed.aktionen){try{await onAction(a);ok++;}catch(e){console.error("Pingu action error:",e);}}if(ok>0)setMessages(prev=>[...prev,{role:"system",text:`✓ ${ok} Aktion${ok>1?"en":""} ausgeführt`}]);}}else{setMessages(prev=>[...prev,{role:"assistant",text:raw||"Ich konnte das leider nicht verarbeiten."}]);}
+      if(parsed&&parsed.antwort){
+        setMessages(prev=>[...prev,{role:"assistant",text:parsed.antwort}]);
+        if(parsed.aktionen&&parsed.aktionen.length>0){
+          let ok=0;const errors=[];
+          for(const a of parsed.aktionen){try{await onAction(a);ok++;}catch(e){errors.push(e.message||"Unbekannter Fehler");}}
+          if(ok>0)setMessages(prev=>[...prev,{role:"system",text:`✓ ${ok} Aktion${ok>1?"en":""} ausgeführt`}]);
+          if(errors.length>0)setMessages(prev=>[...prev,{role:"error",text:`✗ ${errors.join(", ")}`}]);
+        }
+      }else{setMessages(prev=>[...prev,{role:"assistant",text:raw||"Ich konnte das leider nicht verarbeiten."}]);}
     }catch(e){setMessages(prev=>[...prev,{role:"assistant",text:"Verbindungsfehler – bitte nochmal versuchen."}]);}setLoading(false);};
   return(<Modal onClose={onClose}><div className="modal-box" style={{background:T.cardSolid,borderRadius:24,width:560,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 64px rgba(44,48,38,0.15)",border:`1px solid ${T.cardBorder}`,overflow:"hidden"}}>
-    <div style={{padding:"20px 24px",borderBottom:`1px solid ${T.cardBorder}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><Heading style={{fontSize:20}}>🐧 Pingu Chat</Heading><button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:T.textLight,padding:4}}>✕</button></div>
+    <div style={{padding:"20px 24px",borderBottom:`1px solid ${T.cardBorder}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}><Heading style={{fontSize:20}}>Pingu</Heading><button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",fontSize:18,color:T.textLight,padding:4}}>✕</button></div>
     <div style={{flex:1,overflowY:"auto",padding:"16px 24px",display:"flex",flexDirection:"column",gap:12,minHeight:300}}>
-      {messages.map((m,i)=>(<div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"85%",padding:"10px 16px",borderRadius:m.role==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px",background:m.role==="user"?T.olive:m.role==="system"?T.greenSoft:T.bgPale,color:m.role==="user"?"#fff":m.role==="system"?T.green:T.text,fontSize:15,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.text}</div></div>))}
-      {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{padding:"10px 16px",borderRadius:"16px 16px 16px 4px",background:T.bgPale,color:T.textLight,fontSize:14}}>🐧 denkt nach...</div></div>}
+      {messages.map((m,i)=>(<div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start"}}><div style={{maxWidth:"85%",padding:"10px 16px",borderRadius:m.role==="user"?"16px 16px 4px 16px":"16px 16px 16px 4px",background:m.role==="user"?T.olive:m.role==="system"?T.greenSoft:m.role==="error"?T.redSoft:T.bgPale,color:m.role==="user"?"#fff":m.role==="system"?T.green:m.role==="error"?T.red:T.text,fontSize:15,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{m.text}</div></div>))}
+      {loading&&<div style={{display:"flex",justifyContent:"flex-start"}}><div style={{padding:"10px 16px",borderRadius:"16px 16px 16px 4px",background:T.bgPale,color:T.textLight,fontSize:14}}>denkt nach...</div></div>}
       <div ref={endRef}/>
     </div>
     <div style={{padding:"12px 24px 20px",borderTop:`1px solid ${T.cardBorder}`,display:"flex",flexDirection:"column",gap:8}}>
@@ -304,7 +326,7 @@ Kundenliste:\n${lines}\nPässe:\n${passInfo}\nEinzelangebote:\n${einzelInfo}\nLe
       </div>}
       <div style={{display:"flex",gap:8}}>
         <button onClick={toggleListening} style={{padding:"10px 14px",borderRadius:14,border:`1.5px solid ${listening?T.red:T.cardBorder}`,background:listening?T.redSoft:"transparent",color:listening?T.red:T.textLight,cursor:"pointer",fontSize:18,flexShrink:0,transition:"all 0.2s"}} title="Spracheingabe">{listening?"⏹":"🎤"}</button>
-        <input value={input+(interimText?(" "+interimText):"")} onChange={e=>{setInput(e.target.value);setInterimText("");}} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="Frage stellen oder Anweisung geben..." style={{flex:1,padding:"12px 16px",borderRadius:14,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:interimText?T.textLight:T.text,outline:"none"}} autoFocus/>
+        <input value={input+(interimText?(" "+interimText):"")} onChange={e=>{setInput(e.target.value);setInterimText("");}} onKeyDown={e=>e.key==="Enter"&&send()} placeholder="z.B. 'Max war heute da' oder 'Basis-Pass für Anna'" style={{flex:1,padding:"12px 16px",borderRadius:14,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:interimText?T.textLight:T.text,outline:"none"}} autoFocus/>
         <Btn gold small onClick={send} disabled={!input.trim()||loading}>→</Btn>
       </div>
     </div>
@@ -453,8 +475,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const [pendingPasses,setPendingPasses]=useState([]);
   const [editPass,setEditPass]=useState(null);
   const [urlaubVon,setUrlaubVon]=useState("");const[urlaubBis,setUrlaubBis]=useState("");const[urlaubNotiz,setUrlaubNotiz]=useState("");
-  const [pinguName,setPinguName]=useState("");const[pinguMatches,setPinguMatches]=useState([]);const[pinguSelected,setPinguSelected]=useState(null);const[pinguBsNotiz,setPinguBsNotiz]=useState("");const[pinguDone,setPinguDone]=useState("");
-  const [pinguBsStep,setPinguBsStep]=useState(false);
 
   const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent)setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){if(!silent)setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);};
   useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
@@ -494,43 +514,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   useEffect(()=>{const fixTherapie=async()=>{const toFix=patienten.filter(p=>!p.mitarbeiter&&!p.therapie&&!p.ergotherapie&&!p.sonstige);if(toFix.length===0)return;for(const p of toFix){await supabase.from("patienten").update({therapie:true}).eq("id",p.id);}setPatienten(prev=>prev.map(p=>(!p.mitarbeiter&&!p.therapie&&!p.ergotherapie&&!p.sonstige)?{...p,therapie:true}:p));};if(patienten.length>0)fixTherapie();},[patienten.length]);
 
   const isTherapieKunde=(p)=>p.therapie||(!p.ergotherapie&&!p.sonstige);
-  const pinguMatchPat=(name)=>{
-    if(!name||name.trim().length<2)return[];
-    const nl=name.toLowerCase().trim();const parts=nl.split(/\s+/).filter(p=>p.length>0);
-    const guests=patienten.filter(p=>!p.mitarbeiter&&isTherapieKunde(p));
-    const exact=guests.filter(p=>`${p.vorname||""} ${p.nachname||""}`.toLowerCase().trim()===nl);if(exact.length>0)return exact.slice(0,8);
-    const allParts=guests.filter(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.every(part=>full.includes(part));});if(allParts.length>0)return allParts.slice(0,8);
-    const partial=guests.filter(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.some(part=>part.length>=2&&full.includes(part));});if(partial.length>0)return partial.slice(0,8);
-    if(parts[0]&&parts[0].length>=2){const sw=guests.filter(p=>(p.vorname||"").toLowerCase().startsWith(parts[0])||(p.nachname||"").toLowerCase().startsWith(parts[0]));if(sw.length>0)return sw.slice(0,8);}
-    return[];
-  };
-  const pinguReset=()=>{setPinguName("");setPinguMatches([]);setPinguSelected(null);setPinguBsNotiz("");setPinguDone("");setPinguBsStep(false);};
-  const pinguOnNameChange=(val)=>{setPinguName(val);setPinguSelected(null);setPinguDone("");setPinguBsStep(false);setPinguBsNotiz("");setPinguMatches(pinguMatchPat(val));};
-  const pinguSelectPat=(p)=>{setPinguSelected(p);setPinguMatches([]);setPinguName(`${p.vorname} ${p.nachname}`);};
-  const pinguAktPass=pinguSelected?paesse.find(pk=>pk.pat_id===pinguSelected.id&&!isPassAlt(pk)):null;
-  const pinguHeLeft=pinguAktPass?(pinguAktPass.he_total||0)-(pinguAktPass.he_genutzt||0):0;
-  const pinguBsLeft=pinguAktPass?(pinguAktPass.bs_total||0)-(pinguAktPass.bs_genutzt||0):0;
-
-  const pinguHeAbziehen=async()=>{
-    if(!pinguSelected||!pinguAktPass||pinguHeLeft===0)return;
-    const ap=pinguAktPass;const prev={he_genutzt:ap.he_genutzt};const u={...ap,he_genutzt:ap.he_genutzt+1};
-    const nl={id:genId(),pat_id:pinguSelected.id,pass_id:ap.id,typ:"HAUPTEINHEIT",quelle:"PINGU",datum:new Date().toISOString(),notiz:"Haupteinheit"};
-    await supabase.from("paesse").update({he_genutzt:u.he_genutzt}).eq("id",ap.id);await supabase.from("log").insert(nl);
-    setPaesse(p=>p.map(x=>x.id===ap.id?u:x));setLog(p=>[...p,nl]);
-    setPinguDone(`Haupteinheit bei ${pinguSelected.vorname} abgezogen ✓`);
-    setUndoAction({msg:`Haupteinheit −1 bei ${pinguSelected.vorname}`,undo:async()=>{await supabase.from("paesse").update(prev).eq("id",ap.id);await supabase.from("log").delete().eq("id",nl.id);setPaesse(p=>p.map(x=>x.id===ap.id?{...x,...prev}:x));setLog(p=>p.filter(l=>l.id!==nl.id));}});
-    setTimeout(pinguReset,3000);
-  };
-  const pinguBsAbziehen=async()=>{
-    if(!pinguSelected||!pinguAktPass||pinguBsLeft===0||!pinguBsNotiz.trim())return;
-    const ap=pinguAktPass;const prev={bs_genutzt:ap.bs_genutzt};const u={...ap,bs_genutzt:ap.bs_genutzt+1};
-    const nl={id:genId(),pat_id:pinguSelected.id,pass_id:ap.id,typ:"BS",quelle:"PINGU",datum:new Date().toISOString(),notiz:pinguBsNotiz.trim()};
-    await supabase.from("paesse").update({bs_genutzt:u.bs_genutzt}).eq("id",ap.id);await supabase.from("log").insert(nl);
-    setPaesse(p=>p.map(x=>x.id===ap.id?u:x));setLog(p=>[...p,nl]);
-    setPinguDone(`Gruppenangebot bei ${pinguSelected.vorname} abgezogen ✓`);
-    setUndoAction({msg:`Gruppenangebot −1 bei ${pinguSelected.vorname}`,undo:async()=>{await supabase.from("paesse").update(prev).eq("id",ap.id);await supabase.from("log").delete().eq("id",nl.id);setPaesse(p=>p.map(x=>x.id===ap.id?{...x,...prev}:x));setLog(p=>p.filter(l=>l.id!==nl.id));}});
-    setTimeout(pinguReset,3000);
-  };
 
   const inp={width:"100%",padding:"11px 14px",borderRadius:12,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:T.text,outline:"none"};
   const sorted=patienten.slice().sort((a,b)=>{const na=`${a.vorname||""} ${a.nachname||""}`.trim().toLowerCase();const nb=`${b.vorname||""} ${b.nachname||""}`.trim().toLowerCase();if(!a.vorname&&b.vorname)return 1;if(a.vorname&&!b.vorname)return-1;return na.localeCompare(nb,"de");});
@@ -577,6 +560,37 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const deleteUrlaub=async(uid)=>{await supabase.from("urlaub").delete().eq("id",uid);setUrlaub(prev=>prev.filter(u=>u.id!==uid));};
   const urlaubGenutzt=patUrlaub.reduce((s,u)=>s+workingDays(u.von,u.bis),0);
   const handlePinguAction=async(action)=>{
+    if(action.typ==="HE_ABZIEHEN"&&action.pat_id){
+      const pat=patienten.find(p=>p.id===action.pat_id);if(!pat)throw new Error("Patient nicht gefunden");
+      const ap=paesse.find(pk=>pk.pat_id===action.pat_id&&!isPassAlt(pk));if(!ap)throw new Error(`${pat.vorname} hat keinen aktiven Pass`);
+      const heLeft=(ap.he_total||0)-(ap.he_genutzt||0);if(heLeft<=0)throw new Error(`Keine Haupteinheiten mehr bei ${pat.vorname}`);
+      const prev={he_genutzt:ap.he_genutzt};const u={...ap,he_genutzt:ap.he_genutzt+1};
+      const nl={id:genId(),pat_id:pat.id,pass_id:ap.id,typ:"HAUPTEINHEIT",quelle:"PINGU",datum:new Date().toISOString(),notiz:"Haupteinheit"};
+      await supabase.from("paesse").update({he_genutzt:u.he_genutzt}).eq("id",ap.id);await supabase.from("log").insert(nl);
+      setPaesse(p=>p.map(x=>x.id===ap.id?u:x));setLog(p=>[...p,nl]);
+      setUndoAction({msg:`Haupteinheit −1 bei ${pat.vorname}`,undo:async()=>{await supabase.from("paesse").update(prev).eq("id",ap.id);await supabase.from("log").delete().eq("id",nl.id);setPaesse(p=>p.map(x=>x.id===ap.id?{...x,...prev}:x));setLog(p=>p.filter(l=>l.id!==nl.id));}});
+    }
+    if(action.typ==="BS_ABZIEHEN"&&action.pat_id){
+      const pat=patienten.find(p=>p.id===action.pat_id);if(!pat)throw new Error("Patient nicht gefunden");
+      const ap=paesse.find(pk=>pk.pat_id===action.pat_id&&!isPassAlt(pk));if(!ap)throw new Error(`${pat.vorname} hat keinen aktiven Pass`);
+      const bsLeft=(ap.bs_total||0)-(ap.bs_genutzt||0);if(bsLeft<=0)throw new Error(`Keine Gruppenangebote mehr bei ${pat.vorname}`);
+      const prev={bs_genutzt:ap.bs_genutzt};const u={...ap,bs_genutzt:ap.bs_genutzt+1};
+      const nl={id:genId(),pat_id:pat.id,pass_id:ap.id,typ:"BS",quelle:"PINGU",datum:new Date().toISOString(),notiz:action.notiz||"Gruppenangebot"};
+      await supabase.from("paesse").update({bs_genutzt:u.bs_genutzt}).eq("id",ap.id);await supabase.from("log").insert(nl);
+      setPaesse(p=>p.map(x=>x.id===ap.id?u:x));setLog(p=>[...p,nl]);
+      setUndoAction({msg:`Gruppenangebot −1 bei ${pat.vorname}`,undo:async()=>{await supabase.from("paesse").update(prev).eq("id",ap.id);await supabase.from("log").delete().eq("id",nl.id);setPaesse(p=>p.map(x=>x.id===ap.id?{...x,...prev}:x));setLog(p=>p.filter(l=>l.id!==nl.id));}});
+    }
+    if(action.typ==="PASS_ANLEGEN"&&action.pat_id){
+      const pat=patienten.find(p=>p.id===action.pat_id);if(!pat)throw new Error("Patient nicht gefunden");
+      if(!PASS_TYPES[action.passtyp])throw new Error(`Unbekannter Passtyp: ${action.passtyp}`);
+      await handleKaufFuerPat(pat,"pass",action.passtyp,action.preis||PASS_TYPES[action.passtyp].preis,"",todayISO());
+    }
+    if(action.typ==="EINZEL_ANLEGEN"&&action.pat_id){
+      const pat=patienten.find(p=>p.id===action.pat_id);if(!pat)throw new Error("Patient nicht gefunden");
+      const found=EINZELANGEBOTE.find(e=>e.name.toLowerCase()===(action.name||"").toLowerCase())||EINZELANGEBOTE.find(e=>(action.name||"").toLowerCase().includes(e.key.toLowerCase()));
+      const key=found?found.key:"CUSTOM";const name=action.name||found?.name||"Einzelangebot";const preis=action.preis??found?.preis??0;
+      await handleKaufFuerPat(pat,"einzel",{key,name},preis,"",todayISO());
+    }
     if(action.typ==="NOTIZ"&&action.pat_id){const nl={id:genId(),pat_id:action.pat_id,pass_id:null,typ:"NOTIZ",quelle:"PINGU",datum:new Date().toISOString(),notiz:action.text||""};await supabase.from("log").insert(nl);setLog(p=>[...p,nl]);}
     if(action.typ==="BEZAHLT"&&action.id){if(action.art==="pass"){await toggleBezahlt(action.id);}else{await toggleEinzelBez(action.id);}}
     if(action.typ==="BEZAHLT_RN"&&action.rechnung){const rn=action.rechnung.trim().toUpperCase();const pk=paesse.find(p=>(p.rechnung||"").toUpperCase()===rn);const ek=einzel.find(e=>(e.rechnung||"").toUpperCase()===rn);if(pk&&!pk.bezahlt)await toggleBezahlt(pk.id);else if(ek&&!ek.bezahlt)await toggleEinzelBez(ek.id);}
@@ -693,75 +707,13 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
         {tbBtn("📊",showStats?"Statistik ✕":"Statistik",()=>{if(showStats){setShowStats(false);return;}const pw=prompt("Passwort für Statistik:");if(pw==="Vogel")setShowStats(true);else if(pw!==null)alert("Falsches Passwort");},showStats)}
         {tbBtn("📷","QR",()=>setScanMode(true))}
         {tbBtn("⬇","CSV",downloadCSV)}
-        {tbBtn("💬","Pingu Chat",()=>setPinguChat(true))}
+        {tbBtn("🐧","Pingu",()=>setPinguChat(true))}
         <button disabled={shoreSync} className="btn-a" style={{padding:"9px 14px",borderRadius:12,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.olive,color:"#fff",border:"none",fontSize:13,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={()=>doShoreSync(false)}><span className="btn-emoji" style={{display:"none"}}>🔄</span><span className="btn-text">{shoreSync?"Sync...":"Shore Sync"}</span></button>
       </div>
       {shoreSyncMsg&&<div style={{padding:"12px 18px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.redSoft:T.greenSoft,color:shoreSyncMsg.startsWith("Fehler")?T.red:T.green,fontSize:14,fontWeight:600,marginBottom:14}}>{shoreSyncMsg}</div>}
       {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
 
       {view==="liste"&&<>
-        <Card style={{marginBottom:20,padding:"20px 24px",background:`linear-gradient(135deg,${T.bgPale},${T.cream})`,border:`1.5px solid ${T.gold}30`,overflow:"visible"}}>
-          <div style={{display:"flex",gap:16,alignItems:"flex-start"}}>
-            <div style={{fontSize:40,lineHeight:1,flexShrink:0,marginTop:2}}>🐧</div>
-            <div style={{flex:1,minWidth:0}}>
-              {pinguDone?(
-                <div className="fade-in" style={{padding:"8px 0",fontSize:16,fontWeight:700,color:T.green,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                  <span>{pinguDone}</span>
-                  <button onClick={pinguReset} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",fontSize:13,color:T.textLight,textDecoration:"underline",fontFamily:"inherit"}}>Nochmal</button>
-                </div>
-              ):!pinguSelected?(
-                <div>
-                  <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:600,color:T.oliveDark,marginBottom:12,lineHeight:1.5}}>Wem darf ich eine Einheit abziehen?</div>
-                  <div style={{position:"relative"}}>
-                    <input value={pinguName} onChange={e=>pinguOnNameChange(e.target.value)} placeholder="Name tippen..." autoComplete="off" style={{...inp,background:T.white,border:`1.5px solid ${pinguMatches.length>0?T.green+"60":pinguName.length>=2&&pinguMatches.length===0?T.red+"30":T.cardBorder}`}}/>
-                    {pinguMatches.length>0&&(
-                      <div className="fade-in" style={{position:"absolute",top:"100%",left:0,right:0,zIndex:20,marginTop:4,background:T.white,borderRadius:14,border:`1.5px solid ${T.green}40`,boxShadow:"0 8px 32px rgba(44,48,38,0.12)",overflow:"hidden",maxHeight:320,overflowY:"auto"}}>
-                        {pinguMatches.map(p=>{const ap=paesse.find(pk=>pk.pat_id===p.id&&!isPassAlt(pk));const heL=ap?(ap.he_total||0)-(ap.he_genutzt||0):0;const bsL=ap?(ap.bs_total||0)-(ap.bs_genutzt||0):0;
-                          return(<div key={p.id} onClick={()=>pinguSelectPat(p)} style={{padding:"12px 16px",cursor:"pointer",borderBottom:`1px solid ${T.cardBorder}`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background=T.greenSoft} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                            <div><div style={{fontWeight:600,color:T.text,fontSize:15}}>{p.vorname} {p.nachname}</div>{p.ergotherapie&&<span style={{fontSize:11,color:T.blue,fontWeight:600}}>Ergotherapie</span>}{p.sonstige&&<span style={{fontSize:11,color:T.purple,fontWeight:600}}>Sonstige</span>}</div>
-                            {ap?<div style={{display:"flex",gap:6,fontSize:12,color:T.textLight}}><span style={{background:T.bgPale,padding:"3px 8px",borderRadius:6,fontWeight:600}}>{heL} HE</span><span style={{background:T.bgPale,padding:"3px 8px",borderRadius:6,fontWeight:600}}>{bsL} GA</span></div>
-                            :<span style={{fontSize:11,color:T.red,fontWeight:600}}>Kein Pass</span>}
-                          </div>);})}
-                      </div>
-                    )}
-                  </div>
-                  {pinguName.length>=2&&pinguMatches.length===0&&(
-                    <div className="fade-in" style={{fontSize:13,color:T.red,padding:"6px 0"}}>Kein Kunde gefunden</div>
-                  )}
-                </div>
-              ):(
-                <div>
-                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
-                    <div style={{fontFamily:"Georgia,serif",fontSize:16,fontWeight:600,color:T.oliveDark}}>Was bei {pinguSelected.vorname} abhaken?</div>
-                    <button onClick={pinguReset} style={{marginLeft:"auto",padding:"4px 12px",borderRadius:10,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:12,fontFamily:"inherit"}}>Andere:r</button>
-                  </div>
-                  {!pinguAktPass?(
-                    <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-                      <div style={{fontSize:14,color:T.red,fontWeight:600}}>Kein aktiver Pass vorhanden</div>
-                      <button onClick={pinguReset} style={{padding:"8px 16px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit"}}>← Zurück</button>
-                    </div>
-                  ):!pinguBsStep?(
-                    <div className="fade-in pingu-btns" style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                      <button disabled={pinguHeLeft===0} onClick={pinguHeAbziehen} className="btn-a" style={{flex:1,minWidth:140,padding:"14px 18px",borderRadius:16,border:"none",background:pinguHeLeft===0?T.bgPale:T.olive,color:pinguHeLeft===0?T.textLight:"#fff",cursor:pinguHeLeft===0?"not-allowed":"pointer",opacity:pinguHeLeft===0?0.4:1,fontWeight:700,fontSize:14,lineHeight:1.5}}>✓ Haupteinheit −1<br/><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>{pinguHeLeft} übrig</span></button>
-                      <button disabled={pinguBsLeft===0} onClick={()=>setPinguBsStep(true)} className="btn-a" style={{flex:1,minWidth:140,padding:"14px 18px",borderRadius:16,border:"none",background:pinguBsLeft===0?T.bgPale:`linear-gradient(135deg,${T.gold},#9A8A6A)`,color:pinguBsLeft===0?T.textLight:"#2A2A1A",cursor:pinguBsLeft===0?"not-allowed":"pointer",opacity:pinguBsLeft===0?0.4:1,fontWeight:700,fontSize:14,lineHeight:1.5}}>✓ Gruppenangebot −1<br/><span style={{fontSize:12,fontWeight:400,opacity:0.75}}>{pinguBsLeft} übrig</span></button>
-                      <button onClick={pinguReset} style={{padding:"14px 12px",borderRadius:16,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:16,lineHeight:1}}>✕</button>
-                    </div>
-                  ):(
-                    <div className="fade-in">
-                      <div style={{fontSize:13,color:T.textLight,marginBottom:8}}>Welches Gruppenangebot war es?</div>
-                      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                        <input value={pinguBsNotiz} onChange={e=>setPinguBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." autoFocus onKeyDown={e=>e.key==="Enter"&&pinguBsNotiz.trim()&&pinguBsAbziehen()} style={{...inp,flex:1,background:T.white,minWidth:160}}/>
-                        <Btn small gold disabled={!pinguBsNotiz.trim()} onClick={pinguBsAbziehen}>Abhaken</Btn>
-                        <button onClick={()=>{setPinguBsStep(false);setPinguBsNotiz("");}} style={{padding:"8px 14px",borderRadius:12,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.textLight,cursor:"pointer",fontSize:13,fontFamily:"inherit"}}>←</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </Card>
-
         <div style={{marginBottom:18}}>
           <Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading>
           <div style={{display:"flex",gap:6,marginTop:12,flexWrap:"wrap"}}>
