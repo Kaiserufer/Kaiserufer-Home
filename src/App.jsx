@@ -593,7 +593,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
         <div className="liste-right" style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
           {showPass?<>
             <div style={{display:"flex",border:`1px solid ${T.cardBorder}`,borderRadius:10,overflow:"hidden"}}>{[{label:"HE",val:u?u.he:null,warn:heW},{label:"GA",val:u?u.bs:null,warn:bsW}].map((col,ci)=>(<div key={col.label} style={{width:48,padding:"6px 0",textAlign:"center",borderLeft:ci>0?`1px solid ${T.cardBorder}`:"none",background:col.warn?T.orangeSoft:T.bgPale+"60"}}><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8,marginBottom:3}}>{col.label}</div><div style={{fontSize:17,fontWeight:700,fontFamily:"Georgia,serif",color:col.warn?T.orange:col.val===null?T.textLight+"40":T.oliveDark,lineHeight:1}}>{col.val!==null?col.val:"–"}</div></div>))}</div>
-            <div className="badge-w" style={{width:68,textAlign:"center"}}>{u?<Badge variant="gold">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:T.textLight+"40"}}>–</span>}</div>
+            <div className="badge-w" style={{minWidth:68,textAlign:"center"}}>{u?<Badge variant="gold">{getPassName(u.typ)}</Badge>:<span style={{fontSize:12,color:T.textLight+"40"}}>–</span>}</div>
           </>:
             <Badge variant={p.ergotherapie?"blue":"purple"}>{p.ergotherapie?"Ergotherapie":"Sonstige"}</Badge>
           }
