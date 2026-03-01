@@ -285,8 +285,7 @@ MÖGLICHE AKTIONEN:
 REGELN:
 - SPRACHEINGABE: Der User nutzt oft Spracherkennung. Interpretiere phonetische Eingaben großzügig. "Suse Sur" = "Susanne Suhr".
 - Wenn du einen Namen nicht eindeutig zuordnen kannst, frage nach.
-- Antworte kurz und freundlich auf Deutsch.
-- Bei offenen Zahlungen: IMMER mit Rechnungsnummer auflisten.
+- ANTWORTE IMMER KURZ UND KNAPP. Maximal 5-8 Zeilen. Bei langen Listen: Nur die Top 5 zeigen + "und X weitere". Nie mehr als 10 Einträge auflisten.
 - "War heute da" / "hatte Termin" = HE abziehen. "War beim [Angebot]" = GA abziehen.
 
 STATISTIK: ${gaeste.length} Kunden | ${paesse.filter(p=>!isPassAlt(p)).length} aktive Pässe | ${paesse.filter(p=>!p.bezahlt).length+einzel.filter(e=>!e.bezahlt).length} offene Rechnungen | ${gaeste.filter(p=>p.ergotherapie).length} Ergotherapie | ${gaeste.filter(p=>p.sonstige).length} Sonstige
