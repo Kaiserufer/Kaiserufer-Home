@@ -461,7 +461,18 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
 
   // Pass-Check: Neue Flossenpass-Verkäufe aus Shore erkennen
   const checkPassSales=async()=>{try{const r=await fetch("/api/pass-check");const d=await r.json();if(d.pending?.length)setPendingPasses(d.pending);}catch(e){}};
-  useEffect(()=>{if(patienten.length>0)checkPassSales();const iv=setInterval(checkPassSales,5*60*1000);return()=>clearInterval(iv);},[patienten.length]);
+  useEffect(()=>{
+    // Test-Modus: ?test-pass=1 zeigt Fake-Benachrichtigungen
+    if(new URLSearchParams(window.location.search).get("test-pass")){
+      const testPat=patienten.find(p=>!p.mitarbeiter);
+      if(testPat)setPendingPasses([
+        {orderId:"test1",customer:{name:`${testPat.vorname} ${testPat.nachname}`,email:testPat.email},passType:"PLUS",price:499,standardPrice:499,priceMatch:true,date:todayISO(),productName:"Plus (Test)"},
+        {orderId:"test2",customer:{name:`${testPat.vorname} ${testPat.nachname}`,email:testPat.email},passType:"DELUXE",price:750,standardPrice:899,priceMatch:false,date:todayISO(),productName:"Deluxe (Sonderpreis Test)"},
+      ]);
+      return;
+    }
+    if(patienten.length>0)checkPassSales();const iv=setInterval(checkPassSales,5*60*1000);return()=>clearInterval(iv);
+  },[patienten.length]);
 
   const confirmPassSale=async(pp,custom)=>{
     const pt=custom||PASS_TYPES[pp.passType];
