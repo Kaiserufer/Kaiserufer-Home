@@ -480,8 +480,8 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     const parts=cname.toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);
     const pat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});
     if(!pat){alert("Patient nicht gefunden: "+cname);return;}
-    const rs=pp.invoiceNumber||genRechnung(await getRechnungsNr());
-    const ds=(pp.date||"").split("T")[0]||todayISO();
+    const rs=custom?.rechnung||pp.invoiceNumber||genRechnung(await getRechnungsNr());
+    const ds=custom?.datum||(pp.date||"").split("T")[0]||todayISO();
     const np={id:genId(),pat_id:pat.id,typ:custom?"INDIVIDUELL":pp.passType,custom_name:custom?.name||null,he_total:custom?custom.he:pt.he,he_genutzt:0,bs_total:custom?custom.bs:pt.bs,bs_genutzt:0,preis:custom?custom.preis:pp.price,rechnung:rs,bezahlt:true,datum:ds,aktiv:true};
     await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);
     await fetch("/api/pass-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orderIds:[pp.orderId]})});
@@ -657,19 +657,21 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
             <div>
               <div style={{fontSize:13,fontWeight:700,color:T.gold,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Neuer Flossenpass-Verkauf</div>
               <div style={{fontSize:16,fontWeight:600,color:T.text}}>{pp.customer?.name||"Unbekannt"}</div>
-              <div style={{fontSize:14,color:T.textMid,marginTop:2}}>{getPassName(pp.passType)} · {pp.price}€{!pp.priceMatch&&<span style={{color:T.orange,fontWeight:600}}> (Standard: {pp.standardPrice}€)</span>}{pp.invoiceNumber&&<span> · Rechnung: {pp.invoiceNumber}</span>}</div>
+              <div style={{fontSize:14,color:T.textMid,marginTop:2}}>{getPassName(pp.passType)} · {pp.price}€{!pp.priceMatch&&<span style={{color:T.orange,fontWeight:600}}> (Standard: {pp.standardPrice}€)</span>}{pp.invoiceNumber&&<span> · Rechnung: {pp.invoiceNumber}</span>} · {(pp.date||"").split("T")[0]||todayISO()}</div>
             </div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {pp.priceMatch?<Btn gold onClick={()=>confirmPassSale(pp)}>Bestätigen</Btn>:<Btn gold onClick={()=>setEditPass(isEdit?null:{orderId:pp.orderId,he:PASS_TYPES[pp.passType]?.he||0,bs:PASS_TYPES[pp.passType]?.bs||0,preis:pp.price,name:getPassName(pp.passType)})}>Anpassen</Btn>}
+              {pp.priceMatch?<Btn gold onClick={()=>confirmPassSale(pp)}>Bestätigen</Btn>:<Btn gold onClick={()=>setEditPass(isEdit?null:{orderId:pp.orderId,he:PASS_TYPES[pp.passType]?.he||0,bs:PASS_TYPES[pp.passType]?.bs||0,preis:pp.price,name:getPassName(pp.passType),rechnung:pp.invoiceNumber||"",datum:(pp.date||"").split("T")[0]||todayISO()})}>Anpassen</Btn>}
               <Btn ghost onClick={()=>dismissPassSale(pp)}>Ignorieren</Btn>
             </div>
           </div>
-          {isEdit&&<div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${T.cardBorder}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:10}}>
+          {isEdit&&<div style={{marginTop:14,paddingTop:14,borderTop:`1px solid ${T.cardBorder}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
             <div><label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",display:"block",marginBottom:4}}>Haupteinheiten</label><input type="number" min={0} value={editPass.he} onChange={e=>setEditPass({...editPass,he:Number(e.target.value)})} style={inp}/></div>
             <div><label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",display:"block",marginBottom:4}}>Gruppenangebote</label><input type="number" min={0} value={editPass.bs} onChange={e=>setEditPass({...editPass,bs:Number(e.target.value)})} style={inp}/></div>
             <div><label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",display:"block",marginBottom:4}}>Preis</label><input type="number" min={0} value={editPass.preis} onChange={e=>setEditPass({...editPass,preis:Number(e.target.value)})} style={inp}/></div>
             <div><label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",display:"block",marginBottom:4}}>Name</label><input value={editPass.name} onChange={e=>setEditPass({...editPass,name:e.target.value})} style={inp}/></div>
-            <div style={{gridColumn:"span 4",textAlign:"right"}}><Btn gold onClick={()=>{const cname=pp.customer?.name||"";const parts=cname.toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);const pat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});if(!pat){alert("Patient nicht gefunden: "+cname);return;}setSelPat(pat);setView("akte");dismissPassSale(pp);}}>Kundenakte öffnen</Btn></div>
+            <div><label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",display:"block",marginBottom:4}}>Rechnungsnummer</label><input value={editPass.rechnung} onChange={e=>setEditPass({...editPass,rechnung:e.target.value})} placeholder="z.B. RN123" style={inp}/></div>
+            <div><label style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",display:"block",marginBottom:4}}>Datum</label><input type="date" value={editPass.datum} onChange={e=>setEditPass({...editPass,datum:e.target.value})} style={inp}/></div>
+            <div style={{gridColumn:"span 3",display:"flex",gap:8,justifyContent:"flex-end"}}><Btn gold onClick={()=>confirmPassSale(pp,{he:editPass.he,bs:editPass.bs,preis:editPass.preis,name:editPass.name,rechnung:editPass.rechnung,datum:editPass.datum})}>Bestätigen</Btn><Btn ghost onClick={()=>{const cname=pp.customer?.name||"";const parts=cname.toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);const pat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});if(!pat){alert("Patient nicht gefunden: "+cname);return;}setSelPat(pat);setView("akte");dismissPassSale(pp);}}>Kundenakte öffnen</Btn></div>
           </div>}
         </Card>);
       })}
