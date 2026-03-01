@@ -15,8 +15,15 @@ export default async function handler(req, res) {
     }
 
     // Authenticate first (RLS requires authenticated user)
-    const email = process.env.LOGIN_EMAIL;
-    const pass = process.env.LOGIN_PASS;
+    const email = process.env.LOGIN_EMAIL || process.env.VITE_LOGIN_EMAIL || process.env.AUTH_EMAIL;
+    const pass = process.env.LOGIN_PASS || process.env.VITE_LOGIN_PASS || process.env.AUTH_PASS;
+    if (!email || !pass) {
+      // List available env var keys for debugging
+      const envKeys = Object.keys(process.env).filter(k =>
+        k.includes("LOGIN") || k.includes("SUPA") || k.includes("AUTH") || k.includes("EMAIL") || k.includes("PASS")
+      );
+      throw new Error("No auth credentials. Available env keys: " + envKeys.join(", "));
+    }
     const { error: authErr } = await sb.auth.signInWithPassword({ email, password: pass });
     if (authErr) throw new Error("Auth failed: " + authErr.message);
 
