@@ -52,7 +52,12 @@ export default async function handler(req, res) {
       updated++;
     }
 
-    return res.status(200).json({ ok: true, updated, alreadySet, notFound, details });
+    // Debug info
+    const dbCount = patients ? patients.length : 0;
+    const samplePatient = patients && patients[0] ? { vorname: patients[0].vorname, nachname: patients[0].nachname } : null;
+    const sampleInput = names[0] || null;
+
+    return res.status(200).json({ ok: true, updated, alreadySet, notFound, details, debug: { dbCount, samplePatient, sampleInput } });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
