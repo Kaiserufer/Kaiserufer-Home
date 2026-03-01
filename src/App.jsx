@@ -655,7 +655,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
         const cleanInv=(s)=>(s||"").replace(/^[A-Z]+-\d{4}-/,"");
         const invNum=cleanInv(pp.invoiceNumber);
         const passDate=(pp.date||"").split("T")[0]||todayISO();
-        return(<div key={pp.orderId} style={{borderRadius:16,background:"#fff",borderLeft:"5px solid #e46d73",padding:"22px 26px",marginBottom:14,boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+        return(<div key={pp.orderId} style={{borderRadius:16,background:T.cream,borderLeft:"5px solid #e46d73",padding:"22px 26px",marginBottom:14,boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
             <span style={{background:"#e46d73",color:"#fff",fontSize:12,fontWeight:800,padding:"5px 14px",borderRadius:8,textTransform:"uppercase",letterSpacing:1}}>Neuer Flossenpass-Verkauf</span>
             <span style={{fontSize:14,color:T.textLight,fontWeight:500}}>{passDate}</span>
