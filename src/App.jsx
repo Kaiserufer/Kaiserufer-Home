@@ -26,7 +26,7 @@ const getPassName=(t)=>PASS_TYPES[t]?.name??"Individuell";
 const getPassLabel=(pk)=>{if(!pk)return"–";if(pk.typ==="INDIVIDUELL"||!PASS_TYPES[pk.typ])return pk.custom_name||"Flossenpass";return PASS_TYPES[pk.typ].name;};
 
 const genId=()=>Math.random().toString(36).substr(2,9);
-const genRechnung=(n)=>`KU-2026-${String(n).padStart(4,"0")}`;
+const genRechnung=(n)=>`RN${n}`;
 const fmtDate=(d)=>{try{return new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});}catch{return"–";}};
 const fmtDateTime=(d)=>{try{return new Date(d).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});}catch{return"–";}};
 const todayISO=()=>new Date().toISOString().split("T")[0];
