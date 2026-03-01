@@ -133,6 +133,7 @@ export default async function handler(req, res) {
           priceMatch: Math.abs(actualPrice - standardPrice) < 1,
           date: order.completed_at || order.created || new Date().toISOString(),
           productName: item.name,
+          invoiceNumber: order.basket?.invoice_number || order.invoice_number || "",
         });
       }
     }
