@@ -134,6 +134,7 @@ export default async function handler(req, res) {
           date: order.completed_at || order.created || new Date().toISOString(),
           productName: item.name,
           invoiceNumber: order.basket?.invoice_number || order.invoice_number || "",
+          receiptPdf: order.basket?.receipt?.pdf || order.receipt?.pdf || "",
         });
       }
     }

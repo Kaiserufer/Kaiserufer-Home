@@ -501,7 +501,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     if(!pat){alert("Patient nicht gefunden: "+cname);return;}
     const rs=custom?.rechnung||pp.invoiceNumber||genRechnung(await getRechnungsNr());
     const ds=custom?.datum||(pp.date||"").split("T")[0]||todayISO();
-    const np={id:genId(),pat_id:pat.id,typ:custom?"INDIVIDUELL":pp.passType,custom_name:custom?.name||null,he_total:custom?custom.he:pt.he,he_genutzt:0,bs_total:custom?custom.bs:pt.bs,bs_genutzt:0,preis:custom?custom.preis:pp.price,rechnung:rs,bezahlt:true,datum:ds,aktiv:true};
+    const np={id:genId(),pat_id:pat.id,typ:custom?"INDIVIDUELL":pp.passType,custom_name:custom?.name||null,he_total:custom?custom.he:pt.he,he_genutzt:0,bs_total:custom?custom.bs:pt.bs,bs_genutzt:0,preis:custom?custom.preis:pp.price,rechnung:rs,bezahlt:true,datum:ds,aktiv:true,rechnung_pdf:pp.receiptPdf||null};
     await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);
     await fetch("/api/pass-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orderIds:[pp.orderId]})});
     setPendingPasses(prev=>prev.filter(p=>p.orderId!==pp.orderId));setEditPass(null);
@@ -527,7 +527,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const aktiverPass=aktPaesse[0]||null;
   const heUebrig=aktPaesse.reduce((s,p)=>s+((p.he_total||0)-(p.he_genutzt||0)),0);
   const bsUebrig=aktPaesse.reduce((s,p)=>s+((p.bs_total||0)-(p.bs_genutzt||0)),0);
-  const alleVerkaufe=[...patPaesse.map(pk=>({id:pk.id,art:"pass",name:"Flossenpass",rechnung:pk.rechnung,datum:pk.datum,preis:pk.preis||0,bezahlt:pk.bezahlt,isAlt:isPassAlt(pk)})),...patEinzel.map(e=>({id:e.id,art:"einzel",name:e.name,rechnung:e.rechnung,datum:e.datum,preis:e.preis||0,bezahlt:e.bezahlt,isAlt:false}))].sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));
+  const alleVerkaufe=[...patPaesse.map(pk=>({id:pk.id,art:"pass",name:"Flossenpass",rechnung:pk.rechnung,rechnung_pdf:pk.rechnung_pdf||null,datum:pk.datum,preis:pk.preis||0,bezahlt:pk.bezahlt,isAlt:isPassAlt(pk)})),...patEinzel.map(e=>({id:e.id,art:"einzel",name:e.name,rechnung:e.rechnung,rechnung_pdf:e.rechnung_pdf||null,datum:e.datum,preis:e.preis||0,bezahlt:e.bezahlt,isAlt:false}))].sort((a,b)=>(b.datum||"").localeCompare(a.datum||""));
 
   const getRechnungsNr=async()=>{const{data}=await supabase.from("einstellungen").select("value").eq("key","rechnungs_nr").single();const nr=parseInt(data?.value||"0")+1;await supabase.from("einstellungen").update({value:String(nr)}).eq("key","rechnungs_nr");setRechnungsNr(nr);return nr;};
   const handleKauf=async(typ,info,preis,eigeneRechnung,datum)=>{setSaving(true);await handleKaufFuerPat(selPat,typ,info,preis,eigeneRechnung,datum);setSaving(false);setKaufModal(false);};
@@ -817,6 +817,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
                   <Badge variant={item.art==="pass"?"gold":"blue"} small>{item.art==="pass"?"Flossenpass":"Einzelangebot"}</Badge>
                   {item.isAlt&&<Badge variant="cream" small>Aufgebraucht</Badge>}
                   <code style={{background:T.bgPale,padding:"3px 10px",borderRadius:8,fontSize:12,color:T.textLight,fontFamily:"monospace"}}>{item.rechnung||"–"}</code>
+                  {item.rechnung_pdf&&<a href={item.rechnung_pdf} target="_blank" rel="noopener noreferrer" style={{padding:"3px 10px",borderRadius:8,fontSize:11,fontWeight:700,background:T.green+"20",color:T.green,textDecoration:"none",border:`1px solid ${T.green}30`}}>PDF ↗</a>}
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0,flexWrap:"wrap"}}>
                   <span style={{fontSize:13,color:T.textLight}}>{fmtDate(item.datum)}</span>
