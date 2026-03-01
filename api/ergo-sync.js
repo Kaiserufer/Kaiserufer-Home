@@ -9,22 +9,16 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { names } = req.body;
+    const { names, email, password } = req.body;
     if (!names || !Array.isArray(names) || names.length === 0) {
       return res.status(400).json({ error: "names array required" });
     }
-
-    // Authenticate first (RLS requires authenticated user)
-    const email = process.env.LOGIN_EMAIL || process.env.VITE_LOGIN_EMAIL || process.env.AUTH_EMAIL;
-    const pass = process.env.LOGIN_PASS || process.env.VITE_LOGIN_PASS || process.env.AUTH_PASS;
-    if (!email || !pass) {
-      // List available env var keys for debugging
-      const envKeys = Object.keys(process.env).filter(k =>
-        k.includes("LOGIN") || k.includes("SUPA") || k.includes("AUTH") || k.includes("EMAIL") || k.includes("PASS")
-      );
-      throw new Error("No auth credentials. Available env keys: " + envKeys.join(", "));
+    if (!email || !password) {
+      return res.status(400).json({ error: "email and password required" });
     }
-    const { error: authErr } = await sb.auth.signInWithPassword({ email, password: pass });
+
+    // Authenticate with provided credentials (RLS requires authenticated user)
+    const { error: authErr } = await sb.auth.signInWithPassword({ email, password });
     if (authErr) throw new Error("Auth failed: " + authErr.message);
 
     // Fetch all patients (now authenticated)

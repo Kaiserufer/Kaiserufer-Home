@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="header">
+    <span class="brand">Kaiserufer</span>
+    <span class="sub">Shore Tag Sync</span>
+  </div>
+
+  <div class="content">
+    <div id="status" class="status"></div>
+
+    <div style="margin-bottom:10px">
+      <input id="inp-email" type="email" placeholder="Kaiserufer E-Mail" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid #c0b89a;font-size:13px;margin-bottom:6px;box-sizing:border-box">
+      <input id="inp-pass" type="password" placeholder="Passwort" style="width:100%;padding:8px 12px;border-radius:8px;border:1px solid #c0b89a;font-size:13px;box-sizing:border-box">
+    </div>
+
+    <div class="actions">
+      <button id="btn-inspect" class="btn btn-secondary">Inspizieren</button>
+      <button id="btn-sync" class="btn btn-primary">Ergo-Tags sync</button>
+    </div>
+
+    <div id="inspect-box" class="inspect-box"></div>
+    <div id="results" class="results"></div>
+  </div>
+
+  <script src="supabase-client.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
