@@ -9,12 +9,18 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { names } = req.body; // Array of customer names from Shore calendar
+    const { names } = req.body;
     if (!names || !Array.isArray(names) || names.length === 0) {
       return res.status(400).json({ error: "names array required" });
     }
 
-    // Fetch all patients
+    // Authenticate first (RLS requires authenticated user)
+    const email = process.env.LOGIN_EMAIL;
+    const pass = process.env.LOGIN_PASS;
+    const { error: authErr } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (authErr) throw new Error("Auth failed: " + authErr.message);
+
+    // Fetch all patients (now authenticated)
     const { data: patients, error } = await sb.from("patienten").select("id,vorname,nachname,ergotherapie");
     if (error) throw new Error("Supabase fetch: " + error.message);
 
@@ -22,7 +28,6 @@ export default async function handler(req, res) {
     const details = [];
 
     for (const name of names) {
-      // Match by name (case-insensitive, all parts must match)
       const parts = name.toLowerCase().trim().split(/\s+/).filter(p => p.length > 0);
       const patient = patients.find(p => {
         const full = `${p.vorname || ""} ${p.nachname || ""}`.toLowerCase();
@@ -52,12 +57,8 @@ export default async function handler(req, res) {
       updated++;
     }
 
-    // Debug info
     const dbCount = patients ? patients.length : 0;
-    const samplePatient = patients && patients[0] ? { vorname: patients[0].vorname, nachname: patients[0].nachname } : null;
-    const sampleInput = names[0] || null;
-
-    return res.status(200).json({ ok: true, updated, alreadySet, notFound, details, debug: { dbCount, samplePatient, sampleInput } });
+    return res.status(200).json({ ok: true, updated, alreadySet, notFound, details, debug: { dbCount } });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
