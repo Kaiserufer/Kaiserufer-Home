@@ -345,6 +345,7 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
   const [selDay,setSelDay]=useState(null);const[addModal,setAddModal]=useState(null);
   const [evTitel,setEvTitel]=useState("");const[evFarbe,setEvFarbe]=useState("blue");const[evNotiz,setEvNotiz]=useState("");
   const [schPat,setSchPat]=useState("");const[schVon,setSchVon]=useState("09:00");const[schBis,setSchBis]=useState("17:00");const[schNotiz,setSchNotiz]=useState("");
+  const [addMaModal,setAddMaModal]=useState(false);const[maVor,setMaVor]=useState("");const[maName,setMaName]=useState("");const[maEmail,setMaEmail]=useState("");
   const mitarbeiter=patienten.filter(p=>p.mitarbeiter);
   const tresenTeam=mitarbeiter.filter(p=>p.tresen);
   const inp={width:"100%",padding:"10px 14px",borderRadius:12,border:`1px solid ${T.cardBorder}`,fontSize:15,background:T.inp,color:T.text,outline:"none"};
@@ -366,9 +367,12 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
   const deleteEvent=async(eid)=>{await supabase.from("team_events").delete().eq("id",eid);setTeamEvents(prev=>prev.filter(e=>e.id!==eid));};
   const addSchicht=async()=>{if(!schPat||!selDay)return;const ns={id:genId(),pat_id:schPat,datum:toISO(selDay),von_zeit:schVon,bis_zeit:schBis,notiz:schNotiz.trim()};await supabase.from("schichten").insert(ns);setSchichten(prev=>[...prev,ns]);setSchPat("");setSchNotiz("");setAddModal(null);};
   const deleteSchicht=async(sid)=>{await supabase.from("schichten").delete().eq("id",sid);setSchichten(prev=>prev.filter(s=>s.id!==sid));};
+  const addMitarbeiter=async()=>{if(!maVor.trim())return;const np={id:genId(),vorname:maVor.trim(),nachname:maName.trim(),email:maEmail.trim()||null,telefon:null,adresse:null,qr:"KU-"+Math.random().toString(36).substring(2,10).toUpperCase(),erstellt:new Date().toISOString(),mitarbeiter:true,tresen:false,kennenlern:false,konvertiert:false,stammkunde:false,stammpreis:null,urlaub_total:30};await supabase.from("patienten").insert(np);setPatienten(prev=>[...prev,np]);setMaVor("");setMaName("");setMaEmail("");setAddMaModal(false);};
   const selEntries=selDay?dayEntries(selDay):{events:[],urlaube:[],shifts:[]};
   const hasAny=selEntries.events.length+selEntries.urlaube.length+selEntries.shifts.length>0;
 
+  const todayShifts=(()=>{const iso=todayISO();return schichten.filter(s=>s.datum===iso);})();
+  const todayUrlaub=(()=>{const iso=todayISO();return urlaub.filter(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);return pat&&u.von<=iso&&u.bis>=iso;});})();
   return(<div className="fade-in" style={{display:"flex",flexDirection:"column",gap:18}}>
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <Heading style={{fontSize:28}}>Team</Heading>
@@ -376,6 +380,10 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
         {[{c:CAL_COLORS.event,l:"Events"},{c:CAL_COLORS.urlaub,l:"Urlaub"},{c:CAL_COLORS.schicht,l:"Tresen"}].map(x=>(<div key={x.l} style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:10,height:10,borderRadius:3,background:x.c}}/><span style={{color:T.textMid}}>{x.l}</span></div>))}
       </div>
     </div>
+    {(todayShifts.length>0||todayUrlaub.length>0)&&<div style={{display:"grid",gridTemplateColumns:todayShifts.length>0&&todayUrlaub.length>0?"1fr 1fr":"1fr",gap:12}}>
+      {todayShifts.length>0&&<Card style={{padding:"14px 20px",borderLeft:`4px solid ${CAL_COLORS.schicht}`}}><div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.schicht,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Heute am Tresen</div>{todayShifts.map(s=>{const pat=mitarbeiter.find(p=>p.id===s.pat_id);return(<div key={s.id} style={{fontSize:15,padding:"4px 0"}}><strong style={{color:T.text}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textLight,marginLeft:8,fontSize:13}}>{s.von_zeit} – {s.bis_zeit}</span></div>);})}</Card>}
+      {todayUrlaub.length>0&&<Card style={{padding:"14px 20px",borderLeft:`4px solid ${CAL_COLORS.urlaub}`}}><div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.urlaub,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Heute im Urlaub</div>{todayUrlaub.map(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);return(<div key={u.id} style={{fontSize:15,padding:"4px 0"}}><strong style={{color:T.text}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textLight,marginLeft:8,fontSize:13}}>bis {fmtDate(u.bis)}</span></div>);})}</Card>}
+    </div>}
     <Card style={{padding:20}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
         <button onClick={prevMonth} style={{background:T.bgPale,border:`1px solid ${T.cardBorder}`,borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:16,color:T.text}}>‹</button>
@@ -441,13 +449,15 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
       </div>}
     </Card></Modal>}
     <div style={{marginTop:8}}>
-      <Heading style={{fontSize:22,marginBottom:14}}>Mitarbeiter:innen</Heading>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><Heading style={{fontSize:22}}>Mitarbeiter:innen</Heading><Btn small gold onClick={()=>setAddMaModal(true)}>+ Hinzufügen</Btn></div>
       <div style={{display:"flex",flexDirection:"column",gap:10}}>
         {mitarbeiter.length===0&&<p style={{textAlign:"center",color:T.textLight,padding:20,fontSize:14}}>Noch keine Mitarbeiter:innen</p>}
         {mitarbeiter.map(p=>{const pu=urlaub.filter(u=>u.pat_id===p.id);const uGen=pu.reduce((s,u)=>s+workingDays(u.von,u.bis),0);const uRest=(p.urlaub_total||30)-uGen;
+          const isHeuteUrlaub=todayUrlaub.some(u=>u.pat_id===p.id);
+          const heuteTresen=todayShifts.find(s=>s.pat_id===p.id);
           return(<div key={p.id} onClick={()=>onOpenAkte(p)} className="card-h" style={{padding:"16px 24px",background:T.card,borderRadius:20,border:`1px solid ${T.cardBorder}`,cursor:"pointer",backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(74,82,64,0.06)"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
-              <div><div style={{fontWeight:600,color:T.text,fontSize:17}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}><Badge variant="purple" small>Mitarbeiter:in</Badge>{p.tresen&&<Badge variant="orange" small>Tresen</Badge>}</div></div>
+              <div><div style={{fontWeight:600,color:T.text,fontSize:17}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}><Badge variant="purple" small>Mitarbeiter:in</Badge>{p.tresen&&<Badge variant="orange" small>Tresen</Badge>}{heuteTresen&&<Badge variant="green" small>Heute Tresen {heuteTresen.von_zeit}–{heuteTresen.bis_zeit}</Badge>}{isHeuteUrlaub&&<Badge variant="red" small>Im Urlaub</Badge>}</div></div>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
                 <div style={{textAlign:"center",background:T.purpleSoft,borderRadius:10,padding:"6px 14px"}}><div style={{fontSize:18,fontWeight:700,color:T.purple,fontFamily:"Georgia,serif"}}>{uRest}</div><div style={{fontSize:10,color:T.textLight,textTransform:"uppercase",letterSpacing:0.8}}>Urlaub</div></div>
                 <span style={{color:T.gold,fontSize:20,fontWeight:300}}>›</span>
@@ -456,6 +466,15 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
           </div>);})}
       </div>
     </div>
+    {addMaModal&&<Modal onClose={()=>setAddMaModal(false)}><Card className="modal-box" style={{width:400}}>
+      <Heading style={{fontSize:20,marginBottom:16}}>Mitarbeiter:in hinzufügen</Heading>
+      <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div><label style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"}}>Vorname</label><input value={maVor} onChange={e=>setMaVor(e.target.value)} placeholder="z.B. Anna" style={inp} autoFocus/></div>
+        <div><label style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"}}>Nachname</label><input value={maName} onChange={e=>setMaName(e.target.value)} placeholder="z.B. Schmidt" style={inp}/></div>
+        <div><label style={{fontSize:12,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1.5,marginBottom:6,display:"block"}}>E-Mail (optional)</label><input value={maEmail} onChange={e=>setMaEmail(e.target.value)} placeholder="anna@kaiserufer.com" style={inp}/></div>
+        <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}><Btn ghost onClick={()=>setAddMaModal(false)}>Abbrechen</Btn><Btn gold onClick={addMitarbeiter} disabled={!maVor.trim()}>Hinzufügen</Btn></div>
+      </div>
+    </Card></Modal>}
   </div>);
 };
 
@@ -539,7 +558,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     else{rs=eigeneRechnung||genRechnung(await getRechnungsNr());const bez=bezahltStatus!=null?bezahltStatus:false;const ne={id:genId(),pat_id:pat.id,key:info.key,name:info.name,preis:preis||0,rechnung:rs,bezahlt:bez,datum:ds};const nl={id:genId(),pat_id:pat.id,pass_id:null,typ:info.key,quelle:"INTERN",datum:new Date().toISOString(),notiz:info.name};await supabase.from("einzel").insert(ne);await supabase.from("log").insert(nl);setEinzel(prev=>[...prev,ne]);setLog(prev=>[...prev,nl]);}
   };
   const deletePass=async(pid)=>{await supabase.from("paesse").delete().eq("id",pid);setPaesse(prev=>prev.filter(p=>p.id!==pid));setConfirmDelete(null);};
-  const downloadCSV=()=>{const h=["Vorname","Nachname","E-Mail","Telefon","QR-Code","Stammkunde","Seit","Aktiver Pass","HE","GA"];const rows=gaeste.map(p=>{const ap=paesse.find(pk=>pk.pat_id===p.id&&!isPassAlt(pk));const he=ap?(ap.he_total||0)-(ap.he_genutzt||0):"";const bs=ap?(ap.bs_total||0)-(ap.bs_genutzt||0):"";return[p.vorname||"",p.nachname||"",p.email||"",p.telefon||"",p.qr||"",p.stammkunde?"Ja":"Nein",fmtDate(p.erstellt),ap?"Flossenpass":"–",he,bs].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";");});const csv=[h.map(x=>`"${x}"`).join(";"),...rows].join("\n");const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="gaesteliste-kaiserufer.csv";a.click();URL.revokeObjectURL(url);};
+  const downloadCSV=()=>{const h=["Vorname","Nachname","E-Mail","Telefon","QR-Code","Stammkunde","Seit","Aktiver Pass","HE","GA","Rechnungsnummern"];const rows=gaeste.map(p=>{const ap=paesse.find(pk=>pk.pat_id===p.id&&!isPassAlt(pk));const he=ap?(ap.he_total||0)-(ap.he_genutzt||0):"";const bs=ap?(ap.bs_total||0)-(ap.bs_genutzt||0):"";const rns=[...paesse.filter(pk=>pk.pat_id===p.id).map(pk=>pk.rechnung),...einzel.filter(e=>e.pat_id===p.id).map(e=>e.rechnung)].filter(Boolean).join(", ");return[p.vorname||"",p.nachname||"",p.email||"",p.telefon||"",p.qr||"",p.stammkunde?"Ja":"Nein",fmtDate(p.erstellt),ap?"Flossenpass":"–",he,bs,rns].map(v=>`"${String(v).replace(/"/g,'""')}"`).join(";");});const csv=[h.map(x=>`"${x}"`).join(";"),...rows].join("\n");const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="gaesteliste-kaiserufer.csv";a.click();URL.revokeObjectURL(url);};
 
   const heAbziehen=async(pass)=>{if(!pass||pass.he_genutzt>=pass.he_total)return;const prev={he_genutzt:pass.he_genutzt};const u={...pass,he_genutzt:pass.he_genutzt+1};const nl={id:genId(),pat_id:selPat.id,pass_id:pass.id,typ:"HAUPTEINHEIT",quelle:"SHORE",datum:new Date().toISOString(),notiz:"Haupteinheit"};await supabase.from("paesse").update({he_genutzt:u.he_genutzt}).eq("id",pass.id);await supabase.from("log").insert(nl);setPaesse(p=>p.map(x=>x.id===pass.id?u:x));setLog(p=>[...p,nl]);
     setUndoAction({msg:"Haupteinheit −1 bei "+selPat.vorname,undo:async()=>{await supabase.from("paesse").update(prev).eq("id",pass.id);await supabase.from("log").delete().eq("id",nl.id);setPaesse(p=>p.map(x=>x.id===pass.id?{...x,...prev}:x));setLog(p=>p.filter(l=>l.id!==nl.id));}});};
