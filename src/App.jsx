@@ -183,6 +183,33 @@ const StatistikPanel=({patienten,paesse,einzelArr})=>{
         <div><div style={{fontSize:15,fontWeight:600,color:T.text}}>Zahlungsübersicht</div><div style={{fontSize:14,color:T.textMid,marginTop:6,lineHeight:1.8}}>Gesamt: <strong style={{color:T.text}}>{umsatz.toLocaleString("de-DE")} €</strong> · Bezahlt: <strong style={{color:T.green}}>{bezahlt.toLocaleString("de-DE")} €</strong> · Offen: <strong style={{color:T.red}}>{(umsatz-bezahlt).toLocaleString("de-DE")} €</strong></div></div>
         <Donut value={bezahlt} total={umsatz} color={T.green} size={52}/>
       </Card>
+      <Card style={{padding:20}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{fontSize:15,fontWeight:600,color:T.text}}>Verkaufte Flossenpässe</div>
+          <span style={{fontSize:13,color:T.textLight}}>{paesse.length} gesamt</span>
+        </div>
+        <div style={{maxHeight:400,overflowY:"auto",display:"flex",flexDirection:"column",gap:6}}>
+          {paesse.slice().sort((a,b)=>(b.datum||"").localeCompare(a.datum||"")).map(pk=>{
+            const pat=patienten.find(p=>p.id===pk.pat_id);
+            const name=pat?`${pat.vorname||""} ${pat.nachname||""}`.trim():"Unbekannt";
+            const label=pk.typ==="INDIVIDUELL"||!PASS_TYPES[pk.typ]?(pk.custom_name||"Individuell"):PASS_TYPES[pk.typ].name;
+            return(<div key={pk.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:T.bgPale+"80",borderRadius:12,flexWrap:"wrap",gap:8,borderLeft:`3px solid ${pk.bezahlt?T.green:T.red}60`}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                <strong style={{fontSize:14,color:T.text}}>{name}</strong>
+                <Badge variant="gold" small>{label}</Badge>
+                <code style={{background:T.bgPale,padding:"2px 8px",borderRadius:6,fontSize:11,color:T.textLight,fontFamily:"monospace"}}>{pk.rechnung||"–"}</code>
+                {pk.rechnung_pdf&&<a href={pk.rechnung_pdf} target="_blank" rel="noopener noreferrer" style={{fontSize:11,fontWeight:700,color:T.green,textDecoration:"none"}}>PDF ↗</a>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                <span style={{fontSize:12,color:T.textLight}}>{fmtDate(pk.datum)}</span>
+                <strong style={{fontFamily:"Georgia,serif",fontSize:14,color:T.oliveDark}}>{pk.preis||0} €</strong>
+                <Badge variant={pk.bezahlt?"green":"red"} small>{pk.bezahlt?"Bezahlt":"Offen"}</Badge>
+              </div>
+            </div>);
+          })}
+          {paesse.length===0&&<div style={{textAlign:"center",padding:20,color:T.textLight,fontSize:14}}>Noch keine Flossenpässe verkauft</div>}
+        </div>
+      </Card>
     </div>
   );
 };
