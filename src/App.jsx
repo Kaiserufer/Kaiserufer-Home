@@ -35,6 +35,8 @@ const workingDays=(von,bis)=>{let c=0,d=new Date(von);const e=new Date(bis);whil
 const MONATE=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 const TAGE_KURZ=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const CAL_COLORS={event:"#5A94B8",urlaub:"#9070B0",schicht:"#D4944A"};
+const MA_COLORS=["#9070B0","#5A94B8","#D4944A","#e46d73","#5A9E4A","#B8A88A","#6BA3A0","#C47DA0"];
+const getMaColor=(maList,patId)=>{const idx=maList.findIndex(p=>p.id===patId);return idx>=0?MA_COLORS[idx%MA_COLORS.length]:MA_COLORS[0];};
 
 const css=`
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -404,12 +406,13 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
       <Heading style={{fontSize:28}}>Team</Heading>
       <div style={{display:"flex",gap:16,fontSize:13,flexWrap:"wrap"}}>
-        {[{c:CAL_COLORS.event,l:"Events"},{c:CAL_COLORS.urlaub,l:"Urlaub"},{c:CAL_COLORS.schicht,l:"Tresen"}].map(x=>(<div key={x.l} style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:10,height:10,borderRadius:3,background:x.c}}/><span style={{color:T.textMid}}>{x.l}</span></div>))}
+        {[{c:CAL_COLORS.event,l:"Events"},{c:CAL_COLORS.schicht,l:"Tresen"}].map(x=>(<div key={x.l} style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:10,height:10,borderRadius:3,background:x.c}}/><span style={{color:T.textMid}}>{x.l}</span></div>))}
+        {mitarbeiter.map((p,i)=>(<div key={p.id} style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:10,height:10,borderRadius:3,background:MA_COLORS[i%MA_COLORS.length]}}/><span style={{color:T.textMid}}>{p.vorname}</span></div>))}
       </div>
     </div>
     {(todayShifts.length>0||todayUrlaub.length>0)&&<div style={{display:"grid",gridTemplateColumns:todayShifts.length>0&&todayUrlaub.length>0?"1fr 1fr":"1fr",gap:12}}>
       {todayShifts.length>0&&<Card style={{padding:"14px 20px",borderLeft:`4px solid ${CAL_COLORS.schicht}`}}><div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.schicht,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Heute am Tresen</div>{todayShifts.map(s=>{const pat=mitarbeiter.find(p=>p.id===s.pat_id);return(<div key={s.id} style={{fontSize:15,padding:"4px 0"}}><strong style={{color:T.text}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textLight,marginLeft:8,fontSize:13}}>{s.von_zeit} – {s.bis_zeit}</span></div>);})}</Card>}
-      {todayUrlaub.length>0&&<Card style={{padding:"14px 20px",borderLeft:`4px solid ${CAL_COLORS.urlaub}`}}><div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.urlaub,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Heute im Urlaub</div>{todayUrlaub.map(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);return(<div key={u.id} style={{fontSize:15,padding:"4px 0"}}><strong style={{color:T.text}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textLight,marginLeft:8,fontSize:13}}>bis {fmtDate(u.bis)}</span></div>);})}</Card>}
+      {todayUrlaub.length>0&&<Card style={{padding:"14px 20px",borderLeft:`4px solid ${CAL_COLORS.urlaub}`}}><div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.urlaub,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Heute im Urlaub</div>{todayUrlaub.map(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);const mc=getMaColor(mitarbeiter,u.pat_id);return(<div key={u.id} style={{fontSize:15,padding:"4px 0",display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:4,background:mc,flexShrink:0}}/><strong style={{color:T.text}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textLight,fontSize:13}}>bis {fmtDate(u.bis)}</span></div>);})}</Card>}
     </div>}
     <Card style={{padding:20}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
@@ -428,7 +431,7 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
             <div style={{fontSize:14,fontWeight:isToday(d)?800:500,color:isToday(d)?T.oliveDark:T.text,textAlign:"center",marginBottom:4}}>{d}</div>
             {hasDots&&<div style={{display:"flex",gap:2,justifyContent:"center",flexWrap:"wrap"}}>
               {events.map((_,ei)=><div key={`e${ei}`} style={{width:6,height:6,borderRadius:3,background:CAL_COLORS.event}}/>)}
-              {urlaube.map((_,ui)=><div key={`u${ui}`} style={{width:6,height:6,borderRadius:3,background:CAL_COLORS.urlaub}}/>)}
+              {urlaube.map((u,ui)=><div key={`u${ui}`} style={{width:6,height:6,borderRadius:3,background:getMaColor(mitarbeiter,u.pat_id)}}/>)}
               {shifts.map((_,si)=><div key={`s${si}`} style={{width:6,height:6,borderRadius:3,background:CAL_COLORS.schicht}}/>)}
             </div>}
           </div>);
@@ -447,7 +450,7 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
       </div>}
       {selEntries.urlaube.length>0&&<div style={{marginBottom:14}}>
         <div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.urlaub,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Urlaub</div>
-        {selEntries.urlaube.map(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);return(<div key={u.id} style={{padding:"10px 14px",background:T.purpleSoft,borderRadius:12,marginBottom:6,borderLeft:`4px solid ${CAL_COLORS.urlaub}`,fontSize:14}}><strong style={{color:T.purple}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textLight,marginLeft:8}}>· {fmtDate(u.von)} – {fmtDate(u.bis)}</span>{u.notiz&&<span style={{color:T.textLight,marginLeft:6}}>· {u.notiz}</span>}</div>);})}
+        {selEntries.urlaube.map(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);const mc=getMaColor(mitarbeiter,u.pat_id);return(<div key={u.id} style={{padding:"10px 14px",background:mc+"18",borderRadius:12,marginBottom:6,borderLeft:`4px solid ${mc}`,fontSize:14}}><strong style={{color:mc}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textLight,marginLeft:8}}>· {fmtDate(u.von)} – {fmtDate(u.bis)}</span>{u.notiz&&<span style={{color:T.textLight,marginLeft:6}}>· {u.notiz}</span>}</div>);})}
       </div>}
       {selEntries.shifts.length>0&&<div style={{marginBottom:14}}>
         <div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.schicht,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Tresen-Schichten</div>
