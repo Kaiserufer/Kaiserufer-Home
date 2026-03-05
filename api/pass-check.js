@@ -46,8 +46,8 @@ async function refreshTokens() {
   return data.access_token;
 }
 
-async function fetchOrders(token, startDate) {
-  const url = `https://app.inventorum.com/api/orders/?start=${encodeURIComponent(startDate)}&limit=40`;
+async function fetchOrders(token, startDate, endDate) {
+  const url = `https://app.inventorum.com/api/orders/?start=${encodeURIComponent(startDate)}&end=${encodeURIComponent(endDate)}&limit=40`;
   return fetch(url, {
     headers: {
       "Authorization": `Bearer ${token}`,
@@ -97,19 +97,20 @@ export default async function handler(req, res) {
     const lastCheck = await getSetting("pass_check_last") ||
       new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-    // Format start date for Shore API (YYYY.MM.DD hh:mm:ss)
-    const d = new Date(lastCheck);
-    const startDate = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+    // Format dates for Shore API (YYYY.MM.DD hh:mm:ss)
+    const fmtShoreDate = (dt) => `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,"0")}.${String(dt.getDate()).padStart(2,"0")} ${String(dt.getHours()).padStart(2,"0")}:${String(dt.getMinutes()).padStart(2,"0")}:${String(dt.getSeconds()).padStart(2,"0")}`;
+    const startDate = fmtShoreDate(new Date(lastCheck));
+    const endDate = fmtShoreDate(new Date());
 
     // Processed order IDs
     const processedStr = await getSetting("pass_processed_orders");
     const processed = processedStr ? JSON.parse(processedStr) : [];
 
     // Fetch orders from Shore
-    let ordersRes = await fetchOrders(token, startDate);
+    let ordersRes = await fetchOrders(token, startDate, endDate);
     if (ordersRes.status === 400 || ordersRes.status === 401) {
       token = await refreshTokens();
-      ordersRes = await fetchOrders(token, startDate);
+      ordersRes = await fetchOrders(token, startDate, endDate);
     }
     if (!ordersRes.ok) {
       const errBody = await ordersRes.text().catch(() => "");
