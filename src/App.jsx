@@ -97,6 +97,7 @@ const css=`
     .urlaub-grid{grid-template-columns:1fr!important}
     .cal-grid{font-size:12px!important}
     .cal-grid .cal-day{min-height:48px!important;padding:2px!important}
+    .week-grid{grid-template-columns:1fr!important;gap:6px!important}
     .team-detail-grid{grid-template-columns:1fr!important}
     .pingu-btns{flex-direction:column!important}
     .pingu-btns>button{min-width:0!important}
@@ -372,6 +373,9 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
   const today=new Date();
   const [month,setMonth]=useState(today.getMonth());const[year,setYear]=useState(today.getFullYear());
   const [selDay,setSelDay]=useState(null);const[addModal,setAddModal]=useState(null);
+  const [calView,setCalView]=useState("month");
+  const getMonday=(dt)=>{const d=new Date(dt);const day=d.getDay();const diff=d.getDate()-day+(day===0?-6:1);d.setDate(diff);d.setHours(0,0,0,0);return d;};
+  const [weekStart,setWeekStart]=useState(()=>getMonday(new Date()));
   const [evTitel,setEvTitel]=useState("");const[evFarbe,setEvFarbe]=useState("blue");const[evNotiz,setEvNotiz]=useState("");
   const [schPat,setSchPat]=useState("");const[schVon,setSchVon]=useState("09:00");const[schBis,setSchBis]=useState("17:00");const[schNotiz,setSchNotiz]=useState("");
   const [addMaModal,setAddMaModal]=useState(false);const[maVor,setMaVor]=useState("");const[maName,setMaName]=useState("");const[maEmail,setMaEmail]=useState("");
@@ -392,6 +396,16 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
     const shifts=schichten.filter(s=>s.datum===iso);
     return{events,urlaube,shifts};
   };
+  const dayEntriesISO=(iso)=>{
+    const events=teamEvents.filter(e=>e.datum===iso);
+    const urlaube=urlaub.filter(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);return pat&&u.von<=iso&&u.bis>=iso;});
+    const shifts=schichten.filter(s=>s.datum===iso);
+    return{events,urlaube,shifts};
+  };
+  const weekDays=Array.from({length:7},(_,i)=>{const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;});
+  const prevWeek=()=>setWeekStart(w=>{const d=new Date(w);d.setDate(d.getDate()-7);return d;});
+  const nextWeek=()=>setWeekStart(w=>{const d=new Date(w);d.setDate(d.getDate()+7);return d;});
+  const fmtWeekHeader=()=>{const end=new Date(weekStart);end.setDate(end.getDate()+6);const s=weekStart;return`${s.getDate()}. – ${end.getDate()}. ${MONATE[end.getMonth()]} ${end.getFullYear()}`;};
   const addEvent=async()=>{if(!evTitel.trim()||!selDay)return;const ne={id:genId(),titel:evTitel.trim(),datum:toISO(selDay),farbe:evFarbe,notiz:evNotiz.trim()};await supabase.from("team_events").insert(ne);setTeamEvents(prev=>[...prev,ne]);setEvTitel("");setEvNotiz("");setAddModal(null);};
   const deleteEvent=async(eid)=>{await supabase.from("team_events").delete().eq("id",eid);setTeamEvents(prev=>prev.filter(e=>e.id!==eid));};
   const addSchicht=async()=>{if(!schPat||!selDay)return;const ns={id:genId(),pat_id:schPat,datum:toISO(selDay),von_zeit:schVon,bis_zeit:schBis,notiz:schNotiz.trim()};await supabase.from("schichten").insert(ns);setSchichten(prev=>[...prev,ns]);setSchPat("");setSchNotiz("");setAddModal(null);};
@@ -414,7 +428,10 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
       {todayShifts.length>0&&<Card style={{padding:"14px 20px",borderLeft:`4px solid ${CAL_COLORS.schicht}`}}><div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.schicht,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Heute am Tresen</div>{todayShifts.map(s=>{const pat=mitarbeiter.find(p=>p.id===s.pat_id);return(<div key={s.id} style={{fontSize:15,padding:"4px 0"}}><strong style={{color:T.text}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textLight,marginLeft:8,fontSize:13}}>{s.von_zeit} – {s.bis_zeit}</span></div>);})}</Card>}
       {todayUrlaub.length>0&&<Card style={{padding:"14px 20px",borderLeft:`4px solid ${CAL_COLORS.urlaub}`}}><div style={{fontSize:11,fontWeight:700,color:CAL_COLORS.urlaub,textTransform:"uppercase",letterSpacing:2,marginBottom:8}}>Heute im Urlaub</div>{todayUrlaub.map(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);const mc=getMaColor(mitarbeiter,u.pat_id);return(<div key={u.id} style={{fontSize:15,padding:"4px 0",display:"flex",alignItems:"center",gap:8}}><div style={{width:8,height:8,borderRadius:4,background:mc,flexShrink:0}}/><strong style={{color:T.text}}>{pat?.vorname} {pat?.nachname}</strong><span style={{color:T.textLight,fontSize:13}}>bis {fmtDate(u.bis)}</span></div>);})}</Card>}
     </div>}
-    <Card style={{padding:20}}>
+    <div style={{display:"flex",justifyContent:"center",gap:4,marginBottom:-8}}>
+      {["month","week"].map(v=>(<button key={v} onClick={()=>setCalView(v)} style={{padding:"6px 18px",borderRadius:10,border:`1px solid ${calView===v?T.olive:T.cardBorder}`,background:calView===v?T.olive+"20":T.bgPale,color:calView===v?T.oliveDark:T.textLight,fontWeight:calView===v?700:500,fontSize:13,cursor:"pointer",transition:"all 0.2s"}}>{v==="month"?"Monat":"Woche"}</button>))}
+    </div>
+    {calView==="month"?<Card style={{padding:20}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
         <button onClick={prevMonth} style={{background:T.bgPale,border:`1px solid ${T.cardBorder}`,borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:16,color:T.text}}>‹</button>
         <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:T.oliveDark}}>{MONATE[month]} {year}</div>
@@ -438,6 +455,42 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
         })}
       </div>
     </Card>
+    :<Card style={{padding:20}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+        <button onClick={prevWeek} style={{background:T.bgPale,border:`1px solid ${T.cardBorder}`,borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:16,color:T.text}}>‹</button>
+        <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:700,color:T.oliveDark}}>{fmtWeekHeader()}</div>
+        <button onClick={nextWeek} style={{background:T.bgPale,border:`1px solid ${T.cardBorder}`,borderRadius:10,padding:"8px 16px",cursor:"pointer",fontSize:16,color:T.text}}>›</button>
+      </div>
+      <div className="week-grid" style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8}}>
+        {weekDays.map(wd=>{
+          const iso=wd.toISOString().split("T")[0];
+          const isT=iso===todayISO();
+          const dow=TAGE_KURZ[(wd.getDay()+6)%7];
+          const {events,urlaube,shifts}=dayEntriesISO(iso);
+          const dayNum=wd.getDate();
+          const isSel=calView==="week"&&selDay===dayNum&&wd.getMonth()===month&&wd.getFullYear()===year;
+          return(<div key={iso} onClick={()=>{setMonth(wd.getMonth());setYear(wd.getFullYear());setSelDay(dayNum);}} style={{minHeight:120,padding:10,borderRadius:12,background:isT?T.gold+"14":T.bgPale+"80",border:isT?`2px solid ${T.gold}40`:`1px solid ${T.cardBorder}`,cursor:"pointer",transition:"all 0.15s",display:"flex",flexDirection:"column",gap:6}}>
+            <div style={{textAlign:"center",marginBottom:4}}>
+              <div style={{fontSize:11,fontWeight:700,color:T.textLight,textTransform:"uppercase",letterSpacing:1}}>{dow}</div>
+              <div style={{fontSize:18,fontWeight:isT?800:600,color:isT?T.oliveDark:T.text}}>{dayNum}.{wd.getMonth()+1}.</div>
+            </div>
+            {shifts.map(s=>{const pat=mitarbeiter.find(p=>p.id===s.pat_id);const mc=getMaColor(mitarbeiter,s.pat_id);return(
+              <div key={s.id} style={{padding:"4px 8px",borderRadius:8,background:mc+"20",borderLeft:`3px solid ${mc}`,fontSize:11}}>
+                <div style={{fontWeight:700,color:mc}}>{pat?.vorname}</div>
+                <div style={{color:T.textMid,fontSize:10}}>{s.von_zeit}–{s.bis_zeit}</div>
+              </div>);})}
+            {urlaube.map(u=>{const pat=mitarbeiter.find(p=>p.id===u.pat_id);const mc=getMaColor(mitarbeiter,u.pat_id);return(
+              <div key={u.id+iso} style={{padding:"3px 8px",borderRadius:8,background:mc+"14",borderLeft:`3px solid ${mc}50`,fontSize:11}}>
+                <span style={{color:mc,fontWeight:600}}>{pat?.vorname}</span><span style={{color:T.textLight,marginLeft:4,fontSize:10}}>Urlaub</span>
+              </div>);})}
+            {events.map(ev=>(
+              <div key={ev.id} style={{padding:"3px 8px",borderRadius:8,background:T.blueSoft,borderLeft:`3px solid ${CAL_COLORS.event}`,fontSize:11}}>
+                <span style={{color:CAL_COLORS.event,fontWeight:600}}>{ev.titel}</span>
+              </div>))}
+          </div>);
+        })}
+      </div>
+    </Card>}
     {selDay&&<Card style={{padding:20}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:8}}> 
         <Heading style={{fontSize:20}}>{selDay}. {MONATE[month]} {year}</Heading>
