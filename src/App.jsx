@@ -485,7 +485,8 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
         {mitarbeiter.map(p=>{const pu=urlaub.filter(u=>u.pat_id===p.id);const uGen=pu.reduce((s,u)=>s+workingDays(u.von,u.bis),0);const uRest=(p.urlaub_total||30)-uGen;
           const isHeuteUrlaub=todayUrlaub.some(u=>u.pat_id===p.id);
           const heuteTresen=todayShifts.find(s=>s.pat_id===p.id);
-          return(<div key={p.id} onClick={()=>onOpenAkte(p)} className="card-h" style={{padding:"16px 24px",background:T.card,borderRadius:20,border:`1px solid ${T.cardBorder}`,cursor:"pointer",backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(74,82,64,0.06)"}}>
+          const mc=getMaColor(mitarbeiter,p.id);
+          return(<div key={p.id} onClick={()=>onOpenAkte(p)} className="card-h" style={{padding:"16px 24px",background:T.card,borderRadius:20,border:`1px solid ${T.cardBorder}`,borderLeft:`4px solid ${mc}`,cursor:"pointer",backdropFilter:"blur(8px)",boxShadow:"0 2px 12px rgba(74,82,64,0.06)"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
               <div><div style={{fontWeight:600,color:T.text,fontSize:17}}>{p.vorname} {p.nachname}</div><div style={{display:"flex",gap:8,marginTop:4,flexWrap:"wrap"}}><Badge variant="purple" small>Mitarbeiter:in</Badge>{p.tresen&&<Badge variant="orange" small>Tresen</Badge>}{heuteTresen&&<Badge variant="green" small>Heute Tresen {heuteTresen.von_zeit}–{heuteTresen.bis_zeit}</Badge>}{isHeuteUrlaub&&<Badge variant="red" small>Im Urlaub</Badge>}</div></div>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
