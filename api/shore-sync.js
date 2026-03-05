@@ -15,9 +15,12 @@ async function saveToken(key, value) {
 }
 
 async function refreshTokens() {
-  const clientId = process.env.VITE_SHORE_CLIENT_ID;
-  const clientSecret = process.env.VITE_SHORE_CLIENT_SECRET;
+  const clientId = process.env.VITE_SHORE_CLIENT_ID || process.env.SHORE_CLIENT_ID;
+  const clientSecret = process.env.VITE_SHORE_CLIENT_SECRET || process.env.SHORE_CLIENT_SECRET;
   const refreshToken = await getToken("shore_refresh_token");
+
+  if (!clientId || !clientSecret) throw new Error("Shore Client-ID oder Secret fehlt in Umgebungsvariablen");
+  if (!refreshToken) throw new Error("Kein Refresh-Token in Supabase gespeichert");
 
   const res = await fetch("https://app.inventorum.com/api/auth/token/", {
     method: "POST",
@@ -28,7 +31,10 @@ async function refreshTokens() {
     body: `grant_type=refresh_token&refresh_token=${refreshToken}`,
   });
 
-  if (!res.ok) throw new Error("Token-Refresh fehlgeschlagen: " + res.status);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error("Token-Refresh fehlgeschlagen: " + res.status + (errBody ? " – " + errBody.slice(0, 200) : ""));
+  }
 
   const data = await res.json();
   await saveToken("shore_access_token", data.access_token);
@@ -53,15 +59,25 @@ export default async function handler(req, res) {
   try {
     // 1) Aktuellen Token versuchen
     let token = await getToken("shore_access_token");
-    let kundenRes = await fetchKunden(token);
+    let kundenRes;
 
-    // 2) Falls 401 → automatisch neuen Token holen und nochmal versuchen
-    if (kundenRes.status === 401) {
+    // Falls Token leer → direkt refreshen
+    if (!token) {
+      token = await refreshTokens();
+    }
+
+    kundenRes = await fetchKunden(token);
+
+    // 2) Falls 400 oder 401 → automatisch neuen Token holen und nochmal versuchen
+    if (kundenRes.status === 400 || kundenRes.status === 401) {
       token = await refreshTokens();
       kundenRes = await fetchKunden(token);
     }
 
-    if (!kundenRes.ok) throw new Error("Shore Fehler: " + kundenRes.status);
+    if (!kundenRes.ok) {
+      const errBody = await kundenRes.text().catch(() => "");
+      throw new Error("Shore Fehler: " + kundenRes.status + (errBody ? " – " + errBody.slice(0, 200) : ""));
+    }
 
     const kundenData = await kundenRes.json();
     const items = kundenData.data || kundenData || [];
