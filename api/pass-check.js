@@ -19,9 +19,12 @@ async function saveSetting(key, value) {
 }
 
 async function refreshTokens() {
-  const clientId = process.env.VITE_SHORE_CLIENT_ID;
-  const clientSecret = process.env.VITE_SHORE_CLIENT_SECRET;
+  const clientId = process.env.VITE_SHORE_CLIENT_ID || process.env.SHORE_CLIENT_ID;
+  const clientSecret = process.env.VITE_SHORE_CLIENT_SECRET || process.env.SHORE_CLIENT_SECRET;
   const refreshToken = await getSetting("shore_refresh_token");
+
+  if (!clientId || !clientSecret) throw new Error("Shore Client-ID oder Secret fehlt in Umgebungsvariablen");
+  if (!refreshToken) throw new Error("Kein Refresh-Token in Supabase gespeichert");
 
   const res = await fetch("https://app.inventorum.com/api/auth/token/", {
     method: "POST",
@@ -32,7 +35,10 @@ async function refreshTokens() {
     body: `grant_type=refresh_token&refresh_token=${refreshToken}`,
   });
 
-  if (!res.ok) throw new Error("Token-Refresh fehlgeschlagen: " + res.status);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error("Token-Refresh fehlgeschlagen: " + res.status + (errBody ? " – " + errBody.slice(0, 200) : ""));
+  }
 
   const data = await res.json();
   await saveSetting("shore_access_token", data.access_token);
@@ -82,6 +88,11 @@ export default async function handler(req, res) {
   try {
     let token = await getSetting("shore_access_token");
 
+    // Falls Token leer → direkt refreshen
+    if (!token) {
+      token = await refreshTokens();
+    }
+
     // Last check: default 48h ago
     const lastCheck = await getSetting("pass_check_last") ||
       new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
@@ -96,11 +107,14 @@ export default async function handler(req, res) {
 
     // Fetch orders from Shore
     let ordersRes = await fetchOrders(token, startDate);
-    if (ordersRes.status === 401) {
+    if (ordersRes.status === 400 || ordersRes.status === 401) {
       token = await refreshTokens();
       ordersRes = await fetchOrders(token, startDate);
     }
-    if (!ordersRes.ok) throw new Error("Shore Orders Fehler: " + ordersRes.status);
+    if (!ordersRes.ok) {
+      const errBody = await ordersRes.text().catch(() => "");
+      throw new Error("Shore Orders Fehler: " + ordersRes.status + (errBody ? " – " + errBody.slice(0, 200) : ""));
+    }
 
     const ordersData = await ordersRes.json();
     const orders = ordersData.data || ordersData || [];
