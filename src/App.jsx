@@ -845,7 +845,8 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
               <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,background:isNow?T.goldSoft:isPast?T.bg+"80":"transparent",opacity:isPast?0.5:1,borderLeft:isNow?`3px solid ${T.gold}`:"3px solid transparent"}}>
                 <div style={{fontSize:14,fontWeight:700,color:isNow?T.gold:T.textMid,minWidth:90,fontVariantNumeric:"tabular-nums"}}>{a.start} – {a.end}</div>
                 <div style={{fontSize:14,fontWeight:600,flex:1}}>
-                  <span onClick={openPat} style={{color:T.text,cursor:"pointer",borderBottom:`1px dashed ${T.cardBorder}`}}>{a.customer}</span>
+                  <span onClick={matchedPat?openPat:undefined} style={{color:T.text,cursor:matchedPat?"pointer":"default",borderBottom:matchedPat?`1px dashed ${T.cardBorder}`:"none"}}>{a.customer}</span>
+                  {!matchedPat&&<span style={{marginLeft:8,fontSize:11,fontWeight:700,color:T.orange,background:T.orangeSoft,padding:"2px 8px",borderRadius:8}}>Unbekannt</span>}
                   {a.deducted&&(()=>{const isRecent=autoDeductRecent[a.customer]&&(Date.now()-autoDeductRecent[a.customer]<15*60*1000);return <span className={isRecent?"fade-in":""} style={{marginLeft:8,fontSize:11,fontWeight:700,color:isRecent?T.red:T.green,background:isRecent?T.redSoft:T.greenSoft,padding:"2px 8px",borderRadius:8}}>{isRecent?"HE gerade abgezogen":"HE abgezogen"}</span>;})()}
                   {aktPass&&!a.deducted&&<span style={{marginLeft:8,fontSize:11,fontWeight:600,color:letzteEinheit?T.red:T.textMid,background:letzteEinheit?T.redSoft:T.bg,padding:"2px 8px",borderRadius:8}}>{letzteEinheit?"Letzte HE!":heUebrig+"/"+aktPass.he_total+" HE"}</span>}
                   {keinPass&&<span style={{marginLeft:8,fontSize:11,fontWeight:700,color:T.red,background:T.redSoft,padding:"2px 8px",borderRadius:8}}>Kein Pass</span>}
