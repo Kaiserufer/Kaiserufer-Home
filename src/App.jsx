@@ -834,11 +834,22 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
             {shoreCalendar.map((a,i)=>{const now=new Date();const h=now.getHours();const m=now.getMinutes();const nowMin=h*60+m;const [sh,sm]=(a.start||"").split(":").map(Number);const [eh,em]=(a.end||"").split(":").map(Number);const startMin=(sh||0)*60+(sm||0);const endMin=(eh||0)*60+(em||0);const isPast=endMin<=nowMin;const isNow=startMin<=nowMin&&endMin>nowMin;
-              const openPat=()=>{const parts=(a.customer||"").toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);const pat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});if(pat){setSelPat(pat);setView("akte");}};
+              const parts=(a.customer||"").toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);
+              const matchedPat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});
+              const openPat=()=>{if(matchedPat){setSelPat(matchedPat);setView("akte");}};
+              const aktPass=matchedPat?paesse.find(pk=>pk.pat_id===matchedPat.id&&!isPassAlt(pk)):null;
+              const heUebrig=aktPass?((aktPass.he_total||0)-(aktPass.he_genutzt||0)):null;
+              const keinPass=matchedPat&&!aktPass;
+              const letzteEinheit=heUebrig===1;
               return(
               <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,background:isNow?T.goldSoft:isPast?T.bg+"80":"transparent",opacity:isPast?0.5:1,borderLeft:isNow?`3px solid ${T.gold}`:"3px solid transparent"}}>
                 <div style={{fontSize:14,fontWeight:700,color:isNow?T.gold:T.textMid,minWidth:90,fontVariantNumeric:"tabular-nums"}}>{a.start} – {a.end}</div>
-                <div style={{fontSize:14,fontWeight:600,flex:1}}><span onClick={openPat} style={{color:T.text,cursor:"pointer",borderBottom:`1px dashed ${T.cardBorder}`}}>{a.customer}</span>{a.deducted&&(()=>{const isRecent=autoDeductRecent[a.customer]&&(Date.now()-autoDeductRecent[a.customer]<15*60*1000);return <span className={isRecent?"fade-in":""} style={{marginLeft:8,fontSize:11,fontWeight:700,color:isRecent?T.red:T.green,background:isRecent?T.redSoft:T.greenSoft,padding:"2px 8px",borderRadius:8}}>{isRecent?"HE gerade abgezogen":"HE abgezogen"}</span>;})()}</div>
+                <div style={{fontSize:14,fontWeight:600,flex:1}}>
+                  <span onClick={openPat} style={{color:T.text,cursor:"pointer",borderBottom:`1px dashed ${T.cardBorder}`}}>{a.customer}</span>
+                  {a.deducted&&(()=>{const isRecent=autoDeductRecent[a.customer]&&(Date.now()-autoDeductRecent[a.customer]<15*60*1000);return <span className={isRecent?"fade-in":""} style={{marginLeft:8,fontSize:11,fontWeight:700,color:isRecent?T.red:T.green,background:isRecent?T.redSoft:T.greenSoft,padding:"2px 8px",borderRadius:8}}>{isRecent?"HE gerade abgezogen":"HE abgezogen"}</span>;})()}
+                  {aktPass&&!a.deducted&&<span style={{marginLeft:8,fontSize:11,fontWeight:600,color:letzteEinheit?T.red:T.textMid,background:letzteEinheit?T.redSoft:T.bg,padding:"2px 8px",borderRadius:8}}>{letzteEinheit?"Letzte HE!":heUebrig+"/"+aktPass.he_total+" HE"}</span>}
+                  {keinPass&&<span style={{marginLeft:8,fontSize:11,fontWeight:700,color:T.red,background:T.redSoft,padding:"2px 8px",borderRadius:8}}>Kein Pass</span>}
+                </div>
                 <div style={{fontSize:12,color:T.textLight}}>{a.service}</div>
                 <div style={{fontSize:11,color:T.textLight,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.employee}</div>
               </div>);})}
