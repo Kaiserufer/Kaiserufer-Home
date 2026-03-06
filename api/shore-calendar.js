@@ -79,7 +79,7 @@ export default async function handler(req, res) {
         const customer = get("X-CUSTOMER");
         if (!customer) continue; // Only customer appointments
 
-        const service = get("X-SERVICE");
+        const service = get("X-SERVICE").replace(/\\,/g, ",");
         const rawEmployee = get("X-EMPLOYEE").replace(/\\,/g, ",");
         const employee = rawEmployee.split(/,\s*Ort:/)[0].trim();
         const dtstart = get("DTSTART");
