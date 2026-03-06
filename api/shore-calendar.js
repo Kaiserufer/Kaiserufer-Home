@@ -115,9 +115,8 @@ export default async function handler(req, res) {
 
     // Auto-create patients for unknown calendar customers
     const created = [];
-    const _debug = { patCount: patienten ? patienten.length : "null", unmatched: [], errors: [] };
     if (patienten) {
-      const seen = new Set(); // avoid creating duplicates within same batch
+      const seen = new Set();
       for (const a of appointments) {
         const parts = (a.customer || "").toLowerCase().trim().split(/\s+/).filter(p => p.length > 0);
         if (parts.length === 0) continue;
@@ -125,13 +124,9 @@ export default async function handler(req, res) {
           const full = `${p.vorname || ""} ${p.nachname || ""}`.toLowerCase();
           return parts.every(part => full.includes(part));
         });
-        if (matched) {
-          if (a.customer.toLowerCase().includes("levi")) _debug.leviMatch = { matchedId: matched.id, matchedName: `${matched.vorname} ${matched.nachname}` };
-          continue;
-        }
-        _debug.unmatched.push(a.customer);
+        if (matched) continue;
         const nameKey = a.customer.toLowerCase().trim();
-        if (seen.has(nameKey)) continue; // already creating in this batch
+        if (seen.has(nameKey)) continue;
         seen.add(nameKey);
 
         // Split name into vorname/nachname
@@ -157,9 +152,7 @@ export default async function handler(req, res) {
         const { error } = await sb.from("patienten").upsert(newPat, { onConflict: "id", ignoreDuplicates: true });
         if (!error) {
           created.push(a.customer);
-          patienten.push(newPat); // add to local list for subsequent matches
-        } else {
-          _debug.errors.push({ customer: a.customer, error: error.message || JSON.stringify(error) });
+          patienten.push(newPat);
         }
       }
     }
@@ -167,7 +160,7 @@ export default async function handler(req, res) {
     // Sort by start time
     appointments.sort((a, b) => (a.startRaw || "").localeCompare(b.startRaw || ""));
 
-    return res.status(200).json({ ok: true, appointments, created, _debug });
+    return res.status(200).json({ ok: true, appointments, created });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
