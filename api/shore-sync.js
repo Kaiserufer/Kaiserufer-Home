@@ -125,13 +125,14 @@ export default async function handler(req, res) {
       // Prüfen ob schon ein Patient mit gleichem Namen existiert
       const match = existingMap.get(nameKey);
       if (match) {
-        // Nur fehlende Daten ergänzen (E-Mail, Telefon, Adresse)
+        // Beste Daten zusammenführen: Shore-Daten ergänzen was fehlt oder neuer ist
         const updates = {};
-        if (!match.email && email) updates.email = email;
-        if (!match.telefon && telefon) updates.telefon = telefon;
-        if (!match.adresse && adresse) updates.adresse = adresse;
+        if (email && email !== match.email) updates.email = email;
+        if (telefon && telefon !== match.telefon) updates.telefon = telefon;
+        if (adresse && adresse !== match.adresse) updates.adresse = adresse;
         if (Object.keys(updates).length > 0) {
           await sb.from("patienten").update(updates).eq("id", match.id);
+          Object.assign(match, updates);
           aktualisiert++;
         }
         continue;
