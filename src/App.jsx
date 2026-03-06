@@ -588,8 +588,8 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const fetchShoreCalendar=async(date)=>{const d8=date||calDate;try{const r=await fetch("/api/shore-calendar?date="+d8);const d=await r.json();if(d.appointments)setShoreCalendar(d.appointments);if(d.created?.length){const{data:np}=await supabase.from("patienten").select("*");if(np)setPatienten(np);setToast(`Neue Kunden aus Kalender: ${d.created.join(", ")}`);}}catch(e){}};
   useEffect(()=>{fetchShoreCalendar(calDate);},[calDate]);
   useEffect(()=>{const iv=setInterval(()=>fetchShoreCalendar(),5*60*1000);return()=>clearInterval(iv);},[calDate]);
-  const calPrev=()=>setCalDate(d=>{const t=new Date(d+"T00:00:00");t.setDate(t.getDate()-1);return t.toISOString().split("T")[0];});
-  const calNext=()=>setCalDate(d=>{const t=new Date(d+"T00:00:00");t.setDate(t.getDate()+1);return t.toISOString().split("T")[0];});
+  const calPrev=()=>setCalDate(d=>{const t=new Date(d+"T12:00:00");t.setDate(t.getDate()-1);return`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;});
+  const calNext=()=>setCalDate(d=>{const t=new Date(d+"T12:00:00");t.setDate(t.getDate()+1);return`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;});
   const calIsToday=calDate===todayISO();
   const calDateLabel=(()=>{const t=new Date(calDate+"T00:00:00");const tage=["So","Mo","Di","Mi","Do","Fr","Sa"];return`${tage[t.getDay()]}. ${t.getDate()}. ${MONATE[t.getMonth()]} ${t.getFullYear()}`;})();
 
