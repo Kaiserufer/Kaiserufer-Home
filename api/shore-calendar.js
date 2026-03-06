@@ -69,19 +69,19 @@ export default async function handler(req, res) {
       while ((vm = veventRegex.exec(ical)) !== null) {
         const block = vm[1];
         const get = (key) => {
-          const re = new RegExp(`^${key}[;:](.*)$`, "mi");
+          // Match property with optional params: KEY;PARAM=VAL:value or KEY:value
+          const re = new RegExp(`^${key}(;[^:]*)?:(.*)$`, "mi");
           const m = block.match(re);
           if (!m) return "";
-          let val = m[1];
-          if (val.includes(":")) val = val.split(":").pop();
-          return val.trim();
+          return (m[2] || "").trim();
         };
 
         const customer = get("X-CUSTOMER");
         if (!customer) continue; // Only customer appointments
 
         const service = get("X-SERVICE");
-        const employee = get("X-EMPLOYEE").replace(/\\,/g, ",");
+        const rawEmployee = get("X-EMPLOYEE").replace(/\\,/g, ",");
+        const employee = rawEmployee.split(/,\s*Ort:/)[0].trim();
         const dtstart = get("DTSTART");
         const dtend = get("DTEND");
 

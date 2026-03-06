@@ -72,14 +72,11 @@ function parseEvents(xmlText) {
     while ((vm = veventRegex.exec(ical)) !== null) {
       const block = vm[1];
       const get = (key) => {
-        // Handle properties with params like DTSTART;TZID=Europe/Berlin:20260306T090000
-        const re = new RegExp(`^${key}[;:](.*)$`, "mi");
+        // Match property with optional params: KEY;PARAM=VAL:value or KEY:value
+        const re = new RegExp(`^${key}(;[^:]*)?:(.*)$`, "mi");
         const m = block.match(re);
         if (!m) return "";
-        let val = m[1];
-        // If it has parameters (e.g. TZID=...), the value is after the last colon
-        if (val.includes(":")) val = val.split(":").pop();
-        return val.trim();
+        return (m[2] || "").trim();
       };
 
       const uid = get("UID");
