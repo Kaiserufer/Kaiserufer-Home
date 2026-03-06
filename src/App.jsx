@@ -463,7 +463,7 @@ const TeamView=({patienten,setPatienten,urlaub,setUrlaub,teamEvents,setTeamEvent
       </div>
       <div className="week-grid" style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:8}}>
         {weekDays.map(wd=>{
-          const iso=wd.toISOString().split("T")[0];
+          const iso=`${wd.getFullYear()}-${String(wd.getMonth()+1).padStart(2,"0")}-${String(wd.getDate()).padStart(2,"0")}`;
           const isT=iso===todayISO();
           const dow=TAGE_KURZ[(wd.getDay()+6)%7];
           const {events,urlaube,shifts}=dayEntriesISO(iso);
