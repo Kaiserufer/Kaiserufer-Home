@@ -572,6 +572,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const [korrekturAnzahl,setKorrekturAnzahl]=useState(1);const[korrekturGrund,setKorrekturGrund]=useState("");
   const [notizText,setNotizText]=useState("");const[saving,setSaving]=useState(false);
   const [shoreSync,setShoreSync]=useState(false);const[shoreSyncMsg,setShoreSyncMsg]=useState("");
+  const [shoreCalendar,setShoreCalendar]=useState([]);
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [undoAction,setUndoAction]=useState(null);
   const [pendingPasses,setPendingPasses]=useState([]);
@@ -581,6 +582,10 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
 
   const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent)setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){if(!silent)setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);};
   useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
+
+  // Shore-Tageskalender laden
+  const fetchShoreCalendar=async()=>{try{const r=await fetch("/api/shore-calendar");const d=await r.json();if(d.appointments)setShoreCalendar(d.appointments);}catch(e){}};
+  useEffect(()=>{fetchShoreCalendar();const iv=setInterval(fetchShoreCalendar,5*60*1000);return()=>clearInterval(iv);},[]);
 
   // Pass-Check: Neue Flossenpass-Verkäufe aus Shore erkennen
   const checkPassSales=async()=>{try{const r=await fetch("/api/pass-check");const d=await r.json();if(d.pending?.length)setPendingPasses(d.pending);}catch(e){}};
@@ -822,6 +827,21 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
       {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
 
       {view==="liste"&&<>
+        {shoreCalendar.length>0&&<Card style={{padding:16,marginBottom:18}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontSize:13,fontWeight:700,color:T.olive,textTransform:"uppercase",letterSpacing:2}}>Shore Termine heute</div>
+            <div style={{fontSize:12,color:T.textLight}}>{shoreCalendar.length} Kunden</div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+            {shoreCalendar.map((a,i)=>{const now=new Date();const h=now.getHours();const m=now.getMinutes();const nowMin=h*60+m;const [sh,sm]=(a.start||"").split(":").map(Number);const [eh,em]=(a.end||"").split(":").map(Number);const startMin=(sh||0)*60+(sm||0);const endMin=(eh||0)*60+(em||0);const isPast=endMin<=nowMin;const isNow=startMin<=nowMin&&endMin>nowMin;return(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,background:isNow?T.goldSoft:isPast?T.bg+"80":"transparent",opacity:isPast?0.5:1,borderLeft:isNow?`3px solid ${T.gold}`:"3px solid transparent"}}>
+                <div style={{fontSize:14,fontWeight:700,color:isNow?T.gold:T.textMid,minWidth:90,fontVariantNumeric:"tabular-nums"}}>{a.start} – {a.end}</div>
+                <div style={{fontSize:14,fontWeight:600,color:T.text,flex:1}}>{a.customer}</div>
+                <div style={{fontSize:12,color:T.textLight}}>{a.service}</div>
+                <div style={{fontSize:11,color:T.textLight,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.employee}</div>
+              </div>);})}
+          </div>
+        </Card>}
         <div style={{marginBottom:18}}>
           <Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading>
           <div style={{display:"flex",gap:6,marginTop:12,flexWrap:"wrap"}}>
