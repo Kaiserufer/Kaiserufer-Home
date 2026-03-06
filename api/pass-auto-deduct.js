@@ -26,18 +26,18 @@ async function fetchCalendarEvents(email, password) {
   const tomorrowStr = `${tomorrowDate.getFullYear()}${String(tomorrowDate.getMonth() + 1).padStart(2, "0")}${String(tomorrowDate.getDate()).padStart(2, "0")}`;
 
   const xml = `<?xml version="1.0" encoding="utf-8" ?>
-<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:ns:caldav">
-  <d:prop><d:getetag/><c:calendar-data/></d:prop>
-  <c:filter>
-    <c:comp-filter name="VCALENDAR">
-      <c:comp-filter name="VEVENT">
-        <c:time-range start="${todayStr}T000000Z" end="${tomorrowStr}T235959Z"/>
-      </c:comp-filter>
-    </c:comp-filter>
-  </c:filter>
-</c:calendar-query>`;
+<C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+  <D:prop><D:getetag/><C:calendar-data/></D:prop>
+  <C:filter>
+    <C:comp-filter name="VCALENDAR">
+      <C:comp-filter name="VEVENT">
+        <C:time-range start="${todayStr}T000000Z" end="${tomorrowStr}T235959Z"/>
+      </C:comp-filter>
+    </C:comp-filter>
+  </C:filter>
+</C:calendar-query>`;
 
-  const res = await fetch(CALENDAR_URL + "?appshell=true", {
+  const res = await fetch(CALENDAR_URL, {
     method: "REPORT",
     headers: {
       "Authorization": "Basic " + Buffer.from(email + ":" + password).toString("base64"),
