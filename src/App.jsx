@@ -29,7 +29,7 @@ const genId=()=>Math.random().toString(36).substr(2,9);
 const genRechnung=(n)=>`RN${n}`;
 const fmtDate=(d)=>{try{return new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});}catch{return"–";}};
 const fmtDateTime=(d)=>{try{return new Date(d).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});}catch{return"–";}};
-const todayISO=()=>new Date().toISOString().split("T")[0];
+const todayISO=()=>{const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;};
 const isPassAlt=(pk)=>!pk?false:(pk.he_genutzt??0)>=(pk.he_total??1)&&(pk.bs_genutzt??0)>=(pk.bs_total??1);
 const workingDays=(von,bis)=>{let c=0,d=new Date(von);const e=new Date(bis);while(d<=e){const day=d.getDay();if(day!==0&&day!==6)c++;d.setDate(d.getDate()+1);}return c;};
 const MONATE=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
