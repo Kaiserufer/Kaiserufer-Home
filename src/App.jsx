@@ -576,6 +576,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const [undoAction,setUndoAction]=useState(null);
   const [pendingPasses,setPendingPasses]=useState([]);
   const [editPass,setEditPass]=useState(null);
+  const [autoDeductToast,setAutoDeductToast]=useState([]);
   const [urlaubVon,setUrlaubVon]=useState("");const[urlaubBis,setUrlaubBis]=useState("");const[urlaubNotiz,setUrlaubNotiz]=useState("");
 
   const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent)setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){if(!silent)setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);};
@@ -595,6 +596,10 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     }
     if(patienten.length>0)checkPassSales();const iv=setInterval(checkPassSales,5*60*1000);return()=>clearInterval(iv);
   },[patienten.length]);
+
+  // Auto-Deduct: Shore-Termine prüfen und HE automatisch abziehen
+  const checkAutoDeduct=async()=>{try{const r=await fetch("/api/pass-auto-deduct");const d=await r.json();if(d.deducted?.length){setAutoDeductToast(d.deducted);setTimeout(()=>setAutoDeductToast([]),8000);const{data:np}=await supabase.from("paesse").select("*");if(np)setPaesse(np);const{data:nl}=await supabase.from("log").select("*");if(nl)setLog(nl);}}catch(e){}};
+  useEffect(()=>{if(patienten.length>0)checkAutoDeduct();const iv=setInterval(checkAutoDeduct,5*60*1000);return()=>clearInterval(iv);},[patienten.length]);
 
   const confirmPassSale=async(pp,custom)=>{
     const pt=custom||PASS_TYPES[pp.passType];
@@ -764,6 +769,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     {bsModal&&<Modal onClose={()=>{setBsModal(null);setBsNotiz("");}}><Card className="modal-box" style={{width:400}}><Heading style={{fontSize:20,marginBottom:4}}>Gruppenangebot abhaken</Heading><p style={{color:T.textMid,fontSize:15,marginBottom:18}}>Noch {(bsModal.bs_total||0)-(bsModal.bs_genutzt||0)} von {bsModal.bs_total||0}</p><div style={{display:"flex",flexDirection:"column",gap:12}}><input value={bsNotiz} onChange={e=>setBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." style={inp} autoFocus/><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>{setBsModal(null);setBsNotiz("");}}>Abbrechen</Btn><Btn gold disabled={!bsNotiz.trim()} onClick={()=>bsAbziehen(bsModal)}>Abhaken</Btn></div></div></Card></Modal>}
     {korrekturModal&&<Modal onClose={()=>setKorrekturModal(null)}><Card className="modal-box" style={{width:400}}><Heading style={{fontSize:20,marginBottom:18}}>Korrektur</Heading><div style={{display:"flex",flexDirection:"column",gap:14}}><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Typ</label><select value={korrekturTyp} onChange={e=>setKorrekturTyp(e.target.value)} style={inp}><option value="HE">Haupteinheit</option><option value="BS">Gruppenangebot</option></select></div><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Anzahl</label><input type="number" min={1} max={10} value={korrekturAnzahl} onChange={e=>setKorrekturAnzahl(e.target.value)} style={inp}/></div><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Grund</label><input value={korrekturGrund} onChange={e=>setKorrekturGrund(e.target.value)} placeholder="optional" style={inp}/></div><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>setKorrekturModal(null)}>Abbrechen</Btn><Btn danger onClick={korrekturSpeichern}>Speichern</Btn></div></div></Card></Modal>}
     {undoAction&&<UndoToast message={undoAction.msg} onUndo={undoAction.undo} onDismiss={()=>setUndoAction(null)}/>}
+    {autoDeductToast.length>0&&<div className="fade-in" style={{position:"fixed",bottom:80,right:24,zIndex:9999,display:"flex",flexDirection:"column",gap:8}}>{autoDeductToast.map((d,i)=>(<div key={i} style={{background:T.gold,color:"#fff",padding:"12px 20px",borderRadius:14,fontSize:14,fontWeight:600,boxShadow:"0 4px 16px #0003",maxWidth:360}}>HE abgezogen: {d.patient} – {d.passTyp} ({d.heGenutzt}/{d.heTotal})</div>))}</div>}
 
     {pendingPasses.length>0&&<div className="fade-in" style={{marginBottom:22}}>
       {pendingPasses.map(pp=>{
