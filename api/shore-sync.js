@@ -102,13 +102,15 @@ export default async function handler(req, res) {
       page++;
     }
 
-    // 4) Bestehende Patienten laden für Name-Duplikat-Check
+    // 4) Bestehende Patienten laden für Duplikat-Check (Name + E-Mail)
     const { data: existing } = await sb.from("patienten").select("id,vorname,nachname,email,telefon,adresse");
-    const existingMap = new Map();
+    const nameMap = new Map();
+    const emailMap = new Map();
     if (existing) {
       for (const p of existing) {
         const key = `${(p.vorname || "").trim()} ${(p.nachname || "").trim()}`.toLowerCase().trim();
-        if (key.length > 1) existingMap.set(key, p);
+        if (key.length > 1) nameMap.set(key, p);
+        if (p.email) emailMap.set(p.email.toLowerCase().trim(), p);
       }
     }
 
@@ -122,10 +124,10 @@ export default async function handler(req, res) {
       const adresse = [k.address1, k.zipcode, k.city].filter(Boolean).join(", ");
       const nameKey = `${vorname} ${nachname}`.toLowerCase().trim();
 
-      // Prüfen ob schon ein Patient mit gleichem Namen existiert
-      const match = existingMap.get(nameKey);
+      // Prüfen ob schon ein Patient mit gleichem Namen ODER gleicher E-Mail existiert
+      const match = nameMap.get(nameKey) || (email ? emailMap.get(email.toLowerCase().trim()) : null);
       if (match) {
-        // Beste Daten zusammenführen: Shore-Daten ergänzen was fehlt oder neuer ist
+        // Beste Daten zusammenführen
         const updates = {};
         if (email && email !== match.email) updates.email = email;
         if (telefon && telefon !== match.telefon) updates.telefon = telefon;
@@ -157,7 +159,8 @@ export default async function handler(req, res) {
       const { error } = await sb.from("patienten").upsert(kunde, { onConflict: "id", ignoreDuplicates: true });
       if (!error) {
         neu++;
-        existingMap.set(nameKey, kunde);
+        nameMap.set(nameKey, kunde);
+        if (email) emailMap.set(email.toLowerCase().trim(), kunde);
       }
     }
 
