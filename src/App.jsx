@@ -580,7 +580,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const [autoDeductToast,setAutoDeductToast]=useState([]);
   const [urlaubVon,setUrlaubVon]=useState("");const[urlaubBis,setUrlaubBis]=useState("");const[urlaubNotiz,setUrlaubNotiz]=useState("");
 
-  const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent)setShoreSyncMsg(`✓ ${data.neu||0} neue · ${data.gesamt||0} gesamt`);}catch(e){if(!silent)setShoreSyncMsg("Fehler: "+e.message);}setShoreSync(false);};
+  const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("Shore-Kalender synchronisiert gerade, bitte warten …");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent){setShoreSyncMsg(`Shore-Daten sind synchronisiert – ${data.neu||0} neue, ${data.gesamt||0} gesamt`);setTimeout(()=>setShoreSyncMsg(""),5000);}}catch(e){if(!silent){setShoreSyncMsg("Fehler: "+e.message);setTimeout(()=>setShoreSyncMsg(""),8000);}}setShoreSync(false);};
   useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
 
   // Shore-Tageskalender laden
@@ -821,9 +821,9 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
         {tbBtn("📷","QR",()=>setScanMode(true))}
         {tbBtn("⬇","CSV",downloadCSV)}
         {tbBtn("🐧","Pingu",()=>setPinguChat(true))}
-        <button disabled={shoreSync} className="btn-a" style={{padding:"9px 14px",borderRadius:12,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.olive,color:"#fff",border:"none",fontSize:13,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={()=>doShoreSync(false)}><span className="btn-emoji" style={{display:"none"}}>🔄</span><span className="btn-text">{shoreSync?"Sync...":"Shore Sync"}</span></button>
+        <button disabled={shoreSync} className="btn-a" style={{padding:"9px 14px",borderRadius:12,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.olive,color:"#fff",border:"none",fontSize:13,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={()=>doShoreSync(false)}><span className="btn-emoji" style={{display:"none"}}>🔄</span><span className="btn-text">{shoreSync?"Synchronisiere…":"Sync"}</span></button>
       </div>
-      {shoreSyncMsg&&<div style={{padding:"12px 18px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.redSoft:T.greenSoft,color:shoreSyncMsg.startsWith("Fehler")?T.red:T.green,fontSize:14,fontWeight:600,marginBottom:14}}>{shoreSyncMsg}</div>}
+      {shoreSyncMsg&&<div className="fade-in" style={{padding:"12px 18px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.redSoft:shoreSyncMsg.includes("bitte warten")?T.goldSoft:T.greenSoft,color:shoreSyncMsg.startsWith("Fehler")?T.red:shoreSyncMsg.includes("bitte warten")?T.gold:T.green,fontSize:14,fontWeight:600,marginBottom:14,textAlign:"center"}}>{shoreSyncMsg}</div>}
       {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
 
       {view==="liste"&&<>
