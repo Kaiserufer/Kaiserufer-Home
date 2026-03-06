@@ -839,7 +839,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
               const openPat=()=>{if(matchedPat){setSelPat(matchedPat);setView("akte");}};
               const aktPass=matchedPat?paesse.find(pk=>pk.pat_id===matchedPat.id&&!isPassAlt(pk)):null;
               const heUebrig=aktPass?((aktPass.he_total||0)-(aktPass.he_genutzt||0)):null;
-              const keinPass=matchedPat&&!aktPass&&isTherapieKunde(matchedPat);
               const letzteEinheit=heUebrig===1;
               return(
               <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,background:isNow?T.goldSoft:isPast?T.bg+"80":"transparent",opacity:isPast?0.5:1,borderLeft:isNow?`3px solid ${T.gold}`:"3px solid transparent"}}>

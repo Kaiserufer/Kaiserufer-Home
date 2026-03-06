@@ -82,7 +82,7 @@ function parseEvents(xmlText) {
       const uid = get("UID");
       const summary = get("SUMMARY");
       const customer = get("X-CUSTOMER");
-      const service = get("X-SERVICE");
+      const service = get("X-SERVICE").replace(/\\,/g, ",");
       const email = get("X-EMAIL");
       const dtstart = get("DTSTART");
       const dtend = get("DTEND");
@@ -97,7 +97,7 @@ function parseEvents(xmlText) {
   return events;
 }
 
-// Parse CalDAV datetime (20260306T090000) to JS Date (assuming Europe/Berlin)
+// Parse CalDAV datetime (20260306T090000) to JS Date (Europe/Berlin)
 function parseCalDateTime(dtStr) {
   if (!dtStr || dtStr.length < 15) return null;
   const y = parseInt(dtStr.substring(0, 4));
@@ -106,11 +106,25 @@ function parseCalDateTime(dtStr) {
   const h = parseInt(dtStr.substring(9, 11));
   const mi = parseInt(dtStr.substring(11, 13));
   const s = parseInt(dtStr.substring(13, 15));
-  // Create date as if it's local Berlin time
-  // Vercel runs in UTC, Berlin is UTC+1 (winter) or UTC+2 (summer)
-  // We subtract 1h as safe approximation; the exact offset doesn't matter much
-  // since we only care about "has the appointment ended?"
-  return new Date(Date.UTC(y, mo, d, h - 1, mi, s));
+  // Determine Berlin offset: CET (UTC+1) or CEST (UTC+2)
+  // CEST starts last Sunday of March, ends last Sunday of October
+  const berlinOffset = isCEST(y, mo, d) ? 2 : 1;
+  return new Date(Date.UTC(y, mo, d, h - berlinOffset, mi, s));
+}
+
+// Check if a date falls in Central European Summer Time (CEST)
+function isCEST(year, month, day) {
+  // month is 0-indexed: March=2, October=9
+  if (month < 2 || month > 9) return false; // Nov-Feb → CET
+  if (month > 2 && month < 9) return true;   // Apr-Sep → CEST
+  // March: CEST starts last Sunday at 02:00
+  if (month === 2) {
+    const lastSunday = 31 - new Date(year, 2, 31).getDay();
+    return day >= lastSunday;
+  }
+  // October: CEST ends last Sunday at 03:00
+  const lastSunday = 31 - new Date(year, 9, 31).getDay();
+  return day < lastSunday;
 }
 
 // Match customer name from CalDAV to patienten record
