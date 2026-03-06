@@ -151,16 +151,17 @@ export default async function handler(req, res) {
 
     const now = new Date();
     const deducted = [];
+    const _debug = { nowUTC: now.toISOString(), patCount: patienten.length, passCount: paesse.length, skipped: [] };
 
     for (const ev of events) {
       // Skip: no UID, already processed, cancelled, no customer
-      if (!ev.uid || processedSet.has(ev.uid)) continue;
-      if (ev.isCancelled) continue;
-      if (!ev.customer && !ev.summary) continue;
+      if (!ev.uid || processedSet.has(ev.uid)) { _debug.skipped.push({ uid: ev.uid?.slice(0,20), reason: !ev.uid ? "no_uid" : "already_processed" }); continue; }
+      if (ev.isCancelled) { _debug.skipped.push({ uid: ev.uid?.slice(0,20), reason: "cancelled" }); continue; }
+      if (!ev.customer && !ev.summary) { _debug.skipped.push({ uid: ev.uid?.slice(0,20), reason: "no_customer" }); continue; }
 
       // Skip: appointment not yet ended
       const endTime = parseCalDateTime(ev.dtend);
-      if (!endTime || endTime > now) continue;
+      if (!endTime || endTime > now) { _debug.skipped.push({ customer: ev.customer||ev.summary, dtend: ev.dtend, endUTC: endTime?.toISOString(), reason: "not_ended" }); continue; }
 
       // Use X-CUSTOMER if available, otherwise SUMMARY
       const customerName = ev.customer || ev.summary;
@@ -168,7 +169,7 @@ export default async function handler(req, res) {
 
       // Match to patient
       const pat = matchPatient(customerName, patienten);
-      if (!pat) continue;
+      if (!pat) { _debug.skipped.push({ customer: customerName, reason: "no_patient_match" }); continue; }
 
       // Find active pass with remaining HE
       const activePass = paesse.find(p =>
@@ -176,7 +177,7 @@ export default async function handler(req, res) {
         p.aktiv === true &&
         (p.he_genutzt || 0) < (p.he_total || 0)
       );
-      if (!activePass) continue;
+      if (!activePass) { _debug.skipped.push({ customer: customerName, patId: pat.id, reason: "no_active_pass" }); continue; }
 
       // Deduct HE
       const newHeGenutzt = (activePass.he_genutzt || 0) + 1;
@@ -217,6 +218,7 @@ export default async function handler(req, res) {
       ok: true,
       events: events.length,
       deducted,
+      _debug,
     });
   } catch (e) {
     return res.status(500).json({ error: e.message });
