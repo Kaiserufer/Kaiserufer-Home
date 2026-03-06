@@ -134,6 +134,11 @@ export default async function handler(req, res) {
         const vorname = nameParts.slice(0, -1).join(" ") || "";
         const nachname = nameParts.slice(-1)[0] || a.customer.trim();
 
+        // Auto-categorize based on service
+        const svcLower = (a.service || "").toLowerCase();
+        const isErgo = /ergo|tdcs|neurofeedback/.test(svcLower);
+        const isKennenlernen = /kennenlern/.test(svcLower);
+
         const id = "cal_" + Math.random().toString(36).substr(2, 9);
         const newPat = {
           id,
@@ -144,10 +149,13 @@ export default async function handler(req, res) {
           adresse: "",
           qr: "KU-" + Math.random().toString(36).substr(2, 8).toUpperCase(),
           erstellt: new Date().toISOString().split("T")[0],
-          kennenlern: false,
+          kennenlern: isKennenlernen,
           konvertiert: false,
           stammkunde: false,
           stammpreis: null,
+          therapie: !isErgo,
+          ergotherapie: isErgo,
+          sonstige: false,
         };
         const { error } = await sb.from("patienten").upsert(newPat, { onConflict: "id", ignoreDuplicates: true });
         if (!error) {
