@@ -577,7 +577,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const [undoAction,setUndoAction]=useState(null);
   const [pendingPasses,setPendingPasses]=useState([]);
   const [editPass,setEditPass]=useState(null);
-  const [autoDeductToast,setAutoDeductToast]=useState([]);
+  const [autoDeductRecent,setAutoDeductRecent]=useState({});
   const [urlaubVon,setUrlaubVon]=useState("");const[urlaubBis,setUrlaubBis]=useState("");const[urlaubNotiz,setUrlaubNotiz]=useState("");
 
   const doShoreSync=async(silent)=>{if(shoreSync)return;setShoreSync(true);if(!silent)setShoreSyncMsg("Shore-Kalender synchronisiert gerade, bitte warten …");try{const r=await fetch("/api/shore-sync",{method:"POST"});const data=await r.json();if(data.error)throw new Error(data.error);const{data:np}=await supabase.from("patienten").select("*");if(np){const oldIds=new Set(patienten.map(p=>p.id));const newPats=np.filter(p=>!oldIds.has(p.id));for(const p of newPats){if(!p.kennenlern){await supabase.from("patienten").update({kennenlern:true}).eq("id",p.id);p.kennenlern=true;}}setPatienten(np);}if(!silent){setShoreSyncMsg(`Shore-Daten sind synchronisiert – ${data.neu||0} neue, ${data.gesamt||0} gesamt`);setTimeout(()=>setShoreSyncMsg(""),5000);}}catch(e){if(!silent){setShoreSyncMsg("Fehler: "+e.message);setTimeout(()=>setShoreSyncMsg(""),8000);}}setShoreSync(false);};
@@ -603,8 +603,10 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   },[patienten.length]);
 
   // Auto-Deduct: Shore-Termine prüfen und HE automatisch abziehen
-  const checkAutoDeduct=async()=>{try{const r=await fetch("/api/pass-auto-deduct");const d=await r.json();if(d.deducted?.length){setAutoDeductToast(d.deducted);setTimeout(()=>setAutoDeductToast([]),8000);const{data:np}=await supabase.from("paesse").select("*");if(np)setPaesse(np);const{data:nl}=await supabase.from("log").select("*");if(nl)setLog(nl);}}catch(e){}};
+  const checkAutoDeduct=async()=>{try{const r=await fetch("/api/pass-auto-deduct");const d=await r.json();if(d.deducted?.length){const now=Date.now();const updates={};d.deducted.forEach(x=>{updates[x.patient]=now;});setAutoDeductRecent(prev=>({...prev,...updates}));const{data:np}=await supabase.from("paesse").select("*");if(np)setPaesse(np);const{data:nl}=await supabase.from("log").select("*");if(nl)setLog(nl);fetchShoreCalendar();}}catch(e){}};
   useEffect(()=>{if(patienten.length>0)checkAutoDeduct();const iv=setInterval(checkAutoDeduct,5*60*1000);return()=>clearInterval(iv);},[patienten.length]);
+  // Alte Deduct-Meldungen nach 15 Min aufräumen
+  useEffect(()=>{const iv=setInterval(()=>{const now=Date.now();setAutoDeductRecent(prev=>{const next={};for(const[k,v]of Object.entries(prev)){if(now-v<15*60*1000)next[k]=v;}return next;});},60*1000);return()=>clearInterval(iv);},[]);
 
   const confirmPassSale=async(pp,custom)=>{
     const pt=custom||PASS_TYPES[pp.passType];
@@ -774,8 +776,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     {bsModal&&<Modal onClose={()=>{setBsModal(null);setBsNotiz("");}}><Card className="modal-box" style={{width:400}}><Heading style={{fontSize:20,marginBottom:4}}>Gruppenangebot abhaken</Heading><p style={{color:T.textMid,fontSize:15,marginBottom:18}}>Noch {(bsModal.bs_total||0)-(bsModal.bs_genutzt||0)} von {bsModal.bs_total||0}</p><div style={{display:"flex",flexDirection:"column",gap:12}}><input value={bsNotiz} onChange={e=>setBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." style={inp} autoFocus/><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>{setBsModal(null);setBsNotiz("");}}>Abbrechen</Btn><Btn gold disabled={!bsNotiz.trim()} onClick={()=>bsAbziehen(bsModal)}>Abhaken</Btn></div></div></Card></Modal>}
     {korrekturModal&&<Modal onClose={()=>setKorrekturModal(null)}><Card className="modal-box" style={{width:400}}><Heading style={{fontSize:20,marginBottom:18}}>Korrektur</Heading><div style={{display:"flex",flexDirection:"column",gap:14}}><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Typ</label><select value={korrekturTyp} onChange={e=>setKorrekturTyp(e.target.value)} style={inp}><option value="HE">Haupteinheit</option><option value="BS">Gruppenangebot</option></select></div><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Anzahl</label><input type="number" min={1} max={10} value={korrekturAnzahl} onChange={e=>setKorrekturAnzahl(e.target.value)} style={inp}/></div><div><label style={{fontSize:14,fontWeight:600,color:T.textMid,textTransform:"uppercase",letterSpacing:1,marginBottom:6,display:"block"}}>Grund</label><input value={korrekturGrund} onChange={e=>setKorrekturGrund(e.target.value)} placeholder="optional" style={inp}/></div><div style={{display:"flex",gap:8,justifyContent:"flex-end"}}><Btn ghost onClick={()=>setKorrekturModal(null)}>Abbrechen</Btn><Btn danger onClick={korrekturSpeichern}>Speichern</Btn></div></div></Card></Modal>}
     {undoAction&&<UndoToast message={undoAction.msg} onUndo={undoAction.undo} onDismiss={()=>setUndoAction(null)}/>}
-    {autoDeductToast.length>0&&<div className="fade-in" style={{position:"fixed",bottom:80,right:24,zIndex:9999,display:"flex",flexDirection:"column",gap:8}}>{autoDeductToast.map((d,i)=>(<div key={i} style={{background:T.gold,color:"#fff",padding:"12px 20px",borderRadius:14,fontSize:14,fontWeight:600,boxShadow:"0 4px 16px #0003",maxWidth:360}}>HE abgezogen: {d.patient} – {d.passTyp} ({d.heGenutzt}/{d.heTotal})</div>))}</div>}
-
     {pendingPasses.length>0&&<div className="fade-in" style={{marginBottom:22}}>
       {pendingPasses.map(pp=>{
         const isEdit=editPass?.orderId===pp.orderId;
@@ -838,7 +838,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
               return(
               <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",borderRadius:10,background:isNow?T.goldSoft:isPast?T.bg+"80":"transparent",opacity:isPast?0.5:1,borderLeft:isNow?`3px solid ${T.gold}`:"3px solid transparent"}}>
                 <div style={{fontSize:14,fontWeight:700,color:isNow?T.gold:T.textMid,minWidth:90,fontVariantNumeric:"tabular-nums"}}>{a.start} – {a.end}</div>
-                <div style={{fontSize:14,fontWeight:600,flex:1}}><span onClick={openPat} style={{color:T.text,cursor:"pointer",borderBottom:`1px dashed ${T.cardBorder}`}}>{a.customer}</span>{a.deducted&&<span style={{marginLeft:8,fontSize:11,fontWeight:700,color:T.green,background:T.greenSoft,padding:"2px 8px",borderRadius:8}}>HE abgezogen</span>}</div>
+                <div style={{fontSize:14,fontWeight:600,flex:1}}><span onClick={openPat} style={{color:T.text,cursor:"pointer",borderBottom:`1px dashed ${T.cardBorder}`}}>{a.customer}</span>{a.deducted&&(()=>{const isRecent=autoDeductRecent[a.customer]&&(Date.now()-autoDeductRecent[a.customer]<15*60*1000);return <span className={isRecent?"fade-in":""} style={{marginLeft:8,fontSize:11,fontWeight:700,color:isRecent?T.red:T.green,background:isRecent?T.redSoft:T.greenSoft,padding:"2px 8px",borderRadius:8}}>{isRecent?"HE gerade abgezogen":"HE abgezogen"}</span>;})()}</div>
                 <div style={{fontSize:12,color:T.textLight}}>{a.service}</div>
                 <div style={{fontSize:11,color:T.textLight,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.employee}</div>
               </div>);})}
