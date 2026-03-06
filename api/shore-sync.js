@@ -102,17 +102,49 @@ export default async function handler(req, res) {
       page++;
     }
 
-    // 4) Kunden-Daten umwandeln und in Supabase speichern
-    let neu = 0;
+    // 4) Bestehende Patienten laden für Name-Duplikat-Check
+    const { data: existing } = await sb.from("patienten").select("id,vorname,nachname,email,telefon,adresse");
+    const existingMap = new Map();
+    if (existing) {
+      for (const p of existing) {
+        const key = `${(p.vorname || "").trim()} ${(p.nachname || "").trim()}`.toLowerCase().trim();
+        if (key.length > 1) existingMap.set(key, p);
+      }
+    }
+
+    // 5) Kunden-Daten umwandeln und in Supabase speichern
+    let neu = 0, aktualisiert = 0;
     for (const k of allItems) {
+      const vorname = (k.first_name || k.firstName || "").trim();
+      const nachname = (k.last_name || k.lastName || k.company || "Unbekannt").trim();
+      const email = k.email || "";
+      const telefon = k.phone || k.mobile || "";
+      const adresse = [k.address1, k.zipcode, k.city].filter(Boolean).join(", ");
+      const nameKey = `${vorname} ${nachname}`.toLowerCase().trim();
+
+      // Prüfen ob schon ein Patient mit gleichem Namen existiert
+      const match = existingMap.get(nameKey);
+      if (match) {
+        // Nur fehlende Daten ergänzen (E-Mail, Telefon, Adresse)
+        const updates = {};
+        if (!match.email && email) updates.email = email;
+        if (!match.telefon && telefon) updates.telefon = telefon;
+        if (!match.adresse && adresse) updates.adresse = adresse;
+        if (Object.keys(updates).length > 0) {
+          await sb.from("patienten").update(updates).eq("id", match.id);
+          aktualisiert++;
+        }
+        continue;
+      }
+
       const id = "shore_" + (k.id || k.pk || Math.random().toString(36).substr(2, 9));
       const kunde = {
         id,
-        vorname: k.first_name || k.firstName || "",
-        nachname: k.last_name || k.lastName || k.company || "Unbekannt",
-        email: k.email || "",
-        telefon: k.phone || k.mobile || "",
-        adresse: [k.address1, k.zipcode, k.city].filter(Boolean).join(", "),
+        vorname,
+        nachname,
+        email,
+        telefon,
+        adresse,
         qr: "KU-" + Math.random().toString(36).substr(2, 8).toUpperCase(),
         erstellt: k.created || new Date().toISOString().split("T")[0],
         kennenlern: false,
@@ -121,11 +153,14 @@ export default async function handler(req, res) {
         stammpreis: null,
       };
 
-const { error } = await sb.from("patienten").upsert(kunde, { onConflict: "id", ignoreDuplicates: true });
-      if (!error) neu++;
+      const { error } = await sb.from("patienten").upsert(kunde, { onConflict: "id", ignoreDuplicates: true });
+      if (!error) {
+        neu++;
+        existingMap.set(nameKey, kunde);
+      }
     }
 
-    return res.status(200).json({ ok: true, gesamt: allItems.length, neu });
+    return res.status(200).json({ ok: true, gesamt: allItems.length, neu, aktualisiert });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
