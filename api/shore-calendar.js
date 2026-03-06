@@ -61,6 +61,9 @@ export default async function handler(req, res) {
     const processedStr = await getSetting("shore_processed_appointments");
     const processedSet = new Set(processedStr ? JSON.parse(processedStr) : []);
 
+    // Load existing patients for matching
+    const { data: patienten } = await sb.from("patienten").select("*");
+
     // Parse VEVENT blocks
     const appointments = [];
     const calDataRegex = /<(?:cal|C):calendar-data[^>]*>([\s\S]*?)<\/(?:cal|C):calendar-data>/gi;
@@ -84,6 +87,7 @@ export default async function handler(req, res) {
         const customer = get("X-CUSTOMER");
         if (!customer) continue; // Only customer appointments
 
+        const customerEmail = get("X-EMAIL");
         const service = get("X-SERVICE").replace(/\\,/g, ",");
         const rawEmployee = get("X-EMPLOYEE").replace(/\\,/g, ",");
         const employee = rawEmployee.split(/,\s*Ort:/)[0].trim();
@@ -98,6 +102,7 @@ export default async function handler(req, res) {
 
         appointments.push({
           customer,
+          customerEmail,
           service: service || "Termin",
           employee: employee.split(",")[0].trim(),
           start: fmtTime(dtstart),
@@ -108,10 +113,54 @@ export default async function handler(req, res) {
       }
     }
 
+    // Auto-create patients for unknown calendar customers
+    const created = [];
+    if (patienten) {
+      const seen = new Set(); // avoid creating duplicates within same batch
+      for (const a of appointments) {
+        const parts = (a.customer || "").toLowerCase().trim().split(/\s+/).filter(p => p.length > 0);
+        if (parts.length === 0) continue;
+        const matched = patienten.find(p => {
+          const full = `${p.vorname || ""} ${p.nachname || ""}`.toLowerCase();
+          return parts.every(part => full.includes(part));
+        });
+        if (matched) continue; // already exists
+        const nameKey = a.customer.toLowerCase().trim();
+        if (seen.has(nameKey)) continue; // already creating in this batch
+        seen.add(nameKey);
+
+        // Split name into vorname/nachname
+        const nameParts = a.customer.trim().split(/\s+/);
+        const vorname = nameParts.slice(0, -1).join(" ") || "";
+        const nachname = nameParts.slice(-1)[0] || a.customer.trim();
+
+        const id = "cal_" + Math.random().toString(36).substr(2, 9);
+        const newPat = {
+          id,
+          vorname,
+          nachname,
+          email: a.customerEmail || "",
+          telefon: "",
+          adresse: "",
+          qr: "KU-" + Math.random().toString(36).substr(2, 8).toUpperCase(),
+          erstellt: new Date().toISOString().split("T")[0],
+          kennenlern: false,
+          konvertiert: false,
+          stammkunde: false,
+          stammpreis: null,
+        };
+        const { error } = await sb.from("patienten").upsert(newPat, { onConflict: "id", ignoreDuplicates: true });
+        if (!error) {
+          created.push(a.customer);
+          patienten.push(newPat); // add to local list for subsequent matches
+        }
+      }
+    }
+
     // Sort by start time
     appointments.sort((a, b) => (a.startRaw || "").localeCompare(b.startRaw || ""));
 
-    return res.status(200).json({ ok: true, appointments });
+    return res.status(200).json({ ok: true, appointments, created });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }

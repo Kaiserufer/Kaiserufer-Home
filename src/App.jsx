@@ -584,7 +584,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
 
   // Shore-Tageskalender laden
-  const fetchShoreCalendar=async()=>{try{const r=await fetch("/api/shore-calendar");const d=await r.json();if(d.appointments)setShoreCalendar(d.appointments);}catch(e){}};
+  const fetchShoreCalendar=async()=>{try{const r=await fetch("/api/shore-calendar");const d=await r.json();if(d.appointments)setShoreCalendar(d.appointments);if(d.created?.length){const{data:np}=await supabase.from("patienten").select("*");if(np)setPatienten(np);setToast(`Neue Kunden aus Kalender: ${d.created.join(", ")}`);}}catch(e){}};
   useEffect(()=>{fetchShoreCalendar();const iv=setInterval(fetchShoreCalendar,5*60*1000);return()=>clearInterval(iv);},[]);
 
   // Pass-Check: Neue Flossenpass-Verkäufe aus Shore erkennen
