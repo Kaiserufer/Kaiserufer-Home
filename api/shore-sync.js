@@ -102,13 +102,15 @@ export default async function handler(req, res) {
       page++;
     }
 
-    // 4) Bestehende Patienten laden für Duplikat-Check (nur Name, nicht E-Mail — Familien teilen oft eine E-Mail)
+    // 4) Bestehende Patienten laden für Duplikat-Check (Name + E-Mail)
     const { data: existing } = await sb.from("patienten").select("id,vorname,nachname,email,telefon,adresse");
     const nameMap = new Map();
+    const emailMap = new Map();
     if (existing) {
       for (const p of existing) {
         const key = `${(p.vorname || "").trim()} ${(p.nachname || "").trim()}`.toLowerCase().trim();
         if (key.length > 1) nameMap.set(key, p);
+        if (p.email) emailMap.set(p.email.toLowerCase().trim(), p);
       }
     }
 
@@ -122,8 +124,8 @@ export default async function handler(req, res) {
       const adresse = [k.address1, k.zipcode, k.city].filter(Boolean).join(", ");
       const nameKey = `${vorname} ${nachname}`.toLowerCase().trim();
 
-      // Prüfen ob schon ein Patient mit gleichem Namen existiert
-      const match = nameMap.get(nameKey);
+      // Prüfen ob schon ein Patient mit gleichem Namen ODER gleicher E-Mail existiert
+      const match = nameMap.get(nameKey) || (email ? emailMap.get(email.toLowerCase().trim()) : null);
       if (match) {
         // Beste Daten zusammenführen
         const updates = {};
@@ -158,6 +160,7 @@ export default async function handler(req, res) {
       if (!error) {
         neu++;
         nameMap.set(nameKey, kunde);
+        if (email) emailMap.set(email.toLowerCase().trim(), kunde);
       }
     }
 

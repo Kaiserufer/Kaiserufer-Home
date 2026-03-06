@@ -120,15 +120,24 @@ export default async function handler(req, res) {
     // Auto-create patients for unknown calendar customers (only for today)
     const created = [];
     if (patienten && isToday) {
+      // Build email lookup for duplicate prevention
+      const emailSet = new Set();
+      for (const p of patienten) {
+        if (p.email) emailSet.add(p.email.toLowerCase().trim());
+      }
       const seen = new Set();
       for (const a of appointments) {
         const parts = (a.customer || "").toLowerCase().trim().split(/\s+/).filter(p => p.length > 0);
         if (parts.length === 0) continue;
-        const matched = patienten.find(p => {
+        // Match by name
+        const matchedByName = patienten.find(p => {
           const full = `${p.vorname || ""} ${p.nachname || ""}`.toLowerCase();
           return parts.every(part => full.includes(part));
         });
-        if (matched) continue;
+        if (matchedByName) continue;
+        // Match by email
+        const custEmail = (a.customerEmail || "").toLowerCase().trim();
+        if (custEmail && emailSet.has(custEmail)) continue;
         const nameKey = a.customer.toLowerCase().trim();
         if (seen.has(nameKey)) continue;
         seen.add(nameKey);
@@ -165,6 +174,7 @@ export default async function handler(req, res) {
         if (!error) {
           created.push(a.customer);
           patienten.push(newPat);
+          if (newPat.email) emailSet.add(newPat.email.toLowerCase().trim());
         }
       }
     }
