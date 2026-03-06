@@ -57,6 +57,10 @@ export default async function handler(req, res) {
 
     const xmlText = await caldavRes.text();
 
+    // Load processed appointment UIDs (already deducted)
+    const processedStr = await getSetting("shore_processed_appointments");
+    const processedSet = new Set(processedStr ? JSON.parse(processedStr) : []);
+
     // Parse VEVENT blocks
     const appointments = [];
     const calDataRegex = /<(?:cal|C):calendar-data[^>]*>([\s\S]*?)<\/(?:cal|C):calendar-data>/gi;
@@ -76,6 +80,7 @@ export default async function handler(req, res) {
           return (m[2] || "").trim();
         };
 
+        const uid = get("UID");
         const customer = get("X-CUSTOMER");
         if (!customer) continue; // Only customer appointments
 
@@ -98,6 +103,7 @@ export default async function handler(req, res) {
           start: fmtTime(dtstart),
           end: fmtTime(dtend),
           startRaw: dtstart,
+          deducted: uid ? processedSet.has(uid) : false,
         });
       }
     }
