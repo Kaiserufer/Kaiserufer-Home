@@ -22,10 +22,14 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, appointments: [], error: "CalDAV-Zugangsdaten fehlen" });
     }
 
-    // Build date range for today
+    // Build date range (optional ?date=YYYY-MM-DD parameter, default: today)
     const now = new Date();
-    const todayStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-    const tomorrow = new Date(now);
+    const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const dateParam = req.query.date || todayISO;
+    const isToday = dateParam === todayISO;
+    const target = new Date(dateParam + "T00:00:00");
+    const todayStr = `${target.getFullYear()}${String(target.getMonth() + 1).padStart(2, "0")}${String(target.getDate()).padStart(2, "0")}`;
+    const tomorrow = new Date(target);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = `${tomorrow.getFullYear()}${String(tomorrow.getMonth() + 1).padStart(2, "0")}${String(tomorrow.getDate()).padStart(2, "0")}`;
 
@@ -113,9 +117,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // Auto-create patients for unknown calendar customers
+    // Auto-create patients for unknown calendar customers (only for today)
     const created = [];
-    if (patienten) {
+    if (patienten && isToday) {
       const seen = new Set();
       for (const a of appointments) {
         const parts = (a.customer || "").toLowerCase().trim().split(/\s+/).filter(p => p.length > 0);

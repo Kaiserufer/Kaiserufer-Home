@@ -573,6 +573,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const [notizText,setNotizText]=useState("");const[saving,setSaving]=useState(false);
   const [shoreSync,setShoreSync]=useState(false);const[shoreSyncMsg,setShoreSyncMsg]=useState("");
   const [shoreCalendar,setShoreCalendar]=useState([]);
+  const [calDate,setCalDate]=useState(todayISO());
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [undoAction,setUndoAction]=useState(null);
   const [pendingPasses,setPendingPasses]=useState([]);
@@ -584,8 +585,13 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
 
   // Shore-Tageskalender laden
-  const fetchShoreCalendar=async()=>{try{const r=await fetch("/api/shore-calendar");const d=await r.json();if(d.appointments)setShoreCalendar(d.appointments);if(d.created?.length){const{data:np}=await supabase.from("patienten").select("*");if(np)setPatienten(np);setToast(`Neue Kunden aus Kalender: ${d.created.join(", ")}`);}}catch(e){}};
-  useEffect(()=>{fetchShoreCalendar();const iv=setInterval(fetchShoreCalendar,5*60*1000);return()=>clearInterval(iv);},[]);
+  const fetchShoreCalendar=async(date)=>{const d8=date||calDate;try{const r=await fetch("/api/shore-calendar?date="+d8);const d=await r.json();if(d.appointments)setShoreCalendar(d.appointments);if(d.created?.length){const{data:np}=await supabase.from("patienten").select("*");if(np)setPatienten(np);setToast(`Neue Kunden aus Kalender: ${d.created.join(", ")}`);}}catch(e){}};
+  useEffect(()=>{fetchShoreCalendar(calDate);},[calDate]);
+  useEffect(()=>{const iv=setInterval(()=>fetchShoreCalendar(),5*60*1000);return()=>clearInterval(iv);},[calDate]);
+  const calPrev=()=>setCalDate(d=>{const t=new Date(d+"T00:00:00");t.setDate(t.getDate()-1);return t.toISOString().split("T")[0];});
+  const calNext=()=>setCalDate(d=>{const t=new Date(d+"T00:00:00");t.setDate(t.getDate()+1);return t.toISOString().split("T")[0];});
+  const calIsToday=calDate===todayISO();
+  const calDateLabel=(()=>{const t=new Date(calDate+"T00:00:00");const tage=["So","Mo","Di","Mi","Do","Fr","Sa"];return`${tage[t.getDay()]}. ${t.getDate()}. ${MONATE[t.getMonth()]} ${t.getFullYear()}`;})();
 
   // Pass-Check: Neue Flossenpass-Verkäufe aus Shore erkennen
   const checkPassSales=async()=>{try{const r=await fetch("/api/pass-check");const d=await r.json();if(d.pending?.length)setPendingPasses(d.pending);}catch(e){}};
@@ -828,13 +834,19 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
       {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
 
       {view==="liste"&&<>
-        {shoreCalendar.length>0&&<Card style={{padding:16,marginBottom:18}}>
+        <Card style={{padding:16,marginBottom:18}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-            <div style={{fontSize:13,fontWeight:700,color:T.olive,textTransform:"uppercase",letterSpacing:2}}>Shore Termine heute</div>
-            <div style={{fontSize:12,color:T.textLight}}>{shoreCalendar.length} Kunden</div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <button onClick={calPrev} style={{width:28,height:28,borderRadius:14,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.text,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>‹</button>
+              <div style={{fontSize:13,fontWeight:700,color:T.olive,textTransform:"uppercase",letterSpacing:1,minWidth:180,textAlign:"center"}}>{calDateLabel}</div>
+              <button onClick={calNext} style={{width:28,height:28,borderRadius:14,border:`1px solid ${T.cardBorder}`,background:"transparent",color:T.text,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>›</button>
+              {!calIsToday&&<button onClick={()=>setCalDate(todayISO())} style={{fontSize:11,fontWeight:700,color:T.olive,background:T.oliveSoft,border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer",marginLeft:4}}>Heute</button>}
+            </div>
+            <div style={{fontSize:12,color:T.textLight}}>{shoreCalendar.length} {shoreCalendar.length===1?"Kunde":"Kunden"}</div>
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:4}}>
-            {shoreCalendar.map((a,i)=>{const now=new Date();const h=now.getHours();const m=now.getMinutes();const nowMin=h*60+m;const [sh,sm]=(a.start||"").split(":").map(Number);const [eh,em]=(a.end||"").split(":").map(Number);const startMin=(sh||0)*60+(sm||0);const endMin=(eh||0)*60+(em||0);const isPast=endMin<=nowMin;const isNow=startMin<=nowMin&&endMin>nowMin;
+            {shoreCalendar.length===0&&<div style={{padding:"16px 0",textAlign:"center",color:T.textLight,fontSize:13}}>Keine Termine</div>}
+            {shoreCalendar.map((a,i)=>{const now=new Date();const h=now.getHours();const m=now.getMinutes();const nowMin=h*60+m;const [sh,sm]=(a.start||"").split(":").map(Number);const [eh,em]=(a.end||"").split(":").map(Number);const startMin=(sh||0)*60+(sm||0);const endMin=(eh||0)*60+(em||0);const isPast=calIsToday&&endMin<=nowMin;const isNow=calIsToday&&startMin<=nowMin&&endMin>nowMin;
               const parts=(a.customer||"").toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);
               const matchedPat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});
               const openPat=()=>{if(matchedPat){setSelPat(matchedPat);setView("akte");}};
@@ -854,7 +866,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
                 <div style={{fontSize:11,color:T.textLight,maxWidth:120,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.employee}</div>
               </div>);})}
           </div>
-        </Card>}
+        </Card>
         <div style={{marginBottom:18}}>
           <Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading>
           <div style={{display:"flex",gap:6,marginTop:12,flexWrap:"wrap"}}>
