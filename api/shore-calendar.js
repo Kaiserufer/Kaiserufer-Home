@@ -12,6 +12,40 @@ async function getSetting(key) {
   return data?.value || "";
 }
 
+// CEST (Sommerzeit) prüfen: letzter Sonntag im März bis letzter Sonntag im Oktober
+function isCEST(year, month, day) {
+  if (month < 2 || month > 9) return false;
+  if (month > 2 && month < 9) return true;
+  if (month === 2) {
+    const lastSunday = 31 - new Date(year, 2, 31).getDay();
+    return day >= lastSunday;
+  }
+  const lastSunday = 31 - new Date(year, 9, 31).getDay();
+  return day < lastSunday;
+}
+
+// Berlin-Datum (YYYY-MM-DD) → UTC CalDAV Start/End Strings
+// Berlin Mitternacht = 23:00 UTC (CET) oder 22:00 UTC (CEST) des Vortages
+function berlinDateToUTCRange(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const berlinOffset = isCEST(y, m - 1, d) ? 2 : 1;
+  // Berlin 00:00 → UTC: Vortag (24 - offset):00
+  const startUTC = new Date(Date.UTC(y, m - 1, d, -berlinOffset, 0, 0));
+  // Berlin nächster Tag 00:00 → UTC
+  const endUTC = new Date(Date.UTC(y, m - 1, d + 1, -berlinOffset, 0, 0));
+  const fmt = (dt) =>
+    `${dt.getUTCFullYear()}${String(dt.getUTCMonth() + 1).padStart(2, "0")}${String(dt.getUTCDate()).padStart(2, "0")}T${String(dt.getUTCHours()).padStart(2, "0")}${String(dt.getUTCMinutes()).padStart(2, "0")}00Z`;
+  return { start: fmt(startUTC), end: fmt(endUTC) };
+}
+
+// Heutiges Datum in Berlin berechnen (nicht Server-UTC)
+function berlinToday() {
+  const now = new Date();
+  const berlinOffset = isCEST(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) ? 2 : 1;
+  const berlin = new Date(now.getTime() + berlinOffset * 60 * 60 * 1000);
+  return `${berlin.getUTCFullYear()}-${String(berlin.getUTCMonth() + 1).padStart(2, "0")}-${String(berlin.getUTCDate()).padStart(2, "0")}`;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
@@ -22,16 +56,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, appointments: [], error: "CalDAV-Zugangsdaten fehlen" });
     }
 
-    // Build date range (optional ?date=YYYY-MM-DD parameter, default: today)
-    const now = new Date();
-    const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    // Berlin-Datum: ?date=YYYY-MM-DD oder heute (Berlin-Zeit)
+    const todayISO = berlinToday();
     const dateParam = req.query.date || todayISO;
     const isToday = dateParam === todayISO;
-    const target = new Date(dateParam + "T00:00:00");
-    const todayStr = `${target.getFullYear()}${String(target.getMonth() + 1).padStart(2, "0")}${String(target.getDate()).padStart(2, "0")}`;
-    const tomorrow = new Date(target);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = `${tomorrow.getFullYear()}${String(tomorrow.getMonth() + 1).padStart(2, "0")}${String(tomorrow.getDate()).padStart(2, "0")}`;
+
+    // Berlin-Tagesgrenzen → korrekte UTC-Zeiten für CalDAV
+    const { start: utcStart, end: utcEnd } = berlinDateToUTCRange(dateParam);
 
     const xml = `<?xml version="1.0" encoding="utf-8" ?>
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
@@ -39,7 +70,7 @@ export default async function handler(req, res) {
   <C:filter>
     <C:comp-filter name="VCALENDAR">
       <C:comp-filter name="VEVENT">
-        <C:time-range start="${todayStr}T000000Z" end="${tomorrowStr}T235959Z"/>
+        <C:time-range start="${utcStart}" end="${utcEnd}"/>
       </C:comp-filter>
     </C:comp-filter>
   </C:filter>
@@ -97,6 +128,10 @@ export default async function handler(req, res) {
         const employee = rawEmployee.split(/,\s*Ort:/)[0].trim();
         const dtstart = get("DTSTART");
         const dtend = get("DTEND");
+
+        // Nur Termine anzeigen, deren DTSTART zum angefragten Berlin-Tag passt
+        const expectedDate = dateParam.replace(/-/g, "");
+        if (dtstart.length >= 8 && dtstart.substring(0, 8) !== expectedDate) continue;
 
         // Format time from 20260306T083000 → "08:30"
         const fmtTime = (dt) => {

@@ -16,14 +16,28 @@ async function saveSetting(key, value) {
   await sb.from("einstellungen").upsert({ key, value });
 }
 
+// Berlin-Datum (YYYY-MM-DD) → UTC CalDAV Start/End Strings
+function berlinDateToUTCRange(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const berlinOffset = isCEST(y, m - 1, d) ? 2 : 1;
+  const startUTC = new Date(Date.UTC(y, m - 1, d, -berlinOffset, 0, 0));
+  const endUTC = new Date(Date.UTC(y, m - 1, d + 1, -berlinOffset, 0, 0));
+  const fmt = (dt) =>
+    `${dt.getUTCFullYear()}${String(dt.getUTCMonth() + 1).padStart(2, "0")}${String(dt.getUTCDate()).padStart(2, "0")}T${String(dt.getUTCHours()).padStart(2, "0")}${String(dt.getUTCMinutes()).padStart(2, "0")}00Z`;
+  return { start: fmt(startUTC), end: fmt(endUTC) };
+}
+
+// Heutiges Datum in Berlin berechnen
+function berlinToday() {
+  const now = new Date();
+  const berlinOffset = isCEST(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) ? 2 : 1;
+  const berlin = new Date(now.getTime() + berlinOffset * 60 * 60 * 1000);
+  return `${berlin.getUTCFullYear()}-${String(berlin.getUTCMonth() + 1).padStart(2, "0")}-${String(berlin.getUTCDate()).padStart(2, "0")}`;
+}
+
 // Fetch today's appointments via CalDAV REPORT
 async function fetchCalendarEvents(email, password) {
-  const now = new Date();
-  // Start of today (Berlin timezone approximation: use UTC-based date boundaries)
-  const todayStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
-  const tomorrowDate = new Date(now);
-  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const tomorrowStr = `${tomorrowDate.getFullYear()}${String(tomorrowDate.getMonth() + 1).padStart(2, "0")}${String(tomorrowDate.getDate()).padStart(2, "0")}`;
+  const { start: utcStart, end: utcEnd } = berlinDateToUTCRange(berlinToday());
 
   const xml = `<?xml version="1.0" encoding="utf-8" ?>
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
@@ -31,7 +45,7 @@ async function fetchCalendarEvents(email, password) {
   <C:filter>
     <C:comp-filter name="VCALENDAR">
       <C:comp-filter name="VEVENT">
-        <C:time-range start="${todayStr}T000000Z" end="${tomorrowStr}T235959Z"/>
+        <C:time-range start="${utcStart}" end="${utcEnd}"/>
       </C:comp-filter>
     </C:comp-filter>
   </C:filter>
@@ -175,6 +189,13 @@ export default async function handler(req, res) {
       // Skip: appointment not yet ended
       const endTime = parseCalDateTime(ev.dtend);
       if (!endTime || endTime > now) continue;
+
+      // Skip: Ergotherapie-Termine ziehen keine Flossenpass-HE ab
+      const svcLower = (ev.service || "").toLowerCase();
+      if (/ergo|tdcs|neurofeedback/.test(svcLower)) {
+        processedSet.add(ev.uid);
+        continue;
+      }
 
       // Use X-CUSTOMER if available, otherwise SUMMARY
       const customerName = ev.customer || ev.summary;

@@ -594,7 +594,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const calDateLabel=(()=>{const t=new Date(calDate+"T00:00:00");const tage=["So","Mo","Di","Mi","Do","Fr","Sa"];return`${tage[t.getDay()]}. ${t.getDate()}. ${MONATE[t.getMonth()]} ${t.getFullYear()}`;})();
 
   // Pass-Check: Neue Flossenpass-Verkäufe aus Shore erkennen
-  const checkPassSales=async()=>{try{const r=await fetch("/api/pass-check");const d=await r.json();if(d.pending?.length)setPendingPasses(d.pending);}catch(e){}};
+  const checkPassSales=async(hoursBack)=>{try{const url=hoursBack?`/api/pass-check?hours=${hoursBack}`:"/api/pass-check";const r=await fetch(url);const d=await r.json();if(d.error){console.error("Pass-Check Fehler:",d.error);setShoreSyncMsg("Shore Pass-Check Fehler: "+d.error);setTimeout(()=>setShoreSyncMsg(""),8000);return d;}if(d.pending?.length)setPendingPasses(prev=>{const ids=new Set(prev.map(p=>p.orderId));const neu=d.pending.filter(p=>!ids.has(p.orderId));return neu.length?[...prev,...neu]:prev;});if(d.debug)console.log("Pass-Check Debug:",JSON.stringify(d.debug,null,2));return d;}catch(e){console.error("Pass-Check Netzwerkfehler:",e);setShoreSyncMsg("Shore Pass-Check nicht erreichbar");setTimeout(()=>setShoreSyncMsg(""),8000);return null;}};
   useEffect(()=>{
     // Test-Modus: ?test-pass=1 zeigt Fake-Benachrichtigungen
     if(new URLSearchParams(window.location.search).get("test-pass")){

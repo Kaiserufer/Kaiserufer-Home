@@ -93,9 +93,13 @@ export default async function handler(req, res) {
       token = await refreshTokens();
     }
 
+    // ?hours=N erlaubt breitere Suche (z.B. /api/pass-check?hours=168 für 7 Tage)
+    const hoursBack = parseInt(req.query?.hours) || 0;
+
     // Last check: default 48h ago
-    const lastCheck = await getSetting("pass_check_last") ||
-      new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const lastCheck = hoursBack > 0
+      ? new Date(Date.now() - hoursBack * 60 * 60 * 1000).toISOString()
+      : (await getSetting("pass_check_last") || new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString());
 
     // Format dates for Shore API (YYYY.MM.DD hh:mm:ss)
     const fmtShoreDate = (dt) => `${dt.getFullYear()}.${String(dt.getMonth()+1).padStart(2,"0")}.${String(dt.getDate()).padStart(2,"0")} ${String(dt.getHours()).padStart(2,"0")}:${String(dt.getMinutes()).padStart(2,"0")}:${String(dt.getSeconds()).padStart(2,"0")}`;
@@ -120,20 +124,38 @@ export default async function handler(req, res) {
     const ordersData = await ordersRes.json();
     const orders = ordersData.data || ordersData || [];
 
+    // Debug: Alle Bestellungen und ihre Items loggen
+    const debug = {
+      timeRange: { start: startDate, end: endDate },
+      totalOrders: orders.length,
+      processedIds: processed.length,
+      orders: orders.map(o => ({
+        id: String(o.id || o.pk),
+        skipped: processed.includes(String(o.id || o.pk)),
+        customer: o.customer ? `${o.customer.first_name || ""} ${o.customer.last_name || ""}`.trim() : null,
+        basketItems: (o.basket?.items || []).map(i => i.name),
+        directItems: (o.items || []).map(i => i.name),
+        lineItems: (o.line_items || []).map(i => i.name || i.product_name || i.title),
+        invoiceNumber: o.basket?.invoice_number || o.invoice_number || "",
+        completedAt: o.completed_at || o.created || "",
+      })),
+    };
+
     // Find Flossenpass sales
     const pending = [];
     for (const order of orders) {
       const oid = String(order.id || order.pk);
       if (processed.includes(oid)) continue;
 
-      // Check basket items
-      const items = order.basket?.items || order.items || [];
+      // Check basket items – auch line_items als Fallback prüfen
+      const items = order.basket?.items || order.items || order.line_items || [];
       for (const item of items) {
-        const passType = detectPassType(item.name);
+        const itemName = item.name || item.product_name || item.title || "";
+        const passType = detectPassType(itemName);
         if (!passType) continue;
 
         const standardPrice = STANDARD_PRICES[passType];
-        const actualPrice = parseFloat(item.gross_price || item.price || 0);
+        const actualPrice = parseFloat(item.gross_price || item.price || item.total || 0);
 
         pending.push({
           orderId: oid,
@@ -147,18 +169,21 @@ export default async function handler(req, res) {
           standardPrice,
           priceMatch: Math.abs(actualPrice - standardPrice) < 1,
           date: order.completed_at || order.created || new Date().toISOString(),
-          productName: item.name,
+          productName: itemName,
           invoiceNumber: order.basket?.invoice_number || order.invoice_number || "",
           receiptPdf: order.basket?.receipt?.pdf || order.receipt?.pdf || "",
         });
       }
     }
 
-    // Update last check time
-    await saveSetting("pass_check_last", new Date().toISOString());
+    // Nur bei Erfolg last-check aktualisieren (nicht bei manuellem Re-Check)
+    if (!hoursBack) {
+      await saveSetting("pass_check_last", new Date().toISOString());
+    }
 
-    return res.status(200).json({ ok: true, pending });
+    return res.status(200).json({ ok: true, pending, debug });
   } catch (e) {
+    // Fehler zurückgeben OHNE pass_check_last zu aktualisieren
     return res.status(500).json({ error: e.message });
   }
 }
