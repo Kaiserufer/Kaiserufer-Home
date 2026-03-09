@@ -139,6 +139,10 @@ export default async function handler(req, res) {
           return dt.substring(9, 11) + ":" + dt.substring(11, 13);
         };
 
+        // Ergo-Termine ziehen nie HE ab → nie als "deducted" anzeigen
+        const svcLower = (service || "").toLowerCase();
+        const isErgo = /ergo|tdcs|neurofeedback/.test(svcLower);
+
         appointments.push({
           customer,
           customerEmail,
@@ -147,7 +151,7 @@ export default async function handler(req, res) {
           start: fmtTime(dtstart),
           end: fmtTime(dtend),
           startRaw: dtstart,
-          deducted: uid ? processedSet.has(uid) : false,
+          deducted: isErgo ? false : (uid ? processedSet.has(uid) : false),
         });
       }
     }
