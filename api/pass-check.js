@@ -149,7 +149,7 @@ export default async function handler(req, res) {
       })),
     };
 
-    // Find Flossenpass sales
+    // Alle Shore-Verkäufe anzeigen (nicht nur Flossenpässe)
     const pending = [];
     for (const order of orders) {
       const oid = String(order.id || order.pk);
@@ -161,10 +161,8 @@ export default async function handler(req, res) {
         const itemName = item.name || item.product_name || item.title || "";
         const itemPrice = item.gross_price || item.price || item.total || 0;
         const passType = detectPassType(itemName, itemPrice);
-        if (!passType) continue;
-
-        const standardPrice = STANDARD_PRICES[passType];
         const actualPrice = parseFloat(item.gross_price || item.price || item.total || 0);
+        const standardPrice = passType ? STANDARD_PRICES[passType] : null;
 
         pending.push({
           orderId: oid,
@@ -173,10 +171,11 @@ export default async function handler(req, res) {
             name: `${order.customer.first_name || ""} ${order.customer.last_name || ""}`.trim(),
             email: order.customer.email || "",
           } : null,
-          passType,
+          passType: passType || null,
+          isFlossenpass: !!passType,
           price: actualPrice,
-          standardPrice,
-          priceMatch: Math.abs(actualPrice - standardPrice) < 1,
+          standardPrice: standardPrice || actualPrice,
+          priceMatch: standardPrice ? Math.abs(actualPrice - standardPrice) < 1 : false,
           date: order.completed_at || order.created || new Date().toISOString(),
           productName: itemName,
           invoiceNumber: order.basket?.invoice_number || order.invoice_number || "",

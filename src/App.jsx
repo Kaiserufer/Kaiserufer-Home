@@ -791,19 +791,19 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
         const passDate=(pp.date||"").split("T")[0]||todayISO();
         return(<div key={pp.orderId} style={{borderRadius:16,background:T.cream,borderLeft:"5px solid #e46d73",padding:"22px 26px",marginBottom:14,boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-            <span style={{background:"#e46d73",color:"#fff",fontSize:12,fontWeight:800,padding:"5px 14px",borderRadius:8,textTransform:"uppercase",letterSpacing:1}}>Neuer Flossenpass-Verkauf</span>
+            <span style={{background:pp.isFlossenpass===false?"#5A94B8":"#e46d73",color:"#fff",fontSize:12,fontWeight:800,padding:"5px 14px",borderRadius:8,textTransform:"uppercase",letterSpacing:1}}>{pp.isFlossenpass===false?"Shore-Verkauf":"Neuer Flossenpass-Verkauf"}</span>
             <span style={{fontSize:14,color:T.textLight,fontWeight:500}}>{passDate}</span>
           </div>
           <div style={{fontSize:22,fontWeight:700,color:T.text,marginBottom:10}}>{pp.customer?.name||"Unbekannt"}</div>
           <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:16}}>
-            <span style={{background:"#fde8e9",color:"#e46d73",fontSize:14,fontWeight:700,padding:"6px 16px",borderRadius:24}}>{getPassName(pp.passType)}</span>
+            {pp.productName&&<span style={{background:pp.isFlossenpass===false?"rgba(90,148,184,0.12)":"#fde8e9",color:pp.isFlossenpass===false?"#5A94B8":"#e46d73",fontSize:14,fontWeight:700,padding:"6px 16px",borderRadius:24}}>{pp.isFlossenpass===false?pp.productName:getPassName(pp.passType)}</span>}
             <span style={{fontSize:18,fontWeight:700,color:T.text}}>{pp.price}€</span>
             {!pp.priceMatch&&<span style={{fontSize:14,color:"#e46d73",fontWeight:600}}>statt {pp.standardPrice}€</span>}
             {invNum&&<span style={{fontSize:14,color:T.textMid,fontWeight:600}}>RN{invNum}</span>}
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
             <button onClick={()=>confirmPassSale(pp)} style={{padding:"11px 24px",borderRadius:12,background:"#e46d73",color:"#fff",fontWeight:700,fontSize:14,border:"none",cursor:"pointer"}}>Bestätigen</button>
-            <button onClick={()=>setEditPass(isEdit?null:{orderId:pp.orderId,he:PASS_TYPES[pp.passType]?.he||0,bs:PASS_TYPES[pp.passType]?.bs||0,preis:pp.price,name:getPassName(pp.passType),rechnung:invNum?"RN"+invNum:(pp.invoiceNumber||""),datum:passDate})} style={{padding:"11px 24px",borderRadius:12,background:"transparent",color:"#e46d73",fontWeight:700,fontSize:14,border:"1.5px solid #e46d73",cursor:"pointer"}}>{isEdit?"Schließen":"Anpassen"}</button>
+            <button onClick={()=>setEditPass(isEdit?null:{orderId:pp.orderId,he:PASS_TYPES[pp.passType]?.he||0,bs:PASS_TYPES[pp.passType]?.bs||0,preis:pp.price,name:pp.passType?getPassName(pp.passType):(pp.productName||"Shore-Verkauf"),rechnung:invNum?"RN"+invNum:(pp.invoiceNumber||""),datum:passDate})} style={{padding:"11px 24px",borderRadius:12,background:"transparent",color:pp.isFlossenpass===false?"#5A94B8":"#e46d73",fontWeight:700,fontSize:14,border:pp.isFlossenpass===false?"1.5px solid #5A94B8":"1.5px solid #e46d73",cursor:"pointer"}}>{isEdit?"Schließen":"Anpassen"}</button>
             <button onClick={()=>dismissPassSale(pp)} style={{padding:"11px 24px",borderRadius:12,background:"transparent",color:T.textMid,fontWeight:600,fontSize:14,border:`1.5px solid ${T.cardBorder}`,cursor:"pointer"}}>Ignorieren</button>
           </div>
           {isEdit&&<div style={{marginTop:18,paddingTop:18,borderTop:`1px solid ${T.cardBorder}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
