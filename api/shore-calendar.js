@@ -120,7 +120,9 @@ export default async function handler(req, res) {
 
         const uid = get("UID");
         const customer = get("X-CUSTOMER");
-        if (!customer) continue; // Only customer appointments
+        const summary = get("SUMMARY");
+        // Termine mit X-CUSTOMER ODER SUMMARY anzeigen (Kennenlernen, Yoga etc.)
+        if (!customer && !summary) continue;
 
         const customerEmail = get("X-EMAIL");
         const service = get("X-SERVICE").replace(/\\,/g, ",");
@@ -144,9 +146,9 @@ export default async function handler(req, res) {
         const isErgo = /ergo|tdcs|neurofeedback/.test(svcLower);
 
         appointments.push({
-          customer,
+          customer: customer || summary,
           customerEmail,
-          service: service || "Termin",
+          service: service || summary || "Termin",
           employee: employee.split(",")[0].trim(),
           start: fmtTime(dtstart),
           end: fmtTime(dtend),
