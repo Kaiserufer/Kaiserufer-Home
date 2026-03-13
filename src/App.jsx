@@ -18,9 +18,9 @@ const T = {
   landCard:"rgba(184,168,138,0.1)",landBorder:"rgba(184,168,138,0.12)",
 };
 
-const PASS_TYPES={BASIS:{name:"Basis",he:3,bs:1,preis:299},PLUS:{name:"Plus",he:5,bs:5,preis:350},DELUXE:{name:"Deluxe",he:10,bs:5,preis:759}};
+const PASS_TYPES={BASIS:{name:"Basis",he:3,bs:3,preis:299},PLUS:{name:"Plus",he:5,bs:5,preis:399},DELUXE:{name:"Deluxe",he:10,bs:10,preis:759}};
 const EINZELANGEBOTE=[{key:"QUICKIE",name:"Psycho Quickie",preis:70},{key:"TDCS",name:"tDCS",preis:55},{key:"NEUROFEEDBACK",name:"Neurofeedback 5er Karte",preis:350}];
-const PASS_OPTIONS=[{key:"BASIS",label:"Basis – 3 HE · 1 GA",he:3,bs:1,preis:299},{key:"PLUS",label:"Plus – 5 HE · 5 GA",he:5,bs:5,preis:350},{key:"DELUXE",label:"Deluxe – 10 HE · 5 GA",he:10,bs:5,preis:759},{key:"INDIVIDUELL",label:"Individuell",he:0,bs:0,preis:0}];
+const PASS_OPTIONS=[{key:"BASIS",label:"Basis – 3 HE · 3 GA",he:3,bs:3,preis:299},{key:"PLUS",label:"Plus – 5 HE · 5 GA",he:5,bs:5,preis:399},{key:"DELUXE",label:"Deluxe – 10 HE · 10 GA",he:10,bs:10,preis:759},{key:"INDIVIDUELL",label:"Individuell",he:0,bs:0,preis:0}];
 const EINZEL_OPTIONS=EINZELANGEBOTE.map(e=>e.name);
 const getPassName=(t)=>PASS_TYPES[t]?.name??"Individuell";
 const getPassLabel=(pk)=>{if(!pk)return"–";if(pk.typ==="INDIVIDUELL"||!PASS_TYPES[pk.typ])return pk.custom_name||"Flossenpass";return PASS_TYPES[pk.typ].name;};
@@ -615,14 +615,18 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   useEffect(()=>{const iv=setInterval(()=>{const now=Date.now();setAutoDeductRecent(prev=>{const next={};for(const[k,v]of Object.entries(prev)){if(now-v<15*60*1000)next[k]=v;}return next;});},60*1000);return()=>clearInterval(iv);},[]);
 
   const confirmPassSale=async(pp,custom)=>{
-    const pt=custom||PASS_TYPES[pp.passType];
     const cname=pp.customer?.name||"";
     const parts=cname.toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);
     const pat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});
     if(!pat){alert("Patient nicht gefunden: "+cname);return;}
+    const pt=PASS_TYPES[pp.passType];
+    const he=custom?.he??pt?.he??0;
+    const bs=custom?.bs??pt?.bs??0;
+    const preis=custom?.preis??pp.price??0;
     const rs=custom?.rechnung||pp.invoiceNumber||genRechnung(await getRechnungsNr());
     const ds=custom?.datum||(pp.date||"").split("T")[0]||todayISO();
-    const np={id:genId(),pat_id:pat.id,typ:custom?"INDIVIDUELL":pp.passType,custom_name:custom?.name||null,he_total:custom?custom.he:pt.he,he_genutzt:0,bs_total:custom?custom.bs:pt.bs,bs_genutzt:0,preis:custom?custom.preis:pp.price,rechnung:rs,bezahlt:true,datum:ds,aktiv:true,rechnung_pdf:pp.receiptPdf||null};
+    const typKey=pp.isFlossenpass!==false&&pp.passType&&PASS_TYPES[pp.passType]?pp.passType:"INDIVIDUELL";
+    const np={id:genId(),pat_id:pat.id,typ:typKey,custom_name:typKey==="INDIVIDUELL"?(custom?.name||pp.productName||"Flossenpass"):null,he_total:he,he_genutzt:0,bs_total:bs,bs_genutzt:0,preis:preis,rechnung:rs,bezahlt:true,datum:ds,aktiv:true,rechnung_pdf:pp.receiptPdf||null};
     await supabase.from("paesse").insert(np);setPaesse(prev=>[...prev,np]);
     await fetch("/api/pass-check",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({orderIds:[pp.orderId]})});
     setPendingPasses(prev=>prev.filter(p=>p.orderId!==pp.orderId));setEditPass(null);
@@ -785,36 +789,35 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     {undoAction&&<UndoToast message={undoAction.msg} onUndo={undoAction.undo} onDismiss={()=>setUndoAction(null)}/>}
     {pendingPasses.length>0&&<div className="fade-in" style={{marginBottom:22}}>
       {pendingPasses.map(pp=>{
-        const isEdit=editPass?.orderId===pp.orderId;
         const cleanInv=(s)=>(s||"").replace(/^[A-Z]+-\d{4}-/,"");
         const invNum=cleanInv(pp.invoiceNumber);
         const passDate=(pp.date||"").split("T")[0]||todayISO();
-        return(<div key={pp.orderId} style={{borderRadius:16,background:T.cream,borderLeft:"5px solid #e46d73",padding:"22px 26px",marginBottom:14,boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
+        const defHE=PASS_TYPES[pp.passType]?.he||0;
+        const defBS=PASS_TYPES[pp.passType]?.bs||0;
+        const defName=pp.passType?getPassName(pp.passType):(pp.productName||"Shore-Verkauf");
+        const defRechnung=invNum?invNum:(pp.invoiceNumber||"");
+        const isEdit=editPass?.orderId===pp.orderId;
+        if(!isEdit&&!editPass){setTimeout(()=>setEditPass({orderId:pp.orderId,he:defHE,bs:defBS,preis:pp.price,name:defName,rechnung:defRechnung,datum:passDate}),0);}
+        const eP=isEdit?editPass:{he:defHE,bs:defBS,preis:pp.price,name:defName,rechnung:defRechnung,datum:passDate};
+        const lbl={fontSize:12,fontWeight:700,color:T.textMid,textTransform:"uppercase",display:"block",marginBottom:6,letterSpacing:0.5};
+        return(<div key={pp.orderId} style={{borderRadius:16,background:T.cream,borderLeft:`5px solid ${pp.isFlossenpass===false?"#5A94B8":"#e46d73"}`,padding:"22px 26px",marginBottom:14,boxShadow:"0 2px 12px rgba(0,0,0,0.06)"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
             <span style={{background:pp.isFlossenpass===false?"#5A94B8":"#e46d73",color:"#fff",fontSize:12,fontWeight:800,padding:"5px 14px",borderRadius:8,textTransform:"uppercase",letterSpacing:1}}>{pp.isFlossenpass===false?"Shore-Verkauf":"Neuer Flossenpass-Verkauf"}</span>
-            <span style={{fontSize:14,color:T.textLight,fontWeight:500}}>{passDate}</span>
           </div>
-          <div style={{fontSize:22,fontWeight:700,color:T.text,marginBottom:10}}>{pp.customer?.name||"Unbekannt"}</div>
-          <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginBottom:16}}>
-            {pp.productName&&<span style={{background:pp.isFlossenpass===false?"rgba(90,148,184,0.12)":"#fde8e9",color:pp.isFlossenpass===false?"#5A94B8":"#e46d73",fontSize:14,fontWeight:700,padding:"6px 16px",borderRadius:24}}>{pp.isFlossenpass===false?pp.productName:getPassName(pp.passType)}</span>}
-            <span style={{fontSize:18,fontWeight:700,color:T.text}}>{pp.price}€</span>
-            {!pp.priceMatch&&<span style={{fontSize:14,color:"#e46d73",fontWeight:600}}>statt {pp.standardPrice}€</span>}
-            {invNum&&<span style={{fontSize:14,color:T.textMid,fontWeight:600}}>RN{invNum}</span>}
+          <div style={{fontSize:22,fontWeight:700,color:T.text,marginBottom:14}}>{pp.customer?.name||"Unbekannt"}</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14,marginBottom:14}}>
+            <div><label style={lbl}>Haupteinheiten</label><input type="number" min={0} value={eP.he} onClick={()=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP});}} onChange={e=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP,he:Number(e.target.value)});else setEditPass({...editPass,he:Number(e.target.value)});}} style={inp}/></div>
+            <div><label style={lbl}>Gruppenangebote</label><input type="number" min={0} value={eP.bs} onClick={()=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP});}} onChange={e=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP,bs:Number(e.target.value)});else setEditPass({...editPass,bs:Number(e.target.value)});}} style={inp}/></div>
+            <div><label style={lbl}>Preis (€)</label><input type="number" min={0} value={eP.preis} onClick={()=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP});}} onChange={e=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP,preis:Number(e.target.value)});else setEditPass({...editPass,preis:Number(e.target.value)});}} style={inp}/></div>
+            <div><label style={lbl}>Bezeichnung</label><input value={eP.name} onClick={()=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP});}} onChange={e=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP,name:e.target.value});else setEditPass({...editPass,name:e.target.value});}} style={inp}/></div>
+            <div><label style={lbl}>Rechnungsnr.</label><input value={eP.rechnung} onClick={()=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP});}} onChange={e=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP,rechnung:e.target.value});else setEditPass({...editPass,rechnung:e.target.value});}} placeholder="z.B. 461" style={inp}/></div>
+            <div><label style={lbl}>Datum</label><input type="date" value={eP.datum} onClick={()=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP});}} onChange={e=>{if(!isEdit)setEditPass({orderId:pp.orderId,...eP,datum:e.target.value});else setEditPass({...editPass,datum:e.target.value});}} style={inp}/></div>
           </div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-            <button onClick={()=>confirmPassSale(pp)} style={{padding:"11px 24px",borderRadius:12,background:"#e46d73",color:"#fff",fontWeight:700,fontSize:14,border:"none",cursor:"pointer"}}>Bestätigen</button>
-            <button onClick={()=>setEditPass(isEdit?null:{orderId:pp.orderId,he:PASS_TYPES[pp.passType]?.he||0,bs:PASS_TYPES[pp.passType]?.bs||0,preis:pp.price,name:pp.passType?getPassName(pp.passType):(pp.productName||"Shore-Verkauf"),rechnung:invNum?"RN"+invNum:(pp.invoiceNumber||""),datum:passDate})} style={{padding:"11px 24px",borderRadius:12,background:"transparent",color:pp.isFlossenpass===false?"#5A94B8":"#e46d73",fontWeight:700,fontSize:14,border:pp.isFlossenpass===false?"1.5px solid #5A94B8":"1.5px solid #e46d73",cursor:"pointer"}}>{isEdit?"Schließen":"Anpassen"}</button>
+            <button onClick={()=>{const vals=isEdit?editPass:eP;confirmPassSale(pp,{he:vals.he,bs:vals.bs,preis:vals.preis,name:vals.name,rechnung:vals.rechnung,datum:vals.datum});}} style={{padding:"11px 24px",borderRadius:12,background:"#e46d73",color:"#fff",fontWeight:700,fontSize:14,border:"none",cursor:"pointer"}}>Bestätigen</button>
+            <button onClick={()=>{const cname=pp.customer?.name||"";const parts=cname.toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);const pat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});if(!pat){alert("Patient nicht gefunden: "+cname);return;}setSelPat(pat);setView("akte");dismissPassSale(pp);}} style={{padding:"11px 24px",borderRadius:12,background:"transparent",color:T.textMid,fontWeight:600,fontSize:14,border:`1.5px solid ${T.cardBorder}`,cursor:"pointer"}}>Kundenakte öffnen</button>
             <button onClick={()=>dismissPassSale(pp)} style={{padding:"11px 24px",borderRadius:12,background:"transparent",color:T.textMid,fontWeight:600,fontSize:14,border:`1.5px solid ${T.cardBorder}`,cursor:"pointer"}}>Ignorieren</button>
           </div>
-          {isEdit&&<div style={{marginTop:18,paddingTop:18,borderTop:`1px solid ${T.cardBorder}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:14}}>
-            <div><label style={{fontSize:12,fontWeight:700,color:T.textMid,textTransform:"uppercase",display:"block",marginBottom:6,letterSpacing:0.5}}>Haupteinheiten</label><input type="number" min={0} value={editPass.he} onChange={e=>setEditPass({...editPass,he:Number(e.target.value)})} style={inp}/></div>
-            <div><label style={{fontSize:12,fontWeight:700,color:T.textMid,textTransform:"uppercase",display:"block",marginBottom:6,letterSpacing:0.5}}>Gruppenangebote</label><input type="number" min={0} value={editPass.bs} onChange={e=>setEditPass({...editPass,bs:Number(e.target.value)})} style={inp}/></div>
-            <div><label style={{fontSize:12,fontWeight:700,color:T.textMid,textTransform:"uppercase",display:"block",marginBottom:6,letterSpacing:0.5}}>Preis (€)</label><input type="number" min={0} value={editPass.preis} onChange={e=>setEditPass({...editPass,preis:Number(e.target.value)})} style={inp}/></div>
-            <div><label style={{fontSize:12,fontWeight:700,color:T.textMid,textTransform:"uppercase",display:"block",marginBottom:6,letterSpacing:0.5}}>Name</label><input value={editPass.name} onChange={e=>setEditPass({...editPass,name:e.target.value})} style={inp}/></div>
-            <div><label style={{fontSize:12,fontWeight:700,color:T.textMid,textTransform:"uppercase",display:"block",marginBottom:6,letterSpacing:0.5}}>Rechnungsnr.</label><input value={editPass.rechnung} onChange={e=>setEditPass({...editPass,rechnung:e.target.value})} placeholder="z.B. RN123" style={inp}/></div>
-            <div><label style={{fontSize:12,fontWeight:700,color:T.textMid,textTransform:"uppercase",display:"block",marginBottom:6,letterSpacing:0.5}}>Datum</label><input type="date" value={editPass.datum} onChange={e=>setEditPass({...editPass,datum:e.target.value})} style={inp}/></div>
-            <div style={{gridColumn:"span 3",display:"flex",gap:8,justifyContent:"flex-end",marginTop:4}}><button onClick={()=>confirmPassSale(pp,{he:editPass.he,bs:editPass.bs,preis:editPass.preis,name:editPass.name,rechnung:editPass.rechnung,datum:editPass.datum})} style={{padding:"11px 24px",borderRadius:12,background:"#e46d73",color:"#fff",fontWeight:700,fontSize:14,border:"none",cursor:"pointer"}}>Bestätigen</button><button onClick={()=>{const cname=pp.customer?.name||"";const parts=cname.toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);const pat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});if(!pat){alert("Patient nicht gefunden: "+cname);return;}setSelPat(pat);setView("akte");dismissPassSale(pp);}} style={{padding:"11px 24px",borderRadius:12,background:"transparent",color:T.textMid,fontWeight:600,fontSize:14,border:`1.5px solid ${T.cardBorder}`,cursor:"pointer"}}>Kundenakte öffnen</button></div>
-          </div>}
         </div>);
       })}
     </div>}
