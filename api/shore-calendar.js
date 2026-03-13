@@ -141,6 +141,10 @@ export default async function handler(req, res) {
           return dt.substring(9, 11) + ":" + dt.substring(11, 13);
         };
 
+        // Check cancellation status
+        const status = get("STATUS");
+        const isCancelled = status.toUpperCase() === "CANCELLED";
+
         // Ergo-Termine ziehen nie HE ab → nie als "deducted" anzeigen
         const svcLower = (service || "").toLowerCase();
         const isErgo = /ergo|tdcs|neurofeedback/.test(svcLower);
@@ -154,6 +158,7 @@ export default async function handler(req, res) {
           end: fmtTime(dtend),
           startRaw: dtstart,
           deducted: isErgo ? false : (uid ? processedSet.has(uid) : false),
+          cancelled: isCancelled,
         });
       }
     }

@@ -172,10 +172,14 @@ export default async function handler(req, res) {
     const processed = processedStr ? JSON.parse(processedStr) : [];
     const processedSet = new Set(processed);
 
-    // 4) Load patienten and paesse
+    // 4) Load patienten, paesse, and today's logs (to prevent double deductions)
     const { data: patienten } = await sb.from("patienten").select("*");
     const { data: paesse } = await sb.from("paesse").select("*");
+    const todayStr = berlinToday();
+    const { data: todayLogs } = await sb.from("log").select("*").eq("typ", "HAUPTEINHEIT").gte("datum", todayStr + "T00:00:00").lte("datum", todayStr + "T23:59:59");
     if (!patienten || !paesse) throw new Error("Datenbank-Abfrage fehlgeschlagen");
+    // Set of pat_ids that already had HE deducted today (manual or Pingu)
+    const alreadyDeductedToday = new Set((todayLogs || []).map(l => l.pat_id));
 
     const now = new Date();
     const deducted = [];
@@ -205,6 +209,12 @@ export default async function handler(req, res) {
       const pat = matchPatient(customerName, patienten);
       if (!pat) continue;
 
+      // Skip if this patient already had HE deducted today (manual/Pingu) to prevent doubles
+      if (alreadyDeductedToday.has(pat.id)) {
+        processedSet.add(ev.uid);
+        continue;
+      }
+
       // Find active pass with remaining HE
       const activePass = paesse.find(p =>
         p.pat_id === pat.id &&
@@ -232,6 +242,9 @@ export default async function handler(req, res) {
 
       // Mark as processed only after successful deduction
       processedSet.add(ev.uid);
+
+      // Track this patient as deducted today (prevent second auto-deduct for multiple appointments)
+      alreadyDeductedToday.add(pat.id);
 
       // Update local pass reference for subsequent iterations
       activePass.he_genutzt = newHeGenutzt;
