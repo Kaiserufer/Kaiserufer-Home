@@ -18,9 +18,9 @@ const T = {
   landCard:"rgba(184,168,138,0.1)",landBorder:"rgba(184,168,138,0.12)",
 };
 
-const PASS_TYPES={BASIS:{name:"Basis",he:3,bs:3,preis:299},PLUS:{name:"Plus",he:5,bs:5,preis:399},DELUXE:{name:"Deluxe",he:10,bs:10,preis:759}};
+const PASS_TYPES={BASIS:{name:"Basis",he:3,bs:1,preis:299},PLUS:{name:"Plus",he:5,bs:3,preis:499},DELUXE:{name:"Deluxe",he:10,bs:5,preis:899}};
 const EINZELANGEBOTE=[{key:"QUICKIE",name:"Psycho Quickie",preis:70},{key:"TDCS",name:"tDCS",preis:55},{key:"NEUROFEEDBACK",name:"Neurofeedback 5er Karte",preis:350}];
-const PASS_OPTIONS=[{key:"BASIS",label:"Basis – 3 HE · 3 GA",he:3,bs:3,preis:299},{key:"PLUS",label:"Plus – 5 HE · 5 GA",he:5,bs:5,preis:399},{key:"DELUXE",label:"Deluxe – 10 HE · 10 GA",he:10,bs:10,preis:759},{key:"INDIVIDUELL",label:"Individuell",he:0,bs:0,preis:0}];
+const PASS_OPTIONS=[{key:"BASIS",label:"Basis – 3 HE · 1 GA",he:3,bs:1,preis:299},{key:"PLUS",label:"Plus – 5 HE · 3 GA",he:5,bs:3,preis:499},{key:"DELUXE",label:"Deluxe – 10 HE · 5 GA",he:10,bs:5,preis:899},{key:"INDIVIDUELL",label:"Individuell",he:0,bs:0,preis:0}];
 const EINZEL_OPTIONS=EINZELANGEBOTE.map(e=>e.name);
 const getPassName=(t)=>PASS_TYPES[t]?.name??"Individuell";
 const getPassLabel=(pk)=>{if(!pk)return"–";if(pk.typ==="INDIVIDUELL"||!PASS_TYPES[pk.typ])return pk.custom_name||"Flossenpass";return PASS_TYPES[pk.typ].name;};
