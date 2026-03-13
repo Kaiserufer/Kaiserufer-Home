@@ -8,6 +8,8 @@ const sb = createClient(
 // Shore Flossenpass products → internal pass types
 const PASS_MAP = { basis: "BASIS", plus: "PLUS", deluxe: "DELUXE" };
 const STANDARD_PRICES = { BASIS: 299, PLUS: 499, DELUXE: 899 };
+// Preis → Typ Zuordnung für generische "Flossenpass" Produkte aus Shore
+const PRICE_TO_TYPE = { 299: "BASIS", 350: "PLUS", 499: "PLUS", 899: "DELUXE" };
 
 async function getSetting(key) {
   const { data } = await sb.from("einstellungen").select("value").eq("key", key).single();
@@ -57,10 +59,16 @@ async function fetchOrders(token, startDate, endDate) {
   });
 }
 
-function detectPassType(itemName) {
+function detectPassType(itemName, grossPrice) {
   const name = (itemName || "").toLowerCase();
+  // Erst nach expliziten Typ-Keywords suchen (basis/plus/deluxe)
   for (const [keyword, type] of Object.entries(PASS_MAP)) {
     if (name.includes(keyword)) return type;
+  }
+  // Dann generische "Flossenpass" Produkte aus Shore über Preis zuordnen
+  if (name.includes("flossenpass")) {
+    const price = Math.round(parseFloat(grossPrice || 0));
+    return PRICE_TO_TYPE[price] || "PLUS"; // Default PLUS bei unbekanntem Preis
   }
   return null;
 }
@@ -151,7 +159,8 @@ export default async function handler(req, res) {
       const items = order.basket?.items || order.items || order.line_items || [];
       for (const item of items) {
         const itemName = item.name || item.product_name || item.title || "";
-        const passType = detectPassType(itemName);
+        const itemPrice = item.gross_price || item.price || item.total || 0;
+        const passType = detectPassType(itemName, itemPrice);
         if (!passType) continue;
 
         const standardPrice = STANDARD_PRICES[passType];
