@@ -53,7 +53,7 @@ async function fetchOrders(token, startDate, endDate) {
   return fetch(url, {
     headers: {
       "Authorization": `Bearer ${token}`,
-      "X-Api-Version": "12",
+      "X-Api-Version": "8",
       "Accept": "application/json",
     },
   });
