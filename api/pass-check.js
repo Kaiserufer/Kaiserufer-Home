@@ -7,9 +7,9 @@ const sb = createClient(
 
 // Shore Flossenpass products → internal pass types
 const PASS_MAP = { basis: "BASIS", plus: "PLUS", deluxe: "DELUXE" };
-const STANDARD_PRICES = { BASIS: 299, PLUS: 499, DELUXE: 899 };
-// Preis → Typ Zuordnung für generische "Flossenpass" Produkte aus Shore
-const PRICE_TO_TYPE = { 299: "BASIS", 350: "PLUS", 499: "PLUS", 899: "DELUXE" };
+const STANDARD_PRICES = { BASIS: 299, PLUS: 399, DELUXE: 759 };
+// Preis → Typ Zuordnung für generische "Flossenpass" Produkte aus Shore (inkl. alte Preise für Stammkunden)
+const PRICE_TO_TYPE = { 299: "BASIS", 350: "PLUS", 399: "PLUS", 499: "PLUS", 759: "DELUXE", 899: "DELUXE" };
 
 async function getSetting(key) {
   const { data } = await sb.from("einstellungen").select("value").eq("key", key).single();

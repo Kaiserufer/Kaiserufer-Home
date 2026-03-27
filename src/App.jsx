@@ -18,9 +18,9 @@ const T = {
   landCard:"rgba(184,168,138,0.1)",landBorder:"rgba(184,168,138,0.12)",
 };
 
-const PASS_TYPES={BASIS:{name:"Basis",he:3,bs:1,preis:299},PLUS:{name:"Plus",he:5,bs:3,preis:499},DELUXE:{name:"Deluxe",he:10,bs:5,preis:899}};
+const PASS_TYPES={BASIS:{name:"Basis",he:3,bs:3,preis:299},PLUS:{name:"Plus",he:5,bs:5,preis:399},DELUXE:{name:"Deluxe",he:10,bs:10,preis:759}};
 const EINZELANGEBOTE=[{key:"QUICKIE",name:"Psycho Quickie",preis:70},{key:"TDCS",name:"tDCS",preis:55},{key:"NEUROFEEDBACK",name:"Neurofeedback 5er Karte",preis:350}];
-const PASS_OPTIONS=[{key:"BASIS",label:"Basis – 3 HE · 1 GA",he:3,bs:1,preis:299},{key:"PLUS",label:"Plus – 5 HE · 3 GA",he:5,bs:3,preis:499},{key:"DELUXE",label:"Deluxe – 10 HE · 5 GA",he:10,bs:5,preis:899},{key:"INDIVIDUELL",label:"Individuell",he:0,bs:0,preis:0}];
+const PASS_OPTIONS=[{key:"BASIS",label:"Basis – 3 HE · 3 GA",he:3,bs:3,preis:299},{key:"PLUS",label:"Plus – 5 HE · 5 GA",he:5,bs:5,preis:399},{key:"DELUXE",label:"Deluxe – 10 HE · 10 GA",he:10,bs:10,preis:759},{key:"INDIVIDUELL",label:"Individuell",he:0,bs:0,preis:0}];
 const EINZEL_OPTIONS=EINZELANGEBOTE.map(e=>e.name);
 const getPassName=(t)=>PASS_TYPES[t]?.name??"Individuell";
 const getPassLabel=(pk)=>{if(!pk)return"–";if(pk.typ==="INDIVIDUELL"||!PASS_TYPES[pk.typ])return pk.custom_name||"Flossenpass";return PASS_TYPES[pk.typ].name;};
@@ -585,7 +585,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   useEffect(()=>{doShoreSync(true);const iv=setInterval(()=>doShoreSync(true),5*60*1000);return()=>clearInterval(iv);},[]);
 
   // Shore-Tageskalender laden
-  const fetchShoreCalendar=async(date)=>{const d8=date||calDate;try{const r=await fetch("/api/shore-calendar?date="+d8);const d=await r.json();if(d.appointments)setShoreCalendar(d.appointments);if(d.created?.length){const{data:np}=await supabase.from("patienten").select("*");if(np)setPatienten(np);setToast(`Neue Kunden aus Kalender: ${d.created.join(", ")}`);}}catch(e){}};
+  const fetchShoreCalendar=async(date)=>{const d8=date||calDate;try{const r=await fetch("/api/shore-calendar?date="+d8);const d=await r.json();if(d.appointments){setShoreCalendar(d.appointments);const hasDeducted=d.appointments.some(a=>a.deducted);if(hasDeducted){const{data:np}=await supabase.from("paesse").select("*");if(np)setPaesse(np);const{data:nl}=await supabase.from("log").select("*");if(nl)setLog(nl);}}if(d.created?.length){const{data:np}=await supabase.from("patienten").select("*");if(np)setPatienten(np);setToast(`Neue Kunden aus Kalender: ${d.created.join(", ")}`);}}catch(e){}};
   useEffect(()=>{fetchShoreCalendar(calDate);},[calDate]);
   useEffect(()=>{const iv=setInterval(()=>fetchShoreCalendar(),5*60*1000);return()=>clearInterval(iv);},[calDate]);
   const calPrev=()=>setCalDate(d=>{const t=new Date(d+"T12:00:00");t.setDate(t.getDate()-1);return`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;});
@@ -609,7 +609,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   },[patienten.length]);
 
   // Auto-Deduct: Shore-Termine prüfen und HE automatisch abziehen
-  const checkAutoDeduct=async()=>{try{const r=await fetch("/api/pass-auto-deduct");const d=await r.json();if(d.deducted?.length){const now=Date.now();const updates={};d.deducted.forEach(x=>{updates[x.patient]=now;});setAutoDeductRecent(prev=>({...prev,...updates}));const{data:np}=await supabase.from("paesse").select("*");if(np)setPaesse(np);const{data:nl}=await supabase.from("log").select("*");if(nl)setLog(nl);fetchShoreCalendar();}}catch(e){}};
+  const checkAutoDeduct=async()=>{try{const r=await fetch("/api/pass-auto-deduct");const d=await r.json();const{data:np}=await supabase.from("paesse").select("*");if(np)setPaesse(np);const{data:nl}=await supabase.from("log").select("*");if(nl)setLog(nl);if(d.deducted?.length){const now=Date.now();const updates={};d.deducted.forEach(x=>{updates[x.patient]=now;});setAutoDeductRecent(prev=>({...prev,...updates}));fetchShoreCalendar();}}catch(e){}};
   useEffect(()=>{if(patienten.length>0)checkAutoDeduct();const iv=setInterval(checkAutoDeduct,5*60*1000);return()=>clearInterval(iv);},[patienten.length]);
   // Alte Deduct-Meldungen nach 15 Min aufräumen
   useEffect(()=>{const iv=setInterval(()=>{const now=Date.now();setAutoDeductRecent(prev=>{const next={};for(const[k,v]of Object.entries(prev)){if(now-v<15*60*1000)next[k]=v;}return next;});},60*1000);return()=>clearInterval(iv);},[]);
