@@ -644,7 +644,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const matchSearch=(p)=>{const q=search.toLowerCase();return`${p.vorname||""} ${p.nachname||""} ${p.email||""}`.toLowerCase().includes(q)||paesse.some(pk=>pk.pat_id===p.id&&(pk.rechnung||"").toLowerCase().includes(q))||einzel.some(e=>e.pat_id===p.id&&(e.rechnung||"").toLowerCase().includes(q));};
   const gaesteAll=sorted.filter(p=>!p.mitarbeiter&&matchSearch(p));
   const gaeste=listFilter==="alle"?gaesteAll:listFilter==="therapie"?gaesteAll.filter(p=>p.therapie||(!p.ergotherapie&&!p.sonstige)):listFilter==="ergo"?gaesteAll.filter(p=>p.ergotherapie):gaesteAll.filter(p=>p.sonstige);
-  const patPaesse=selPat?paesse.filter(pk=>pk.pat_id===selPat.id):[];
+  const patPaesse=selPat?paesse.filter(pk=>pk.pat_id===selPat.id).sort((a,b)=>(a.datum||"").localeCompare(b.datum||"")):[];
   const patEinzel=selPat?einzel.filter(e=>e.pat_id===selPat.id).sort((a,b)=>(b.datum||"").localeCompare(a.datum||"")):[];
   const patLog=selPat?log.filter(l=>l.pat_id===selPat.id).sort((a,b)=>(b.datum||"").localeCompare(a.datum||"")):[];
   const patUrlaub=selPat?urlaub.filter(u=>u.pat_id===selPat.id).sort((a,b)=>(b.von||"").localeCompare(a.von||"")):[];
@@ -677,7 +677,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const updatePassField=async(pid,field,val)=>{await supabase.from("paesse").update({[field]:val}).eq("id",pid);setPaesse(prev=>prev.map(p=>p.id===pid?{...p,[field]:val}:p));};
   const updatePassEinheiten=async(pid,field,val)=>{const n=Math.max(0,parseInt(val)||0);await supabase.from("paesse").update({[field]:n}).eq("id",pid);setPaesse(prev=>prev.map(p=>p.id===pid?{...p,[field]:n}:p));};
   const updatePatient=async(id,fields)=>{await supabase.from("patienten").update(fields).eq("id",id);setPatienten(prev=>prev.map(p=>p.id===id?{...p,...fields}:p));if(selPat?.id===id)setSelPat(prev=>({...prev,...fields}));};
-  const getUnits=(patId)=>{const ap=paesse.find(pk=>pk.pat_id===patId&&!isPassAlt(pk));if(!ap)return null;return{he:(ap.he_total||0)-(ap.he_genutzt||0),bs:(ap.bs_total||0)-(ap.bs_genutzt||0),typ:ap.typ};};
+  const getUnits=(patId)=>{const ap=paesse.filter(pk=>pk.pat_id===patId&&!isPassAlt(pk)).sort((a,b)=>(a.datum||"").localeCompare(b.datum||""))[0];if(!ap)return null;return{he:(ap.he_total||0)-(ap.he_genutzt||0),bs:(ap.bs_total||0)-(ap.bs_genutzt||0),typ:ap.typ};};
   const editInp=(w)=>({fontSize:14,fontWeight:600,background:"transparent",border:`1px solid ${T.cardBorder}`,borderRadius:8,padding:"4px 8px",color:T.text,outline:"none",width:w});
   const handleScan=()=>{const pat=patienten.find(p=>p.qr===scanInput.trim().toUpperCase());if(pat){setSelPat(pat);setView("akte");setScanMode(false);setScanInput("");}else alert("QR nicht gefunden: "+scanInput);};
   const addUrlaub=async()=>{if(!urlaubVon||!urlaubBis||!selPat)return;const nu={id:genId(),pat_id:selPat.id,von:urlaubVon,bis:urlaubBis,notiz:urlaubNotiz.trim()};await supabase.from("urlaub").insert(nu);setUrlaub(prev=>[...prev,nu]);setUrlaubVon("");setUrlaubBis("");setUrlaubNotiz("");};
@@ -687,7 +687,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const handlePinguAction=async(action)=>{
     if(action.typ==="HE_ABZIEHEN"&&action.pat_id){
       const pat=patienten.find(p=>p.id===action.pat_id);if(!pat)throw new Error("Patient nicht gefunden");
-      const ap=paesse.find(pk=>pk.pat_id===action.pat_id&&!isPassAlt(pk));if(!ap)throw new Error(`${pat.vorname} hat keinen aktiven Pass`);
+      const ap=paesse.filter(pk=>pk.pat_id===action.pat_id&&!isPassAlt(pk)).sort((a,b)=>(a.datum||"").localeCompare(b.datum||""))[0];if(!ap)throw new Error(`${pat.vorname} hat keinen aktiven Pass`);
       const heLeft=(ap.he_total||0)-(ap.he_genutzt||0);if(heLeft<=0)throw new Error(`Keine Haupteinheiten mehr bei ${pat.vorname}`);
       const prev={he_genutzt:ap.he_genutzt};const u={...ap,he_genutzt:ap.he_genutzt+1};
       const nl={id:genId(),pat_id:pat.id,pass_id:ap.id,typ:"HAUPTEINHEIT",quelle:"PINGU",datum:new Date().toISOString(),notiz:"Haupteinheit"};
@@ -697,7 +697,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
     }
     if(action.typ==="BS_ABZIEHEN"&&action.pat_id){
       const pat=patienten.find(p=>p.id===action.pat_id);if(!pat)throw new Error("Patient nicht gefunden");
-      const ap=paesse.find(pk=>pk.pat_id===action.pat_id&&!isPassAlt(pk));if(!ap)throw new Error(`${pat.vorname} hat keinen aktiven Pass`);
+      const ap=paesse.filter(pk=>pk.pat_id===action.pat_id&&!isPassAlt(pk)).sort((a,b)=>(a.datum||"").localeCompare(b.datum||""))[0];if(!ap)throw new Error(`${pat.vorname} hat keinen aktiven Pass`);
       const bsLeft=(ap.bs_total||0)-(ap.bs_genutzt||0);if(bsLeft<=0)throw new Error(`Keine Gruppenangebote mehr bei ${pat.vorname}`);
       const prev={bs_genutzt:ap.bs_genutzt};const u={...ap,bs_genutzt:ap.bs_genutzt+1};
       const nl={id:genId(),pat_id:pat.id,pass_id:ap.id,typ:"BS",quelle:"PINGU",datum:new Date().toISOString(),notiz:action.notiz||"Gruppenangebot"};
@@ -853,7 +853,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
               const parts=(a.customer||"").toLowerCase().trim().split(/\s+/).filter(p=>p.length>0);
               const matchedPat=patienten.find(p=>{const full=`${p.vorname||""} ${p.nachname||""}`.toLowerCase();return parts.length>0&&parts.every(part=>full.includes(part));});
               const openPat=()=>{if(matchedPat){setSelPat(matchedPat);setView("akte");}};
-              const aktPass=matchedPat?paesse.find(pk=>pk.pat_id===matchedPat.id&&!isPassAlt(pk)):null;
+              const aktPass=matchedPat?paesse.filter(pk=>pk.pat_id===matchedPat.id&&!isPassAlt(pk)).sort((a,b)=>(a.datum||"").localeCompare(b.datum||""))[0]:null;
               const heUebrig=aktPass?((aktPass.he_total||0)-(aktPass.he_genutzt||0)):null;
               const letzteEinheit=heUebrig===1;
               return(
@@ -1030,8 +1030,8 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
 
 const KundenApp=({kunde,paesse})=>{
   const [splash,setSplash]=useState(true);const[splashAnim,setSplashAnim]=useState(false);
-  const mp=paesse.filter(p=>p.pat_id===kunde.id);
-  const ap=mp.find(p=>!isPassAlt(p));
+  const mp=paesse.filter(p=>p.pat_id===kunde.id).sort((a,b)=>(a.datum||"").localeCompare(b.datum||""));
+  const ap=mp.filter(p=>!isPassAlt(p))[0];
   useEffect(()=>{const t1=setTimeout(()=>setSplashAnim(true),1800);const t2=setTimeout(()=>setSplash(false),2600);return()=>{clearTimeout(t1);clearTimeout(t2);};},[]);
   if(splash)return(<div className={splashAnim?"splash-out":""} style={{minHeight:"100vh",background:"#2A3222",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",position:"fixed",inset:0,zIndex:200}}><div style={{position:"absolute",inset:0,background:"radial-gradient(ellipse at 50% 40%,rgba(212,196,160,0.06) 0%,transparent 70%)",pointerEvents:"none"}}/><div className="landing-title" style={{fontFamily:"Georgia,serif",fontWeight:700,fontSize:"clamp(32px,8vw,48px)",letterSpacing:4,textTransform:"uppercase",color:"#D4C4A0",lineHeight:1.1,position:"relative",zIndex:1}}>Kaiserufer</div><div className="landing-sub" style={{fontSize:"clamp(13px,3vw,16px)",color:"#D4C4A040",letterSpacing:6,textTransform:"uppercase",fontWeight:300,marginTop:8,position:"relative",zIndex:1}}>Home</div></div>);
   const heL=ap?(ap.he_total||0)-(ap.he_genutzt||0):0,bsL=ap?(ap.bs_total||0)-(ap.bs_genutzt||0):0;

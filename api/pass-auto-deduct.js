@@ -215,12 +215,10 @@ export default async function handler(req, res) {
         continue;
       }
 
-      // Find active pass with remaining HE
-      const activePass = paesse.find(p =>
-        p.pat_id === pat.id &&
-        p.aktiv === true &&
-        (p.he_genutzt || 0) < (p.he_total || 0)
-      );
+      // Find active pass with remaining HE (oldest first, so old pass gets used up before new one)
+      const activePass = paesse
+        .filter(p => p.pat_id === pat.id && p.aktiv === true && (p.he_genutzt || 0) < (p.he_total || 0))
+        .sort((a, b) => (a.datum || "").localeCompare(b.datum || ""))[0];
       if (!activePass) continue;
 
       // Deduct HE
