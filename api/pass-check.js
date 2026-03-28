@@ -159,9 +159,12 @@ export default async function handler(req, res) {
       const items = order.basket?.items || order.items || order.line_items || [];
       for (const item of items) {
         const itemName = item.name || item.product_name || item.title || "";
-        const itemPrice = item.gross_price || item.price || item.total || 0;
-        const passType = detectPassType(itemName, itemPrice);
-        const actualPrice = parseFloat(item.gross_price || item.price || item.total || 0);
+        // Shore liefert Netto-Preise → Brutto berechnen mit MwSt.
+        const netPrice = parseFloat(item.price || item.gross_price || item.total || 0);
+        const taxRate = parseFloat(item.tax_rate || 0);
+        const bruttoPrice = Math.round(netPrice * (1 + taxRate / 100) * 100) / 100;
+        const passType = detectPassType(itemName, bruttoPrice);
+        const actualPrice = bruttoPrice;
         const standardPrice = passType ? STANDARD_PRICES[passType] : null;
 
         pending.push({
