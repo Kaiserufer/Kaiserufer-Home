@@ -576,6 +576,7 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   const [calDate,setCalDate]=useState(todayISO());
   const [confirmDelete,setConfirmDelete]=useState(null);
   const [undoAction,setUndoAction]=useState(null);
+  const [healthStatus,setHealthStatus]=useState(null);const[healthExpanded,setHealthExpanded]=useState(false);
   const [pendingPasses,setPendingPasses]=useState([]);
   const [editPass,setEditPass]=useState(null);
   const [autoDeductRecent,setAutoDeductRecent]=useState({});
@@ -609,10 +610,14 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
   },[patienten.length]);
 
   // Auto-Deduct: Shore-Termine prüfen und HE automatisch abziehen
-  const checkAutoDeduct=async()=>{try{const r=await fetch("/api/pass-auto-deduct");const d=await r.json();const{data:np}=await supabase.from("paesse").select("*");if(np)setPaesse(np);const{data:nl}=await supabase.from("log").select("*");if(nl)setLog(nl);if(d.deducted?.length){const now=Date.now();const updates={};d.deducted.forEach(x=>{updates[x.patient]=now;});setAutoDeductRecent(prev=>({...prev,...updates}));fetchShoreCalendar();}}catch(e){}};
+  const checkAutoDeduct=async()=>{try{const r=await fetch("/api/pass-auto-deduct");const d=await r.json();const{data:np}=await supabase.from("paesse").select("*");const{data:nl}=await supabase.from("log").select("*");if(np&&nl){const passMap=new Map(np.map(p=>[p.id,p]));let needsFix=false;for(const p of np){const heLogs=nl.filter(l=>l.pass_id===p.id&&l.typ==="HAUPTEINHEIT").length;const gaLogs=nl.filter(l=>l.pass_id===p.id&&l.typ==="BS").length;if(heLogs!==(p.he_genutzt||0)||gaLogs!==(p.bs_genutzt||0)){await supabase.from("paesse").update({he_genutzt:heLogs,bs_genutzt:gaLogs}).eq("id",p.id);p.he_genutzt=heLogs;p.bs_genutzt=gaLogs;needsFix=true;}}setPaesse(np);setLog(nl);}if(d.deducted?.length){const now=Date.now();const updates={};d.deducted.forEach(x=>{updates[x.patient]=now;});setAutoDeductRecent(prev=>({...prev,...updates}));fetchShoreCalendar();}}catch(e){}};
   useEffect(()=>{if(patienten.length>0)checkAutoDeduct();const iv=setInterval(checkAutoDeduct,5*60*1000);return()=>clearInterval(iv);},[patienten.length]);
   // Alte Deduct-Meldungen nach 15 Min aufräumen
   useEffect(()=>{const iv=setInterval(()=>{const now=Date.now();setAutoDeductRecent(prev=>{const next={};for(const[k,v]of Object.entries(prev)){if(now-v<15*60*1000)next[k]=v;}return next;});},60*1000);return()=>clearInterval(iv);},[]);
+
+  // Health-Check: System automatisch prüfen und reparieren
+  const runHealthCheck=async()=>{try{const r=await fetch("/api/health-check");const d=await r.json();setHealthStatus(d);if(d.fixes?.length>0){const{data:np}=await supabase.from("paesse").select("*");if(np)setPaesse(np);const{data:nl}=await supabase.from("log").select("*");if(nl)setLog(nl);}}catch(e){setHealthStatus({error:e.message});}};
+  useEffect(()=>{if(patienten.length>0){const t=setTimeout(()=>runHealthCheck(),10000);const iv=setInterval(runHealthCheck,30*60*1000);return()=>{clearTimeout(t);clearInterval(iv);}}},[patienten.length]);
 
   const confirmPassSale=async(pp,custom)=>{
     const cname=pp.customer?.name||"";
@@ -870,6 +875,32 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
               </div>);})}
           </div>
         </Card>
+
+        {healthStatus&&<Card style={{padding:14,marginBottom:18,cursor:"pointer"}} onClick={()=>setHealthExpanded(!healthExpanded)}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:16}}>{healthStatus.errors?.length>0?"🔴":healthStatus.warnings?.length>0?"🟡":"🟢"}</span>
+              <span style={{fontSize:13,fontWeight:700,color:T.olive,textTransform:"uppercase",letterSpacing:1}}>System Health</span>
+              {healthStatus.fixes?.length>0&&<span style={{fontSize:11,fontWeight:700,color:T.green,background:T.greenSoft,padding:"2px 8px",borderRadius:8}}>{healthStatus.fixes.length} auto-repariert</span>}
+              {healthStatus.errors?.length>0&&<span style={{fontSize:11,fontWeight:700,color:T.red,background:T.redSoft,padding:"2px 8px",borderRadius:8}}>{healthStatus.errors.length} Fehler</span>}
+              {healthStatus.warnings?.length>0&&<span style={{fontSize:11,fontWeight:700,color:T.orange,background:T.orangeSoft,padding:"2px 8px",borderRadius:8}}>{healthStatus.warnings.length} Warnungen</span>}
+              {healthStatus.errors?.length===0&&healthStatus.warnings?.length===0&&healthStatus.fixes?.length===0&&<span style={{fontSize:11,fontWeight:600,color:T.green}}>Alles OK</span>}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:11,color:T.textLight}}>{new Date(healthStatus.timestamp).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</span>
+              <button onClick={e=>{e.stopPropagation();runHealthCheck();}} style={{fontSize:11,fontWeight:700,color:T.olive,background:T.oliveSoft,border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer"}}>Prüfen</button>
+              <span style={{fontSize:12,color:T.textLight}}>{healthExpanded?"▲":"▼"}</span>
+            </div>
+          </div>
+          {healthExpanded&&<div style={{marginTop:12,fontSize:12,lineHeight:1.8}}>
+            {healthStatus.fixes?.map((f,i)=><div key={"f"+i} style={{color:T.green,fontWeight:600}}>✅ {f}</div>)}
+            {healthStatus.errors?.map((e,i)=><div key={"e"+i} style={{color:T.red,fontWeight:600}}>❌ {e}</div>)}
+            {healthStatus.warnings?.map((w,i)=><div key={"w"+i} style={{color:T.orange}}>⚠️ {w}</div>)}
+            {healthStatus.checks?.filter(c=>c.includes("✓")).map((c,i)=><div key={"c"+i} style={{color:T.textLight}}>✓ {c}</div>)}
+            <div style={{marginTop:8,color:T.textLight,fontSize:11}}>{healthStatus.summary?.patienten} Gäste · {healthStatus.summary?.paesse} Pässe · {healthStatus.summary?.logs} Logs · {healthStatus.summary?.checks} Checks</div>
+          </div>}
+        </Card>}
+
         <div style={{marginBottom:18}}>
           <Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading>
           <div style={{display:"flex",gap:6,marginTop:12,flexWrap:"wrap"}}>
