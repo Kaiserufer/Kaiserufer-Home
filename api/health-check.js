@@ -183,8 +183,9 @@ export default async function handler(req, res) {
 
     for (const pass of paesse) {
       if (!pass.aktiv) continue;
-      const heDone = (pass.he_genutzt || 0) >= (pass.he_total || 1);
-      const gaDone = (pass.bs_genutzt || 0) >= (pass.bs_total || 1);
+      const isZero = (pass.he_total || 0) === 0 && (pass.bs_total || 0) === 0;
+      const heDone = isZero || (pass.he_genutzt || 0) >= (pass.he_total || 1);
+      const gaDone = isZero || (pass.bs_genutzt || 0) >= (pass.bs_total || 1);
       if (heDone && gaDone) {
         const pat = patMap.get(pass.pat_id);
         const name = pat ? `${pat.vorname || ""} ${pat.nachname || ""}`.trim() : pass.pat_id;
@@ -200,8 +201,9 @@ export default async function handler(req, res) {
 
     const aktivPerPat = {};
     for (const pass of paesse) {
-      const heDone = (pass.he_genutzt || 0) >= (pass.he_total || 1);
-      const gaDone = (pass.bs_genutzt || 0) >= (pass.bs_total || 1);
+      const isZero = (pass.he_total || 0) === 0 && (pass.bs_total || 0) === 0;
+      const heDone = isZero || (pass.he_genutzt || 0) >= (pass.he_total || 1);
+      const gaDone = isZero || (pass.bs_genutzt || 0) >= (pass.bs_total || 1);
       if (heDone && gaDone) continue; // Aufgebraucht = nicht wirklich aktiv
       if (!aktivPerPat[pass.pat_id]) aktivPerPat[pass.pat_id] = [];
       aktivPerPat[pass.pat_id].push(pass);
@@ -244,8 +246,9 @@ export default async function handler(req, res) {
     results.checks.push("Bezahlt-Status");
 
     for (const pass of paesse) {
-      const heDone = (pass.he_genutzt || 0) >= (pass.he_total || 1);
-      const gaDone = (pass.bs_genutzt || 0) >= (pass.bs_total || 1);
+      const isZero = (pass.he_total || 0) === 0 && (pass.bs_total || 0) === 0;
+      const heDone = isZero || (pass.he_genutzt || 0) >= (pass.he_total || 1);
+      const gaDone = isZero || (pass.bs_genutzt || 0) >= (pass.bs_total || 1);
       if (heDone && gaDone && !pass.bezahlt) {
         const pat = patMap.get(pass.pat_id);
         const name = pat ? `${pat.vorname || ""} ${pat.nachname || ""}`.trim() : pass.pat_id;

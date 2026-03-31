@@ -30,7 +30,7 @@ const genRechnung=(n)=>`RN${n}`;
 const fmtDate=(d)=>{try{return new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});}catch{return"–";}};
 const fmtDateTime=(d)=>{try{return new Date(d).toLocaleString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});}catch{return"–";}};
 const todayISO=()=>{const n=new Date();return`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`;};
-const isPassAlt=(pk)=>!pk?false:(pk.he_genutzt??0)>=(pk.he_total??1)&&(pk.bs_genutzt??0)>=(pk.bs_total??1);
+const isPassAlt=(pk)=>{if(!pk)return false;if((pk.he_total||0)===0&&(pk.bs_total||0)===0)return true;return(pk.he_genutzt??0)>=(pk.he_total??1)&&(pk.bs_genutzt??0)>=(pk.bs_total??1);};
 const workingDays=(von,bis)=>{let c=0,d=new Date(von);const e=new Date(bis);while(d<=e){const day=d.getDay();if(day!==0&&day!==6)c++;d.setDate(d.getDate()+1);}return c;};
 const MONATE=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
 const TAGE_KURZ=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -841,7 +841,32 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
         <button disabled={shoreSync} className="btn-a" style={{padding:"9px 14px",borderRadius:12,fontWeight:600,cursor:shoreSync?"not-allowed":"pointer",background:T.olive,color:"#fff",border:"none",fontSize:13,textTransform:"uppercase",opacity:shoreSync?0.5:1}} onClick={()=>doShoreSync(false)}><span className="btn-emoji" style={{display:"none"}}>🔄</span><span className="btn-text">{shoreSync?"Synchronisiere…":"Sync"}</span></button>
       </div>
       {shoreSyncMsg&&<div className="fade-in" style={{padding:"12px 18px",borderRadius:12,background:shoreSyncMsg.startsWith("Fehler")?T.redSoft:shoreSyncMsg.includes("bitte warten")?T.goldSoft:T.greenSoft,color:shoreSyncMsg.startsWith("Fehler")?T.red:shoreSyncMsg.includes("bitte warten")?T.gold:T.green,fontSize:14,fontWeight:600,marginBottom:14,textAlign:"center"}}>{shoreSyncMsg}</div>}
-      {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/></div>}
+      {showStats&&<div style={{marginBottom:22}}><StatistikPanel patienten={patienten} paesse={paesse} einzelArr={einzel}/>
+        {healthStatus&&<Card style={{padding:14,marginTop:14,cursor:"pointer"}} onClick={()=>setHealthExpanded(!healthExpanded)}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:16}}>{healthStatus.errors?.length>0?"🔴":healthStatus.warnings?.length>0?"🟡":"🟢"}</span>
+              <span style={{fontSize:13,fontWeight:700,color:T.olive,textTransform:"uppercase",letterSpacing:1}}>System Health</span>
+              {healthStatus.fixes?.length>0&&<span style={{fontSize:11,fontWeight:700,color:T.green,background:T.greenSoft,padding:"2px 8px",borderRadius:8}}>{healthStatus.fixes.length} auto-repariert</span>}
+              {healthStatus.errors?.length>0&&<span style={{fontSize:11,fontWeight:700,color:T.red,background:T.redSoft,padding:"2px 8px",borderRadius:8}}>{healthStatus.errors.length} Fehler</span>}
+              {healthStatus.warnings?.length>0&&<span style={{fontSize:11,fontWeight:700,color:T.orange,background:T.orangeSoft,padding:"2px 8px",borderRadius:8}}>{healthStatus.warnings.length} Warnungen</span>}
+              {healthStatus.errors?.length===0&&healthStatus.warnings?.length===0&&healthStatus.fixes?.length===0&&<span style={{fontSize:11,fontWeight:600,color:T.green}}>Alles OK</span>}
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:11,color:T.textLight}}>{new Date(healthStatus.timestamp).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</span>
+              <button onClick={e=>{e.stopPropagation();runHealthCheck();}} style={{fontSize:11,fontWeight:700,color:T.olive,background:T.oliveSoft,border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer"}}>Prüfen</button>
+              <span style={{fontSize:12,color:T.textLight}}>{healthExpanded?"▲":"▼"}</span>
+            </div>
+          </div>
+          {healthExpanded&&<div style={{marginTop:12,fontSize:12,lineHeight:1.8}}>
+            {healthStatus.fixes?.map((f,i)=><div key={"f"+i} style={{color:T.green,fontWeight:600}}>✅ {f}</div>)}
+            {healthStatus.errors?.map((e,i)=><div key={"e"+i} style={{color:T.red,fontWeight:600}}>❌ {e}</div>)}
+            {healthStatus.warnings?.map((w,i)=><div key={"w"+i} style={{color:T.orange}}>⚠️ {w}</div>)}
+            {healthStatus.checks?.filter(c=>c.includes("✓")).map((c,i)=><div key={"c"+i} style={{color:T.textLight}}>✓ {c}</div>)}
+            <div style={{marginTop:8,color:T.textLight,fontSize:11}}>{healthStatus.summary?.patienten} Gäste · {healthStatus.summary?.paesse} Pässe · {healthStatus.summary?.logs} Logs · {healthStatus.summary?.checks} Checks</div>
+          </div>}
+        </Card>}
+      </div>}
 
       {view==="liste"&&<>
         <Card style={{padding:16,marginBottom:18}}>
@@ -877,31 +902,6 @@ const MitarbeiterApp=({patienten,setPatienten,paesse,setPaesse,log,setLog,rechnu
               </div>);})}
           </div>
         </Card>
-
-        {healthStatus&&<Card style={{padding:14,marginBottom:18,cursor:"pointer"}} onClick={()=>setHealthExpanded(!healthExpanded)}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:16}}>{healthStatus.errors?.length>0?"🔴":healthStatus.warnings?.length>0?"🟡":"🟢"}</span>
-              <span style={{fontSize:13,fontWeight:700,color:T.olive,textTransform:"uppercase",letterSpacing:1}}>System Health</span>
-              {healthStatus.fixes?.length>0&&<span style={{fontSize:11,fontWeight:700,color:T.green,background:T.greenSoft,padding:"2px 8px",borderRadius:8}}>{healthStatus.fixes.length} auto-repariert</span>}
-              {healthStatus.errors?.length>0&&<span style={{fontSize:11,fontWeight:700,color:T.red,background:T.redSoft,padding:"2px 8px",borderRadius:8}}>{healthStatus.errors.length} Fehler</span>}
-              {healthStatus.warnings?.length>0&&<span style={{fontSize:11,fontWeight:700,color:T.orange,background:T.orangeSoft,padding:"2px 8px",borderRadius:8}}>{healthStatus.warnings.length} Warnungen</span>}
-              {healthStatus.errors?.length===0&&healthStatus.warnings?.length===0&&healthStatus.fixes?.length===0&&<span style={{fontSize:11,fontWeight:600,color:T.green}}>Alles OK</span>}
-            </div>
-            <div style={{display:"flex",alignItems:"center",gap:8}}>
-              <span style={{fontSize:11,color:T.textLight}}>{new Date(healthStatus.timestamp).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})}</span>
-              <button onClick={e=>{e.stopPropagation();runHealthCheck();}} style={{fontSize:11,fontWeight:700,color:T.olive,background:T.oliveSoft,border:"none",borderRadius:8,padding:"4px 10px",cursor:"pointer"}}>Prüfen</button>
-              <span style={{fontSize:12,color:T.textLight}}>{healthExpanded?"▲":"▼"}</span>
-            </div>
-          </div>
-          {healthExpanded&&<div style={{marginTop:12,fontSize:12,lineHeight:1.8}}>
-            {healthStatus.fixes?.map((f,i)=><div key={"f"+i} style={{color:T.green,fontWeight:600}}>✅ {f}</div>)}
-            {healthStatus.errors?.map((e,i)=><div key={"e"+i} style={{color:T.red,fontWeight:600}}>❌ {e}</div>)}
-            {healthStatus.warnings?.map((w,i)=><div key={"w"+i} style={{color:T.orange}}>⚠️ {w}</div>)}
-            {healthStatus.checks?.filter(c=>c.includes("✓")).map((c,i)=><div key={"c"+i} style={{color:T.textLight}}>✓ {c}</div>)}
-            <div style={{marginTop:8,color:T.textLight,fontSize:11}}>{healthStatus.summary?.patienten} Gäste · {healthStatus.summary?.paesse} Pässe · {healthStatus.summary?.logs} Logs · {healthStatus.summary?.checks} Checks</div>
-          </div>}
-        </Card>}
 
         <div style={{marginBottom:18}}>
           <Heading style={{fontSize:28}}>Gästeliste Kaiserufer</Heading>
