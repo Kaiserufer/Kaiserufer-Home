@@ -60,6 +60,8 @@ export default async function handler(req, res) {
 
     // ══════════════════════════════════════════
     // 1. HE/GA-ZÄHLER vs. LOG (KRITISCH)
+    // Nur AUFWÄRTS korrigieren — nie Einheiten reduzieren!
+    // Korrektur-Logs (HE/GA zurückgeben) berücksichtigen
     // ══════════════════════════════════════════
     results.checks.push("HE/GA-Zähler vs. Log-Einträge");
 
@@ -68,27 +70,46 @@ export default async function handler(req, res) {
       const heFromLog = passLogs.filter(l => l.typ === "HAUPTEINHEIT").length;
       const gaFromLog = passLogs.filter(l => l.typ === "BS").length;
 
-      if (heFromLog !== (pass.he_genutzt || 0)) {
+      // Korrektur-Logs: "HE +N zurück" oder "GA +N zurück" geben Einheiten zurück
+      const heKorr = passLogs.filter(l => l.typ === "KORREKTUR" && (l.notiz || "").includes("HE"))
+        .reduce((s, l) => { const m = (l.notiz || "").match(/\+(\d+)/); return s + (m ? parseInt(m[1]) : 0); }, 0);
+      const gaKorr = passLogs.filter(l => l.typ === "KORREKTUR" && (l.notiz || "").includes("GA"))
+        .reduce((s, l) => { const m = (l.notiz || "").match(/\+(\d+)/); return s + (m ? parseInt(m[1]) : 0); }, 0);
+
+      const expectedHE = Math.max(0, heFromLog - heKorr);
+      const expectedGA = Math.max(0, gaFromLog - gaKorr);
+
+      // Nur aufwärts korrigieren: wenn Log mehr Einheiten zeigt als der Zähler
+      if (expectedHE > (pass.he_genutzt || 0)) {
         const pat = patMap.get(pass.pat_id);
         const name = pat ? `${pat.vorname || ""} ${pat.nachname || ""}`.trim() : pass.pat_id;
 
         if (autofix) {
-          await sb.from("paesse").update({ he_genutzt: heFromLog }).eq("id", pass.id);
-          results.fixes.push(`HE-Zähler korrigiert: ${name} Pass ${pass.rechnung || pass.id} — ${pass.he_genutzt}→${heFromLog} (laut ${passLogs.filter(l => l.typ === "HAUPTEINHEIT").length} Log-Einträge)`);
+          await sb.from("paesse").update({ he_genutzt: expectedHE }).eq("id", pass.id);
+          results.fixes.push(`HE-Zähler erhöht: ${name} Pass ${pass.rechnung || pass.id} — ${pass.he_genutzt}→${expectedHE} (${heFromLog} Logs, ${heKorr} Korrekturen)`);
         } else {
-          results.errors.push(`HE-Mismatch: ${name} Pass ${pass.rechnung || pass.id} — DB sagt ${pass.he_genutzt}, Log sagt ${heFromLog}`);
+          results.errors.push(`HE zu niedrig: ${name} Pass ${pass.rechnung || pass.id} — DB sagt ${pass.he_genutzt}, erwartet ${expectedHE}`);
         }
       }
 
-      if (gaFromLog !== (pass.bs_genutzt || 0)) {
+      if (expectedGA > (pass.bs_genutzt || 0)) {
         const pat = patMap.get(pass.pat_id);
         const name = pat ? `${pat.vorname || ""} ${pat.nachname || ""}`.trim() : pass.pat_id;
 
         if (autofix) {
-          await sb.from("paesse").update({ bs_genutzt: gaFromLog }).eq("id", pass.id);
-          results.fixes.push(`GA-Zähler korrigiert: ${name} Pass ${pass.rechnung || pass.id} — ${pass.bs_genutzt}→${gaFromLog}`);
+          await sb.from("paesse").update({ bs_genutzt: expectedGA }).eq("id", pass.id);
+          results.fixes.push(`GA-Zähler erhöht: ${name} Pass ${pass.rechnung || pass.id} — ${pass.bs_genutzt}→${expectedGA}`);
         } else {
-          results.errors.push(`GA-Mismatch: ${name} Pass ${pass.rechnung || pass.id} — DB sagt ${pass.bs_genutzt}, Log sagt ${gaFromLog}`);
+          results.errors.push(`GA zu niedrig: ${name} Pass ${pass.rechnung || pass.id} — DB sagt ${pass.bs_genutzt}, erwartet ${expectedGA}`);
+        }
+      }
+
+      // Warnung wenn Zähler HÖHER als erwartet (manuell eingetragen, aber nicht verringern)
+      if ((pass.he_genutzt || 0) > expectedHE && expectedHE >= 0) {
+        const pat = patMap.get(pass.pat_id);
+        const name = pat ? `${pat.vorname || ""} ${pat.nachname || ""}`.trim() : pass.pat_id;
+        if ((pass.he_genutzt || 0) - expectedHE > 0) {
+          results.warnings.push(`HE-Zähler höher als Logs: ${name} Pass ${pass.rechnung || pass.id} — Zähler: ${pass.he_genutzt}, Logs: ${expectedHE} (manuell eingetragen?)`);
         }
       }
     }
