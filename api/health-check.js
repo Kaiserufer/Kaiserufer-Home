@@ -42,11 +42,12 @@ export default async function handler(req, res) {
 
   try {
     // Load all data
-    const [patRes, passRes, logRes, einzelRes] = await Promise.all([
+    const [patRes, passRes, logRes, einzelRes, auditRes] = await Promise.all([
       sb.from("patienten").select("*"),
       sb.from("paesse").select("*"),
       sb.from("log").select("*"),
       sb.from("einzel").select("*"),
+      sb.from("einstellungen").select("value").eq("key", "audit_log").single(),
     ]);
 
     const patienten = patRes.data || [];
@@ -54,6 +55,36 @@ export default async function handler(req, res) {
     const logs = logRes.data || [];
     const einzel = einzelRes.data || [];
     const todayStr = berlinToday();
+
+    // ── MANUELL-SCHUTZ: Alle Pässe/Patienten mit manuellen Änderungen identifizieren ──
+    // Alles was manuell eingegeben oder korrigiert wurde, wird NIEMALS vom System verändert.
+    let auditEntries = [];
+    try {
+      // Versuche audit_log Tabelle
+      const { data: auditData, error: auditErr } = await sb.from("audit_log").select("*");
+      if (!auditErr && auditData) {
+        auditEntries = auditData;
+      } else if (auditRes.data?.value) {
+        auditEntries = JSON.parse(auditRes.data.value);
+      }
+    } catch (e) { /* Audit nicht verfügbar — trotzdem weitermachen */ }
+
+    // Set von Pass-IDs die manuell bearbeitet wurden (MANUELL/INTERN Quelle)
+    const manuallyEditedPasses = new Set();
+    const manuallyEditedPatients = new Set();
+    for (const entry of auditEntries) {
+      if (entry.quelle === "MANUELL" || entry.quelle === "INTERN") {
+        if (entry.pass_id) manuallyEditedPasses.add(entry.pass_id);
+        if (entry.pat_id) manuallyEditedPatients.add(entry.pat_id);
+      }
+    }
+    // Auch Log-Einträge mit quelle=MANUELL als Schutz
+    for (const l of logs) {
+      if (l.quelle === "MANUELL") {
+        if (l.pass_id) manuallyEditedPasses.add(l.pass_id);
+        if (l.pat_id) manuallyEditedPatients.add(l.pat_id);
+      }
+    }
 
     const patMap = new Map(patienten.map(p => [p.id, p]));
     const passMap = new Map(paesse.map(p => [p.id, p]));
@@ -80,11 +111,16 @@ export default async function handler(req, res) {
       const expectedGA = Math.max(0, gaFromLog - gaKorr);
 
       // Nur aufwärts korrigieren: wenn Log mehr Einheiten zeigt als der Zähler
+      // ★ MANUELL-SCHUTZ: Bei manuell bearbeiteten Pässen NUR warnen, nie auto-fixen
+      const isManual = manuallyEditedPasses.has(pass.id);
+
       if (expectedHE > (pass.he_genutzt || 0)) {
         const pat = patMap.get(pass.pat_id);
         const name = pat ? `${pat.vorname || ""} ${pat.nachname || ""}`.trim() : pass.pat_id;
 
-        if (autofix) {
+        if (isManual) {
+          results.warnings.push(`HE-Differenz (manuell geschützt): ${name} Pass ${pass.rechnung || pass.id} — Zähler: ${pass.he_genutzt}, Logs: ${expectedHE}. Manuell gesetzt → nicht verändert.`);
+        } else if (autofix) {
           await sb.from("paesse").update({ he_genutzt: expectedHE }).eq("id", pass.id);
           results.fixes.push(`HE-Zähler erhöht: ${name} Pass ${pass.rechnung || pass.id} — ${pass.he_genutzt}→${expectedHE} (${heFromLog} Logs, ${heKorr} Korrekturen)`);
         } else {
@@ -96,7 +132,9 @@ export default async function handler(req, res) {
         const pat = patMap.get(pass.pat_id);
         const name = pat ? `${pat.vorname || ""} ${pat.nachname || ""}`.trim() : pass.pat_id;
 
-        if (autofix) {
+        if (isManual) {
+          results.warnings.push(`GA-Differenz (manuell geschützt): ${name} Pass ${pass.rechnung || pass.id} — Zähler: ${pass.bs_genutzt}, Logs: ${expectedGA}. Manuell gesetzt → nicht verändert.`);
+        } else if (autofix) {
           await sb.from("paesse").update({ bs_genutzt: expectedGA }).eq("id", pass.id);
           results.fixes.push(`GA-Zähler erhöht: ${name} Pass ${pass.rechnung || pass.id} — ${pass.bs_genutzt}→${expectedGA}`);
         } else {
@@ -122,6 +160,9 @@ export default async function handler(req, res) {
     for (const pass of paesse) {
       const preis = pass.preis || 0;
       if (preis === 0) continue;
+
+      // ★ MANUELL-SCHUTZ: Manuell gesetzte Preise NIEMALS ändern
+      if (manuallyEditedPasses.has(pass.id)) continue;
 
       // Check if price matches a known netto value
       const rounded4 = Math.round(preis * 10000) / 10000;
@@ -386,7 +427,8 @@ export default async function handler(req, res) {
     // ══════════════════════════════════════════
     results.checks.push("Patienten-Kategorisierung");
 
-    const uncategorized = patienten.filter(p => !p.mitarbeiter && !p.therapie && !p.ergotherapie && !p.sonstige);
+    // ★ MANUELL-SCHUTZ: Manuell bearbeitete Patienten nicht auto-kategorisieren
+    const uncategorized = patienten.filter(p => !p.mitarbeiter && !p.therapie && !p.ergotherapie && !p.sonstige && !manuallyEditedPatients.has(p.id));
     if (uncategorized.length > 0) {
       if (autofix) {
         for (const p of uncategorized) {
@@ -414,6 +456,50 @@ export default async function handler(req, res) {
         const pat = patMap.get(pass.pat_id);
         const name = pat ? `${pat.vorname || ""} ${pat.nachname || ""}`.trim() : pass.pat_id;
         results.warnings.push(`Unrealistisches Datum: ${name} Pass ${pass.rechnung || pass.id} — ${pass.datum}`);
+      }
+    }
+
+    // ══════════════════════════════════════════
+    // 16. PDF-RECHNUNGS-VALIDIERUNG
+    // Vergleicht hinterlegte PDF-Dateinamen mit Pass-Daten
+    // Format: Kaiserufer-{RechnungsNr}-{YYYYMMDD}.pdf oder Kaiserufer-{RechnungsNr}.pdf
+    // NUR Warnungen — ändert NICHTS automatisch
+    // ══════════════════════════════════════════
+    results.checks.push("PDF-Rechnungs-Validierung");
+
+    for (const pass of paesse) {
+      if (!pass.rechnung_pdf) continue;
+      const pdfUrl = pass.rechnung_pdf;
+      // Dateiname aus URL extrahieren
+      const filename = pdfUrl.split("/").pop() || "";
+      if (!filename.toLowerCase().endsWith(".pdf")) continue;
+
+      const pat = patMap.get(pass.pat_id);
+      const name = pat ? `${pat.vorname || ""} ${pat.nachname || ""}`.trim() : pass.pat_id;
+
+      // Muster: Kaiserufer-459.pdf oder Kaiserufer-459-20260310.pdf
+      const match = filename.match(/Kaiserufer[_-](\d+)(?:[_-](\d{8}))?/i);
+      if (!match) {
+        results.warnings.push(`PDF-Dateiname unbekanntes Format: ${name} — "${filename}" (Pass ${pass.rechnung || pass.id})`);
+        continue;
+      }
+
+      const pdfRechnung = match[1]; // z.B. "459"
+      const pdfDateStr = match[2]; // z.B. "20260310" oder undefined
+
+      // Rechnungsnummer prüfen
+      const passRechnung = (pass.rechnung || "").replace(/[^0-9]/g, ""); // Nur Ziffern
+      if (pdfRechnung && passRechnung && pdfRechnung !== passRechnung) {
+        results.warnings.push(`PDF-Rechnung stimmt nicht: ${name} — PDF sagt RN ${pdfRechnung}, Pass sagt "${pass.rechnung}". Bitte prüfen.`);
+      }
+
+      // Datum prüfen (wenn im Dateinamen vorhanden)
+      if (pdfDateStr && pass.datum) {
+        const pdfDate = `${pdfDateStr.substring(0, 4)}-${pdfDateStr.substring(4, 6)}-${pdfDateStr.substring(6, 8)}`;
+        const passDate = (pass.datum || "").substring(0, 10);
+        if (pdfDate !== passDate) {
+          results.warnings.push(`PDF-Datum stimmt nicht: ${name} — PDF sagt ${pdfDate}, Pass sagt ${passDate}. Bitte prüfen.`);
+        }
       }
     }
 
