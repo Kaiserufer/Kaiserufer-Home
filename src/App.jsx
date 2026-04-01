@@ -926,20 +926,20 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     const ds = custom?.datum || (pp.date || "").split("T")[0] || todayISO();
     const typKey = pp.isFlossenpass !== false && pp.passType && PASS_TYPES[pp.passType] ? pp.passType : "INDIVIDUELL";
 
-    // Pass-Merge: ALLE alten Pässe komplett auflösen, Reste auf neuen addieren
-    const { bonusHE, bonusBS } = await mergeOldPass(pat.id);
+    // Alte Pässe auf 0 setzen (nur neuer Pass zählt)
+    await closeOldPasses(pat.id);
 
     const np = {
       id: genId(), pat_id: pat.id, typ: typKey,
       custom_name: typKey === "INDIVIDUELL" ? (custom?.name || pp.productName || "Flossenpass") : null,
-      he_total: he + bonusHE, he_genutzt: 0, bs_total: bs + bonusBS, bs_genutzt: 0,
+      he_total: he, he_genutzt: 0, bs_total: bs, bs_genutzt: 0,
       preis, rechnung: rs, bezahlt: false, datum: ds, aktiv: true, rechnung_pdf: pp.receiptPdf || null,
     };
     await supabase.from("paesse").insert(np);
     await fetch("/api/pass-check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderIds: [pp.orderId] }) });
     setPendingPasses(prev => prev.filter(p => p.orderId !== pp.orderId));
     setEditPass(null);
-    audit("PASS_ANGELEGT", "PASS", `${pat.vorname} ${pat.nachname}: ${getPassLabel(np)} ${he}+${bonusHE} HE, ${bs}+${bonusBS} GA, ${preis}€`, pat.id, np.id);
+    audit("PASS_ANGELEGT", "PASS", `${pat.vorname} ${pat.nachname}: ${getPassLabel(np)} ${he} HE, ${bs} GA, ${preis}€`, pat.id, np.id);
     // SOFORT alles neu laden
     await reloadFromDB();
   };
@@ -1012,23 +1012,18 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     if (e.data) setEinzel(e.data);
   };
 
-  /* ─── Pass-Merge: Alten Pass komplett auf 0 setzen ─── */
-  const mergeOldPass = async (patId) => {
-    // Alle aktiven Pässe dieses Kunden finden
+  /* ─── Alte Pässe komplett auf 0 setzen (keine Übertragung) ─── */
+  const closeOldPasses = async (patId) => {
     const oldPasses = paesse.filter(pk => pk.pat_id === patId && !isPassAlt(pk));
-    let bonusHE = 0, bonusBS = 0;
     for (const oldPass of oldPasses) {
       const restHE = Math.max(0, (oldPass.he_total || 0) - (oldPass.he_genutzt || 0));
       const restBS = Math.max(0, (oldPass.bs_total || 0) - (oldPass.bs_genutzt || 0));
-      bonusHE += restHE;
-      bonusBS += restBS;
-      // Alten Pass komplett auf 0 setzen (genutzt = total → aufgebraucht)
+      // Alten Pass komplett auf 0 setzen (genutzt = total → aufgebraucht/Historie)
       await supabase.from("paesse").update({ he_genutzt: oldPass.he_total, bs_genutzt: oldPass.bs_total }).eq("id", oldPass.id);
       if (restHE > 0 || restBS > 0) {
-        await supabase.from("log").insert({ id: genId(), pat_id: patId, pass_id: oldPass.id, typ: "NOTIZ", quelle: "INTERN", datum: new Date().toISOString(), notiz: `Pass aufgelöst → ${restHE} HE + ${restBS} GA auf neuen Pass übertragen` });
+        await supabase.from("log").insert({ id: genId(), pat_id: patId, pass_id: oldPass.id, typ: "NOTIZ", quelle: "INTERN", datum: new Date().toISOString(), notiz: `Pass aufgelöst (${restHE} HE + ${restBS} GA verfallen)` });
       }
     }
-    return { bonusHE, bonusBS };
   };
 
   const handleKaufFuerPat = async (pat, typ, info, preis, eigeneRechnung, datum) => {
@@ -1039,22 +1034,22 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
 
     if (typ === "individuell") {
       const rs = info.rechnung || genRechnung(await getRechnungsNr());
-      // Pass-Merge: ALLE alten Pässe komplett auflösen
-      const { bonusHE, bonusBS } = await mergeOldPass(pat.id);
-      const np = { id: genId(), pat_id: pat.id, typ: "INDIVIDUELL", he_total: (info.he || 0) + bonusHE, he_genutzt: 0, bs_total: (info.bs || 0) + bonusBS, bs_genutzt: 0, preis: preis || 0, rechnung: rs, bezahlt: false, datum: info.datum || ds, aktiv: true, custom_name: info.name || "Flossenpass" };
+      // Alte Pässe auf 0 setzen (nur neuer Pass zählt)
+      await closeOldPasses(pat.id);
+      const np = { id: genId(), pat_id: pat.id, typ: "INDIVIDUELL", he_total: info.he || 0, he_genutzt: 0, bs_total: info.bs || 0, bs_genutzt: 0, preis: preis || 0, rechnung: rs, bezahlt: false, datum: info.datum || ds, aktiv: true, custom_name: info.name || "Flossenpass" };
       await supabase.from("paesse").insert(np);
-      audit("PASS_ANGELEGT", "PASS", `${pat.vorname} ${pat.nachname}: ${info.name || "Individuell"} ${np.he_total} HE, ${np.bs_total} GA, ${preis}€ (Bonus: +${bonusHE} HE +${bonusBS} GA)`, pat.id, np.id);
+      audit("PASS_ANGELEGT", "PASS", `${pat.vorname} ${pat.nachname}: ${info.name || "Individuell"} ${np.he_total} HE, ${np.bs_total} GA, ${preis}€`, pat.id, np.id);
     } else if (typ === "pass") {
       const rs = eigeneRechnung || genRechnung(await getRechnungsNr());
       const typKey = typeof info === "string" ? info : info.typ;
       const pt = PASS_TYPES[typKey];
       const customHE = typeof info === "object" && info.he != null ? info.he : pt.he;
       const customBS = typeof info === "object" && info.bs != null ? info.bs : pt.bs;
-      // Pass-Merge: ALLE alten Pässe komplett auflösen
-      const { bonusHE, bonusBS } = await mergeOldPass(pat.id);
-      const np = { id: genId(), pat_id: pat.id, typ: typKey, he_total: customHE + bonusHE, he_genutzt: 0, bs_total: customBS + bonusBS, bs_genutzt: 0, preis: preis || 0, rechnung: rs, bezahlt: false, datum: ds, aktiv: true };
+      // Alte Pässe auf 0 setzen (nur neuer Pass zählt)
+      await closeOldPasses(pat.id);
+      const np = { id: genId(), pat_id: pat.id, typ: typKey, he_total: customHE, he_genutzt: 0, bs_total: customBS, bs_genutzt: 0, preis: preis || 0, rechnung: rs, bezahlt: false, datum: ds, aktiv: true };
       await supabase.from("paesse").insert(np);
-      audit("PASS_ANGELEGT", "PASS", `${pat.vorname} ${pat.nachname}: ${getPassName(typKey)} ${np.he_total} HE, ${np.bs_total} GA, ${preis}€ (Bonus: +${bonusHE} HE +${bonusBS} GA)`, pat.id, np.id);
+      audit("PASS_ANGELEGT", "PASS", `${pat.vorname} ${pat.nachname}: ${getPassName(typKey)} ${np.he_total} HE, ${np.bs_total} GA, ${preis}€`, pat.id, np.id);
     } else {
       // Einzelangebot
       const rs = eigeneRechnung || genRechnung(await getRechnungsNr());
