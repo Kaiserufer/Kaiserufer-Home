@@ -1094,23 +1094,39 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     URL.revokeObjectURL(url);
   };
 
+  /* ─── Sichere DB-Schreibfunktionen mit Fehlerprüfung ─── */
+  const dbUpdate = async (table, data, id) => {
+    const { error } = await supabase.from(table).update(data).eq("id", id);
+    if (error) { console.error(`DB Update fehlgeschlagen (${table}):`, error); alert("Speichern fehlgeschlagen! Bitte erneut versuchen."); return false; }
+    return true;
+  };
+  const dbInsert = async (table, data) => {
+    const { error } = await supabase.from(table).insert(data);
+    if (error) { console.error(`DB Insert fehlgeschlagen (${table}):`, error); alert("Speichern fehlgeschlagen! Bitte erneut versuchen."); return false; }
+    return true;
+  };
+  const dbDelete = async (table, id) => {
+    const { error } = await supabase.from(table).delete().eq("id", id);
+    if (error) { console.error(`DB Delete fehlgeschlagen (${table}):`, error); return false; }
+    return true;
+  };
+
   const heAbziehen = async (pass) => {
     if (!pass || pass.he_genutzt >= pass.he_total) return;
     const prev = { he_genutzt: pass.he_genutzt };
     const u = { ...pass, he_genutzt: pass.he_genutzt + 1 };
     const nl = { id: genId(), pat_id: selPat.id, pass_id: pass.id, typ: "HAUPTEINHEIT", quelle: "MANUELL", datum: new Date().toISOString(), notiz: "Haupteinheit" };
-    await supabase.from("paesse").update({ he_genutzt: u.he_genutzt }).eq("id", pass.id);
-    await supabase.from("log").insert(nl);
-    setPaesse(p => p.map(x => x.id === pass.id ? u : x));
-    setLog(p => [...p, nl]);
+    if (!await dbUpdate("paesse", { he_genutzt: u.he_genutzt }, pass.id)) return;
+    if (!await dbInsert("log", nl)) return;
+    // Sofort von DB neu laden
+    await reloadFromDB();
     audit("HE_ABZUG", "PASS", `${selPat.vorname} ${selPat.nachname}: HE ${prev.he_genutzt}→${u.he_genutzt} (Pass ${pass.rechnung || pass.id})`, selPat.id, pass.id);
     setUndoAction({
       msg: "Haupteinheit −1 bei " + selPat.vorname,
       undo: async () => {
-        await supabase.from("paesse").update(prev).eq("id", pass.id);
-        await supabase.from("log").delete().eq("id", nl.id);
-        setPaesse(p => p.map(x => x.id === pass.id ? { ...x, ...prev } : x));
-        setLog(p => p.filter(l => l.id !== nl.id));
+        await dbUpdate("paesse", prev, pass.id);
+        await dbDelete("log", nl.id);
+        await reloadFromDB();
         audit("HE_UNDO", "PASS", `${selPat.vorname} ${selPat.nachname}: HE Rückgängig`, selPat.id, pass.id);
       }
     });
@@ -1121,19 +1137,17 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     const prev = { bs_genutzt: pass.bs_genutzt };
     const u = { ...pass, bs_genutzt: pass.bs_genutzt + 1 };
     const nl = { id: genId(), pat_id: selPat.id, pass_id: pass.id, typ: "BS", quelle: "MANUELL", datum: new Date().toISOString(), notiz: bsNotiz.trim() };
-    await supabase.from("paesse").update({ bs_genutzt: u.bs_genutzt }).eq("id", pass.id);
-    await supabase.from("log").insert(nl);
-    setPaesse(p => p.map(x => x.id === pass.id ? u : x));
-    setLog(p => [...p, nl]);
+    if (!await dbUpdate("paesse", { bs_genutzt: u.bs_genutzt }, pass.id)) return;
+    if (!await dbInsert("log", nl)) return;
     setBsNotiz(""); setBsModal(null);
+    await reloadFromDB();
     audit("GA_ABZUG", "PASS", `${selPat.vorname} ${selPat.nachname}: GA ${prev.bs_genutzt}→${u.bs_genutzt} (${bsNotiz.trim()})`, selPat.id, pass.id);
     setUndoAction({
       msg: "Gruppenangebot −1 bei " + selPat.vorname,
       undo: async () => {
-        await supabase.from("paesse").update(prev).eq("id", pass.id);
-        await supabase.from("log").delete().eq("id", nl.id);
-        setPaesse(p => p.map(x => x.id === pass.id ? { ...x, ...prev } : x));
-        setLog(p => p.filter(l => l.id !== nl.id));
+        await dbUpdate("paesse", prev, pass.id);
+        await dbDelete("log", nl.id);
+        await reloadFromDB();
         audit("GA_UNDO", "PASS", `${selPat.vorname} ${selPat.nachname}: GA Rückgängig`, selPat.id, pass.id);
       }
     });
@@ -1145,10 +1159,9 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     const pass = korrekturModal;
     const upd = korrekturTyp === "HE" ? { he_genutzt: Math.max(0, (pass.he_genutzt || 0) - n) } : { bs_genutzt: Math.max(0, (pass.bs_genutzt || 0) - n) };
     const nl = { id: genId(), pat_id: selPat.id, pass_id: pass.id, typ: "KORREKTUR", quelle: "MANUELL", datum: new Date().toISOString(), notiz: `${korrekturTyp} +${n} zurück${korrekturGrund ? ` – ${korrekturGrund}` : ""}` };
-    await supabase.from("paesse").update(upd).eq("id", pass.id);
-    await supabase.from("log").insert(nl);
-    setPaesse(p => p.map(x => x.id === pass.id ? { ...x, ...upd } : x));
-    setLog(p => [...p, nl]);
+    if (!await dbUpdate("paesse", upd, pass.id)) return;
+    if (!await dbInsert("log", nl)) return;
+    await reloadFromDB();
     audit("KORREKTUR", "PASS", `${selPat.vorname} ${selPat.nachname}: ${korrekturTyp} +${n} zurück`, selPat.id, pass.id, "MANUELL");
     setKorrekturModal(null); setKorrekturAnzahl(1); setKorrekturGrund("");
   };
@@ -1156,29 +1169,29 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
   const notizSpeichern = async () => {
     if (!notizText.trim()) return;
     const nl = { id: genId(), pat_id: selPat.id, pass_id: null, typ: "NOTIZ", quelle: "INTERN", datum: new Date().toISOString(), notiz: notizText.trim() };
-    await supabase.from("log").insert(nl);
-    setLog(p => [...p, nl]);
+    if (!await dbInsert("log", nl)) return;
+    await reloadFromDB();
     setNotizText("");
   };
 
   const toggleBezahlt = async (pid) => {
     const p = paesse.find(x => x.id === pid); if (!p) return;
-    await supabase.from("paesse").update({ bezahlt: !p.bezahlt }).eq("id", pid);
-    setPaesse(prev => prev.map(x => x.id === pid ? { ...x, bezahlt: !x.bezahlt } : x));
+    if (!await dbUpdate("paesse", { bezahlt: !p.bezahlt }, pid)) return;
+    await reloadFromDB();
     const pat = patienten.find(x => x.id === p.pat_id);
     audit("BEZAHLT_TOGGLE", "PASS", `${pat?.vorname || ""} ${pat?.nachname || ""}: ${!p.bezahlt ? "BEZAHLT" : "OFFEN"} (Pass ${p.rechnung || pid}, ${p.preis || 0}€)`, p.pat_id, pid);
   };
 
   const toggleEinzelBez = async (eid) => {
     const e = einzel.find(x => x.id === eid); if (!e) return;
-    await supabase.from("einzel").update({ bezahlt: !e.bezahlt }).eq("id", eid);
-    setEinzel(prev => prev.map(x => x.id === eid ? { ...x, bezahlt: !x.bezahlt } : x));
+    if (!await dbUpdate("einzel", { bezahlt: !e.bezahlt }, eid)) return;
+    await reloadFromDB();
   };
 
   const updatePassField = async (pid, field, val) => {
     const pass = paesse.find(p => p.id === pid);
     const old = pass ? pass[field] : undefined;
-    await supabase.from("paesse").update({ [field]: val }).eq("id", pid);
+    if (!await dbUpdate("paesse", { [field]: val }, pid)) return;
     setPaesse(prev => prev.map(p => p.id === pid ? { ...p, [field]: val } : p));
     if (pass) { const pat = patienten.find(p => p.id === pass.pat_id); audit("FELD_GEAENDERT", "PASS", `${pat?.vorname || ""} ${pat?.nachname || ""}: ${field} "${old}"→"${val}"`, pass.pat_id, pid, "MANUELL"); }
   };
@@ -1188,30 +1201,29 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     const pass = paesse.find(p => p.id === pid); if (!pass) return;
     const old = pass[field] || 0;
     if (n === old) return;
-    await supabase.from("paesse").update({ [field]: n }).eq("id", pid);
+    if (!await dbUpdate("paesse", { [field]: n }, pid)) return;
     const diff = n - old;
     if (field === "he_genutzt" || field === "bs_genutzt") {
       const typ = field === "he_genutzt" ? "HAUPTEINHEIT" : "BS";
       if (diff > 0) {
         for (let i = 0; i < diff; i++) {
           const nl = { id: genId(), pat_id: pass.pat_id, pass_id: pid, typ, quelle: "MANUELL", datum: new Date().toISOString(), notiz: "Manuell eingetragen" };
-          await supabase.from("log").insert(nl); setLog(p => [...p, nl]);
+          await dbInsert("log", nl);
         }
       } else if (diff < 0) {
         const passLogs = log.filter(l => l.pass_id === pid && l.typ === typ).sort((a, b) => (b.datum || "").localeCompare(a.datum || ""));
         for (let i = 0; i < Math.abs(diff) && i < passLogs.length; i++) {
-          await supabase.from("log").delete().eq("id", passLogs[i].id);
-          setLog(p => p.filter(l => l.id !== passLogs[i].id));
+          await dbDelete("log", passLogs[i].id);
         }
       }
     }
-    setPaesse(prev => prev.map(p => p.id === pid ? { ...p, [field]: n } : p));
+    await reloadFromDB();
     const pat = patienten.find(p => p.id === pass.pat_id);
     audit("EINHEITEN_GEAENDERT", "PASS", `${pat?.vorname || ""} ${pat?.nachname || ""}: ${field} ${old}→${n}`, pass.pat_id, pid, "MANUELL");
   };
 
   const updatePatient = async (id, fields) => {
-    await supabase.from("patienten").update(fields).eq("id", id);
+    if (!await dbUpdate("patienten", fields, id)) return;
     setPatienten(prev => prev.map(p => p.id === id ? { ...p, ...fields } : p));
     if (selPat?.id === id) setSelPat(prev => ({ ...prev, ...fields }));
   };
