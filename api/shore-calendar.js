@@ -99,6 +99,10 @@ export default async function handler(req, res) {
     // Load existing patients for matching
     const { data: patienten } = await sb.from("patienten").select("*");
 
+    // Load today's actual HE log entries to verify deductions really happened
+    const { data: todayLogs } = await sb.from("log").select("pat_id").eq("typ", "HAUPTEINHEIT").gte("datum", dateParam + "T00:00:00").lte("datum", dateParam + "T23:59:59");
+    const actuallyDeductedPatIds = new Set((todayLogs || []).map(l => l.pat_id));
+
     // Parse VEVENT blocks
     const appointments = [];
     const calDataRegex = /<(?:cal|C):calendar-data[^>]*>([\s\S]*?)<\/(?:cal|C):calendar-data>/gi;
@@ -149,6 +153,20 @@ export default async function handler(req, res) {
         const svcLower = (service || "").toLowerCase();
         const isErgo = /ergo|tdcs|neurofeedback/.test(svcLower);
 
+        // deducted = nur wenn UID processed UND es tatsächlich einen Log-Eintrag gibt
+        let wasDeducted = false;
+        if (!isErgo && uid && processedSet.has(uid) && patienten) {
+          const custName = customer || summary;
+          const parts = (custName || "").toLowerCase().trim().split(/\s+/).filter(p => p.length > 0);
+          const matchedPat = patienten.find(p => {
+            const full = `${p.vorname || ""} ${p.nachname || ""}`.toLowerCase();
+            return parts.length > 0 && parts.every(part => full.includes(part));
+          });
+          if (matchedPat && actuallyDeductedPatIds.has(matchedPat.id)) {
+            wasDeducted = true;
+          }
+        }
+
         appointments.push({
           customer: customer || summary,
           customerEmail,
@@ -157,7 +175,7 @@ export default async function handler(req, res) {
           start: fmtTime(dtstart),
           end: fmtTime(dtend),
           startRaw: dtstart,
-          deducted: isErgo ? false : (uid ? processedSet.has(uid) : false),
+          deducted: wasDeducted,
           cancelled: isCancelled,
         });
       }

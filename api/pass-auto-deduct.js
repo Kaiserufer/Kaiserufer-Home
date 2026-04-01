@@ -178,15 +178,28 @@ export default async function handler(req, res) {
     const todayStr = berlinToday();
     const { data: todayLogs } = await sb.from("log").select("*").eq("typ", "HAUPTEINHEIT").gte("datum", todayStr + "T00:00:00").lte("datum", todayStr + "T23:59:59");
     if (!patienten || !paesse) throw new Error("Datenbank-Abfrage fehlgeschlagen");
-    // Set of pat_ids that already had HE deducted today (manual or Pingu)
-    const alreadyDeductedToday = new Set((todayLogs || []).map(l => l.pat_id));
+    // Set of pat_ids that already had HE deducted today (by SHORE auto-deduct specifically)
+    const alreadyDeductedToday = new Set((todayLogs || []).filter(l => l.quelle === "SHORE").map(l => l.pat_id));
 
     const now = new Date();
     const deducted = [];
 
     for (const ev of events) {
-      // Skip: no UID, already processed, cancelled, no customer
-      if (!ev.uid || processedSet.has(ev.uid)) continue;
+      // Skip: no UID, cancelled, no customer
+      if (!ev.uid) continue;
+      // Only skip if already processed AND there's a real log entry for this patient today
+      if (processedSet.has(ev.uid)) {
+        // Verify the deduction actually happened by checking logs
+        const custName = ev.customer || ev.summary;
+        if (custName) {
+          const pat = matchPatient(custName, patienten);
+          if (pat && alreadyDeductedToday.has(pat.id)) continue; // Really was deducted, skip
+          // UID was marked processed but no log entry → remove from processed (retry)
+          processedSet.delete(ev.uid);
+        } else {
+          continue;
+        }
+      }
       if (ev.isCancelled) continue;
       if (!ev.customer && !ev.summary) continue;
 
@@ -209,9 +222,9 @@ export default async function handler(req, res) {
       const pat = matchPatient(customerName, patienten);
       if (!pat) continue;
 
-      // Skip if this patient already had HE deducted today (manual/Pingu) to prevent doubles
+      // Skip if this patient already had HE deducted today — but DON'T mark as processed
+      // so the calendar won't show "HE abgezogen" when nothing was actually deducted
       if (alreadyDeductedToday.has(pat.id)) {
-        processedSet.add(ev.uid);
         continue;
       }
 
