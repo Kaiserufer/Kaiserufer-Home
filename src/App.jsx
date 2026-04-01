@@ -479,6 +479,7 @@ const KaufModal = ({ selPat, onKauf, onClose }) => {
   };
 
   const sP = () => {
+    if (passHE === 0 && passBS === 0) { alert("Bitte mindestens HE oder GA eintragen."); return; }
     if (passTyp === "INDIVIDUELL") {
       onKauf("individuell", { name: passName || "Individuell", he: passHE, bs: passBS, datum: passDatum, rechnung: passRechnung.trim() }, passPreis, "");
     } else {
@@ -800,6 +801,13 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
   const [urlaubVon, setUrlaubVon] = useState("");
   const [urlaubBis, setUrlaubBis] = useState("");
   const [urlaubNotiz, setUrlaubNotiz] = useState("");
+  const [saveMsg, setSaveMsg] = useState("");
+  const saveMsgRef = useRef(null);
+  const showSaved = (msg) => {
+    if (saveMsgRef.current) clearTimeout(saveMsgRef.current);
+    setSaveMsg(msg || "Gespeichert");
+    saveMsgRef.current = setTimeout(() => setSaveMsg(""), 2500);
+  };
 
   /* ─── Shore Sync ─── */
   const doShoreSync = async (silent) => {
@@ -996,6 +1004,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     await handleKaufFuerPat(selPat, typ, info, preis, eigeneRechnung, datum);
     setSaving(false);
     setKaufModal(false);
+    showSaved("Flossenpass angelegt");
   };
 
   /* ─── Sofort alle Daten von DB neu laden ─── */
@@ -1118,8 +1127,8 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     const nl = { id: genId(), pat_id: selPat.id, pass_id: pass.id, typ: "HAUPTEINHEIT", quelle: "MANUELL", datum: new Date().toISOString(), notiz: "Haupteinheit" };
     if (!await dbUpdate("paesse", { he_genutzt: u.he_genutzt }, pass.id)) return;
     if (!await dbInsert("log", nl)) return;
-    // Sofort von DB neu laden
     await reloadFromDB();
+    showSaved("Haupteinheit abgezogen");
     audit("HE_ABZUG", "PASS", `${selPat.vorname} ${selPat.nachname}: HE ${prev.he_genutzt}→${u.he_genutzt} (Pass ${pass.rechnung || pass.id})`, selPat.id, pass.id);
     setUndoAction({
       msg: "Haupteinheit −1 bei " + selPat.vorname,
@@ -1127,6 +1136,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
         await dbUpdate("paesse", prev, pass.id);
         await dbDelete("log", nl.id);
         await reloadFromDB();
+        showSaved("Rückgängig gemacht");
         audit("HE_UNDO", "PASS", `${selPat.vorname} ${selPat.nachname}: HE Rückgängig`, selPat.id, pass.id);
       }
     });
@@ -1141,6 +1151,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     if (!await dbInsert("log", nl)) return;
     setBsNotiz(""); setBsModal(null);
     await reloadFromDB();
+    showSaved("Gruppenangebot abgezogen");
     audit("GA_ABZUG", "PASS", `${selPat.vorname} ${selPat.nachname}: GA ${prev.bs_genutzt}→${u.bs_genutzt} (${bsNotiz.trim()})`, selPat.id, pass.id);
     setUndoAction({
       msg: "Gruppenangebot −1 bei " + selPat.vorname,
@@ -1148,6 +1159,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
         await dbUpdate("paesse", prev, pass.id);
         await dbDelete("log", nl.id);
         await reloadFromDB();
+        showSaved("Rückgängig gemacht");
         audit("GA_UNDO", "PASS", `${selPat.vorname} ${selPat.nachname}: GA Rückgängig`, selPat.id, pass.id);
       }
     });
@@ -1162,6 +1174,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     if (!await dbUpdate("paesse", upd, pass.id)) return;
     if (!await dbInsert("log", nl)) return;
     await reloadFromDB();
+    showSaved("Korrektur gespeichert");
     audit("KORREKTUR", "PASS", `${selPat.vorname} ${selPat.nachname}: ${korrekturTyp} +${n} zurück`, selPat.id, pass.id, "MANUELL");
     setKorrekturModal(null); setKorrekturAnzahl(1); setKorrekturGrund("");
   };
@@ -1171,6 +1184,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     const nl = { id: genId(), pat_id: selPat.id, pass_id: null, typ: "NOTIZ", quelle: "INTERN", datum: new Date().toISOString(), notiz: notizText.trim() };
     if (!await dbInsert("log", nl)) return;
     await reloadFromDB();
+    showSaved("Notiz gespeichert");
     setNotizText("");
   };
 
@@ -1178,6 +1192,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     const p = paesse.find(x => x.id === pid); if (!p) return;
     if (!await dbUpdate("paesse", { bezahlt: !p.bezahlt }, pid)) return;
     await reloadFromDB();
+    showSaved(!p.bezahlt ? "Als bezahlt markiert" : "Als offen markiert");
     const pat = patienten.find(x => x.id === p.pat_id);
     audit("BEZAHLT_TOGGLE", "PASS", `${pat?.vorname || ""} ${pat?.nachname || ""}: ${!p.bezahlt ? "BEZAHLT" : "OFFEN"} (Pass ${p.rechnung || pid}, ${p.preis || 0}€)`, p.pat_id, pid);
   };
@@ -1186,6 +1201,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     const e = einzel.find(x => x.id === eid); if (!e) return;
     if (!await dbUpdate("einzel", { bezahlt: !e.bezahlt }, eid)) return;
     await reloadFromDB();
+    showSaved(!e.bezahlt ? "Als bezahlt markiert" : "Als offen markiert");
   };
 
   const updatePassField = async (pid, field, val) => {
@@ -1193,6 +1209,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     const old = pass ? pass[field] : undefined;
     if (!await dbUpdate("paesse", { [field]: val }, pid)) return;
     setPaesse(prev => prev.map(p => p.id === pid ? { ...p, [field]: val } : p));
+    showSaved("Gespeichert");
     if (pass) { const pat = patienten.find(p => p.id === pass.pat_id); audit("FELD_GEAENDERT", "PASS", `${pat?.vorname || ""} ${pat?.nachname || ""}: ${field} "${old}"→"${val}"`, pass.pat_id, pid, "MANUELL"); }
   };
 
@@ -1218,6 +1235,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
       }
     }
     await reloadFromDB();
+    showSaved("Einheiten gespeichert");
     const pat = patienten.find(p => p.id === pass.pat_id);
     audit("EINHEITEN_GEAENDERT", "PASS", `${pat?.vorname || ""} ${pat?.nachname || ""}: ${field} ${old}→${n}`, pass.pat_id, pid, "MANUELL");
   };
@@ -1226,6 +1244,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     if (!await dbUpdate("patienten", fields, id)) return;
     setPatienten(prev => prev.map(p => p.id === id ? { ...p, ...fields } : p));
     if (selPat?.id === id) setSelPat(prev => ({ ...prev, ...fields }));
+    showSaved("Gespeichert");
   };
 
   const getUnits = (patId) => {
@@ -1380,6 +1399,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
       {bsModal && <Modal onClose={() => { setBsModal(null); setBsNotiz(""); }}><Card className="modal-box" style={{ width: 400 }}><Heading style={{ fontSize: 20, marginBottom: 4 }}>Gruppenangebot abhaken</Heading><p style={{ color: T.textMid, fontSize: 15, marginBottom: 18 }}>Noch {(bsModal.bs_total || 0) - (bsModal.bs_genutzt || 0)} von {bsModal.bs_total || 0}</p><div style={{ display: "flex", flexDirection: "column", gap: 12 }}><input value={bsNotiz} onChange={e => setBsNotiz(e.target.value)} placeholder="z.B. Yoga, Sound Bath..." style={inp} autoFocus /><div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}><Btn ghost onClick={() => { setBsModal(null); setBsNotiz(""); }}>Abbrechen</Btn><Btn gold disabled={!bsNotiz.trim()} onClick={() => bsAbziehen(bsModal)}>Abhaken</Btn></div></div></Card></Modal>}
       {korrekturModal && <Modal onClose={() => setKorrekturModal(null)}><Card className="modal-box" style={{ width: 400 }}><Heading style={{ fontSize: 20, marginBottom: 18 }}>Korrektur</Heading><div style={{ display: "flex", flexDirection: "column", gap: 14 }}><div><label style={{ fontSize: 14, fontWeight: 600, color: T.textMid, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6, display: "block" }}>Typ</label><select value={korrekturTyp} onChange={e => setKorrekturTyp(e.target.value)} style={inp}><option value="HE">Haupteinheit</option><option value="BS">Gruppenangebot</option></select></div><div><label style={{ fontSize: 14, fontWeight: 600, color: T.textMid, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6, display: "block" }}>Anzahl</label><input type="number" min={1} max={10} value={korrekturAnzahl} onChange={e => setKorrekturAnzahl(e.target.value)} style={inp} /></div><div><label style={{ fontSize: 14, fontWeight: 600, color: T.textMid, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6, display: "block" }}>Grund</label><input value={korrekturGrund} onChange={e => setKorrekturGrund(e.target.value)} placeholder="optional" style={inp} /></div><div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}><Btn ghost onClick={() => setKorrekturModal(null)}>Abbrechen</Btn><Btn danger onClick={korrekturSpeichern}>Speichern</Btn></div></div></Card></Modal>}
       {undoAction && <UndoToast message={undoAction.msg} onUndo={undoAction.undo} onDismiss={() => setUndoAction(null)} />}
+      {saveMsg && !undoAction && <div className="fade-in" style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 9999, background: T.green, color: "#fff", padding: "12px 28px", borderRadius: 14, fontWeight: 700, fontSize: 14, boxShadow: "0 8px 32px rgba(0,0,0,0.2)", letterSpacing: 0.5 }}>{saveMsg}</div>}
 
       {/* ─── Pending Shore Sales ─── */}
       {pendingPasses.length > 0 && <div className="fade-in" style={{ marginBottom: 22 }}>
