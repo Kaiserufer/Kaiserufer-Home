@@ -5,8 +5,8 @@ const sb = createClient(
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9xamNieG5ib2RvZGRxbGJkZWt0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MTg3NzAsImV4cCI6MjA4Njk5NDc3MH0.2Ig0I_Wd26LAX7FAVTUz9SdJFaLeAOh394pT3FT6i_w"
 );
 
-const STANDARD_PRICES = { BASIS: 299, PLUS: 399, DELUXE: 759 };
-const OLD_PRICES = [350, 499, 899]; // Alte Stammkunden-Preise
+const STANDARD_PRICES = { BASIS: 299, PLUS: 499, DELUXE: 899 };
+const OLD_PRICES = [350, 399, 759]; // Alte Stammkunden-Preise
 const ALL_VALID_PRICES = [0, 299, 350, 399, 499, 759, 899];
 
 // Bekannte Netto-Preise und ihr Brutto-Gegenstück (19% MwSt.)
