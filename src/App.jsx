@@ -825,7 +825,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     }
     setShoreSync(false);
   };
-  useEffect(() => { doShoreSync(true); const iv = setInterval(() => doShoreSync(true), 5 * 60 * 1000); return () => clearInterval(iv); }, []);
+  useEffect(() => { doShoreSync(true); const iv = setInterval(() => doShoreSync(true), 2 * 60 * 1000); return () => clearInterval(iv); }, []);
 
   /* ─── Shore Calendar ─── */
   const fetchShoreCalendar = async (date) => {
@@ -846,7 +846,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     } catch {}
   };
   useEffect(() => { fetchShoreCalendar(calDate); }, [calDate]);
-  useEffect(() => { const iv = setInterval(() => fetchShoreCalendar(), 5 * 60 * 1000); return () => clearInterval(iv); }, [calDate]);
+  useEffect(() => { const iv = setInterval(() => fetchShoreCalendar(), 2 * 60 * 1000); return () => clearInterval(iv); }, [calDate]);
 
   const calPrev = () => setCalDate(d => { const t = new Date(d + "T12:00:00"); t.setDate(t.getDate() - 1); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`; });
   const calNext = () => setCalDate(d => { const t = new Date(d + "T12:00:00"); t.setDate(t.getDate() + 1); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}`; });
@@ -863,7 +863,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
       return d;
     } catch { return null; }
   };
-  useEffect(() => { if (patienten.length > 0) checkPassSales(); const iv = setInterval(checkPassSales, 5 * 60 * 1000); return () => clearInterval(iv); }, [patienten.length]);
+  useEffect(() => { if (patienten.length > 0) checkPassSales(); const iv = setInterval(checkPassSales, 2 * 60 * 1000); return () => clearInterval(iv); }, [patienten.length]);
 
   /* ─── Auto-Deduct ─── */
   const checkAutoDeduct = async () => {
@@ -895,7 +895,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
       }
     } catch {}
   };
-  useEffect(() => { if (patienten.length > 0) checkAutoDeduct(); const iv = setInterval(checkAutoDeduct, 5 * 60 * 1000); return () => clearInterval(iv); }, [patienten.length]);
+  useEffect(() => { if (patienten.length > 0) checkAutoDeduct(); const iv = setInterval(checkAutoDeduct, 2 * 60 * 1000); return () => clearInterval(iv); }, [patienten.length]);
   useEffect(() => { const iv = setInterval(() => { const now = Date.now(); setAutoDeductRecent(prev => { const next = {}; for (const [k, v] of Object.entries(prev)) { if (now - v < 15 * 60 * 1000) next[k] = v; } return next; }); }, 60 * 1000); return () => clearInterval(iv); }, []);
 
   /* ─── Health-Check ─── */
@@ -909,7 +909,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
       }
     } catch (e) { setHealthStatus({ error: e.message }); }
   };
-  useEffect(() => { if (patienten.length > 0) { const t = setTimeout(() => runHealthCheck(), 10000); const iv = setInterval(runHealthCheck, 30 * 60 * 1000); return () => { clearTimeout(t); clearInterval(iv); }; } }, [patienten.length]);
+  useEffect(() => { if (patienten.length > 0) { const t = setTimeout(() => runHealthCheck(), 10000); const iv = setInterval(runHealthCheck, 15 * 60 * 1000); return () => { clearTimeout(t); clearInterval(iv); }; } }, [patienten.length]);
 
   /* ─── Confirm / Dismiss Shore Sales ─── */
   const confirmPassSale = async (pp, custom) => {
@@ -926,18 +926,8 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     const ds = custom?.datum || (pp.date || "").split("T")[0] || todayISO();
     const typKey = pp.isFlossenpass !== false && pp.passType && PASS_TYPES[pp.passType] ? pp.passType : "INDIVIDUELL";
 
-    // Pass-Merge: alten Pass auflösen, Reste auf neuen addieren
-    const oldPass = paesse.filter(pk => pk.pat_id === pat.id && !isPassAlt(pk)).sort((a, b) => (a.datum || "").localeCompare(b.datum || ""))[0];
-    let bonusHE = 0, bonusBS = 0;
-    if (oldPass) {
-      bonusHE = Math.max(0, (oldPass.he_total || 0) - (oldPass.he_genutzt || 0));
-      bonusBS = Math.max(0, (oldPass.bs_total || 0) - (oldPass.bs_genutzt || 0));
-      await supabase.from("paesse").update({ he_genutzt: oldPass.he_total, bs_genutzt: oldPass.bs_total }).eq("id", oldPass.id);
-      setPaesse(prev => prev.map(p => p.id === oldPass.id ? { ...p, he_genutzt: oldPass.he_total, bs_genutzt: oldPass.bs_total } : p));
-      if (bonusHE > 0 || bonusBS > 0) {
-        await supabase.from("log").insert({ id: genId(), pat_id: pat.id, pass_id: oldPass.id, typ: "NOTIZ", quelle: "INTERN", datum: new Date().toISOString(), notiz: `Pass aufgelöst → ${bonusHE} HE + ${bonusBS} GA auf neuen Pass übertragen` });
-      }
-    }
+    // Pass-Merge: ALLE alten Pässe komplett auflösen, Reste auf neuen addieren
+    const { bonusHE, bonusBS } = await mergeOldPass(pat.id);
 
     const np = {
       id: genId(), pat_id: pat.id, typ: typKey,
@@ -946,11 +936,12 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
       preis, rechnung: rs, bezahlt: false, datum: ds, aktiv: true, rechnung_pdf: pp.receiptPdf || null,
     };
     await supabase.from("paesse").insert(np);
-    setPaesse(prev => [...prev, np]);
     await fetch("/api/pass-check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ orderIds: [pp.orderId] }) });
     setPendingPasses(prev => prev.filter(p => p.orderId !== pp.orderId));
     setEditPass(null);
     audit("PASS_ANGELEGT", "PASS", `${pat.vorname} ${pat.nachname}: ${getPassLabel(np)} ${he}+${bonusHE} HE, ${bs}+${bonusBS} GA, ${preis}€`, pat.id, np.id);
+    // SOFORT alles neu laden
+    await reloadFromDB();
   };
 
   const dismissPassSale = async (pp) => {
@@ -1007,45 +998,63 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     setKaufModal(false);
   };
 
+  /* ─── Sofort alle Daten von DB neu laden ─── */
+  const reloadFromDB = async () => {
+    const [p, pk, l, e] = await Promise.all([
+      supabase.from("patienten").select("*"),
+      supabase.from("paesse").select("*"),
+      supabase.from("log").select("*"),
+      supabase.from("einzel").select("*"),
+    ]);
+    if (p.data) setPatienten(p.data);
+    if (pk.data) setPaesse(pk.data);
+    if (l.data) setLog(l.data);
+    if (e.data) setEinzel(e.data);
+  };
+
+  /* ─── Pass-Merge: Alten Pass komplett auf 0 setzen ─── */
+  const mergeOldPass = async (patId) => {
+    // Alle aktiven Pässe dieses Kunden finden
+    const oldPasses = paesse.filter(pk => pk.pat_id === patId && !isPassAlt(pk));
+    let bonusHE = 0, bonusBS = 0;
+    for (const oldPass of oldPasses) {
+      const restHE = Math.max(0, (oldPass.he_total || 0) - (oldPass.he_genutzt || 0));
+      const restBS = Math.max(0, (oldPass.bs_total || 0) - (oldPass.bs_genutzt || 0));
+      bonusHE += restHE;
+      bonusBS += restBS;
+      // Alten Pass komplett auf 0 setzen (genutzt = total → aufgebraucht)
+      await supabase.from("paesse").update({ he_genutzt: oldPass.he_total, bs_genutzt: oldPass.bs_total }).eq("id", oldPass.id);
+      if (restHE > 0 || restBS > 0) {
+        await supabase.from("log").insert({ id: genId(), pat_id: patId, pass_id: oldPass.id, typ: "NOTIZ", quelle: "INTERN", datum: new Date().toISOString(), notiz: `Pass aufgelöst → ${restHE} HE + ${restBS} GA auf neuen Pass übertragen` });
+      }
+    }
+    return { bonusHE, bonusBS };
+  };
+
   const handleKaufFuerPat = async (pat, typ, info, preis, eigeneRechnung, datum) => {
     const ds = datum || todayISO();
     if ((typ === "pass" || typ === "individuell") && pat.kennenlern && !pat.konvertiert) {
       await supabase.from("patienten").update({ konvertiert: true }).eq("id", pat.id);
-      setPatienten(prev => prev.map(p => p.id === pat.id ? { ...p, konvertiert: true } : p));
     }
 
     if (typ === "individuell") {
       const rs = info.rechnung || genRechnung(await getRechnungsNr());
-      // Pass-Merge: alten Pass auflösen
-      const oldPass = paesse.filter(pk => pk.pat_id === pat.id && !isPassAlt(pk)).sort((a, b) => (a.datum || "").localeCompare(b.datum || ""))[0];
-      let bonusHE = 0, bonusBS = 0;
-      if (oldPass) {
-        bonusHE = Math.max(0, (oldPass.he_total || 0) - (oldPass.he_genutzt || 0));
-        bonusBS = Math.max(0, (oldPass.bs_total || 0) - (oldPass.bs_genutzt || 0));
-        await supabase.from("paesse").update({ he_genutzt: oldPass.he_total, bs_genutzt: oldPass.bs_total }).eq("id", oldPass.id);
-        setPaesse(prev => prev.map(p => p.id === oldPass.id ? { ...p, he_genutzt: oldPass.he_total, bs_genutzt: oldPass.bs_total } : p));
-      }
+      // Pass-Merge: ALLE alten Pässe komplett auflösen
+      const { bonusHE, bonusBS } = await mergeOldPass(pat.id);
       const np = { id: genId(), pat_id: pat.id, typ: "INDIVIDUELL", he_total: (info.he || 0) + bonusHE, he_genutzt: 0, bs_total: (info.bs || 0) + bonusBS, bs_genutzt: 0, preis: preis || 0, rechnung: rs, bezahlt: false, datum: info.datum || ds, aktiv: true, custom_name: info.name || "Flossenpass" };
       await supabase.from("paesse").insert(np);
-      setPaesse(prev => [...prev, np]);
+      audit("PASS_ANGELEGT", "PASS", `${pat.vorname} ${pat.nachname}: ${info.name || "Individuell"} ${np.he_total} HE, ${np.bs_total} GA, ${preis}€ (Bonus: +${bonusHE} HE +${bonusBS} GA)`, pat.id, np.id);
     } else if (typ === "pass") {
       const rs = eigeneRechnung || genRechnung(await getRechnungsNr());
       const typKey = typeof info === "string" ? info : info.typ;
       const pt = PASS_TYPES[typKey];
       const customHE = typeof info === "object" && info.he != null ? info.he : pt.he;
       const customBS = typeof info === "object" && info.bs != null ? info.bs : pt.bs;
-      // Pass-Merge
-      const oldPass = paesse.filter(pk => pk.pat_id === pat.id && !isPassAlt(pk)).sort((a, b) => (a.datum || "").localeCompare(b.datum || ""))[0];
-      let bonusHE = 0, bonusBS = 0;
-      if (oldPass) {
-        bonusHE = Math.max(0, (oldPass.he_total || 0) - (oldPass.he_genutzt || 0));
-        bonusBS = Math.max(0, (oldPass.bs_total || 0) - (oldPass.bs_genutzt || 0));
-        await supabase.from("paesse").update({ he_genutzt: oldPass.he_total, bs_genutzt: oldPass.bs_total }).eq("id", oldPass.id);
-        setPaesse(prev => prev.map(p => p.id === oldPass.id ? { ...p, he_genutzt: oldPass.he_total, bs_genutzt: oldPass.bs_total } : p));
-      }
+      // Pass-Merge: ALLE alten Pässe komplett auflösen
+      const { bonusHE, bonusBS } = await mergeOldPass(pat.id);
       const np = { id: genId(), pat_id: pat.id, typ: typKey, he_total: customHE + bonusHE, he_genutzt: 0, bs_total: customBS + bonusBS, bs_genutzt: 0, preis: preis || 0, rechnung: rs, bezahlt: false, datum: ds, aktiv: true };
       await supabase.from("paesse").insert(np);
-      setPaesse(prev => [...prev, np]);
+      audit("PASS_ANGELEGT", "PASS", `${pat.vorname} ${pat.nachname}: ${getPassName(typKey)} ${np.he_total} HE, ${np.bs_total} GA, ${preis}€ (Bonus: +${bonusHE} HE +${bonusBS} GA)`, pat.id, np.id);
     } else {
       // Einzelangebot
       const rs = eigeneRechnung || genRechnung(await getRechnungsNr());
@@ -1053,9 +1062,9 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
       const nl = { id: genId(), pat_id: pat.id, pass_id: null, typ: info.key, quelle: "INTERN", datum: new Date().toISOString(), notiz: info.name };
       await supabase.from("einzel").insert(ne);
       await supabase.from("log").insert(nl);
-      setEinzel(prev => [...prev, ne]);
-      setLog(prev => [...prev, nl]);
     }
+    // SOFORT alles von DB neu laden nach jedem Kauf
+    await reloadFromDB();
   };
 
   const deletePass = async (pid) => {
@@ -1094,7 +1103,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     if (!pass || pass.he_genutzt >= pass.he_total) return;
     const prev = { he_genutzt: pass.he_genutzt };
     const u = { ...pass, he_genutzt: pass.he_genutzt + 1 };
-    const nl = { id: genId(), pat_id: selPat.id, pass_id: pass.id, typ: "HAUPTEINHEIT", quelle: "INTERN", datum: new Date().toISOString(), notiz: "Haupteinheit" };
+    const nl = { id: genId(), pat_id: selPat.id, pass_id: pass.id, typ: "HAUPTEINHEIT", quelle: "MANUELL", datum: new Date().toISOString(), notiz: "Haupteinheit" };
     await supabase.from("paesse").update({ he_genutzt: u.he_genutzt }).eq("id", pass.id);
     await supabase.from("log").insert(nl);
     setPaesse(p => p.map(x => x.id === pass.id ? u : x));
@@ -1116,7 +1125,7 @@ const MitarbeiterApp = ({ patienten, setPatienten, paesse, setPaesse, log, setLo
     if (!pass || pass.bs_genutzt >= pass.bs_total || !bsNotiz.trim()) return;
     const prev = { bs_genutzt: pass.bs_genutzt };
     const u = { ...pass, bs_genutzt: pass.bs_genutzt + 1 };
-    const nl = { id: genId(), pat_id: selPat.id, pass_id: pass.id, typ: "BS", quelle: "INTERN", datum: new Date().toISOString(), notiz: bsNotiz.trim() };
+    const nl = { id: genId(), pat_id: selPat.id, pass_id: pass.id, typ: "BS", quelle: "MANUELL", datum: new Date().toISOString(), notiz: bsNotiz.trim() };
     await supabase.from("paesse").update({ bs_genutzt: u.bs_genutzt }).eq("id", pass.id);
     await supabase.from("log").insert(nl);
     setPaesse(p => p.map(x => x.id === pass.id ? u : x));

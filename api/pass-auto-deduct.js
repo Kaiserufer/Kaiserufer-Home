@@ -216,8 +216,13 @@ export default async function handler(req, res) {
       }
 
       // Find active pass with remaining HE (oldest first, so old pass gets used up before new one)
+      // A pass is "used up" if both HE and GA are fully consumed (or both are 0/0)
+      const isPassUsedUp = (p) => {
+        if ((p.he_total || 0) === 0 && (p.bs_total || 0) === 0) return true;
+        return (p.he_genutzt ?? 0) >= (p.he_total ?? 1) && (p.bs_genutzt ?? 0) >= (p.bs_total ?? 1);
+      };
       const activePass = paesse
-        .filter(p => p.pat_id === pat.id && p.aktiv === true && (p.he_genutzt || 0) < (p.he_total || 0))
+        .filter(p => p.pat_id === pat.id && !isPassUsedUp(p) && (p.he_genutzt || 0) < (p.he_total || 0))
         .sort((a, b) => (a.datum || "").localeCompare(b.datum || ""))[0];
       if (!activePass) continue;
 
